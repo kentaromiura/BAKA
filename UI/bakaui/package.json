@@ -1,0 +1,37 @@
+{
+  "name": "rescript-react-esbuild",
+  "version": "1.0.0",
+  "description": "rescript + react basic configuration",
+  "main": "out.js",
+  "author": "Cristian Carlesso <@kentaromiura>",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@emotion/css": "^11.13.5",
+    "esbuild": "^0.28.0",
+    "esbuild-plugin-babel": "^0.2.3",
+    "livereload": "^0.9.3",
+    "nodemon": "^3.1.9"
+  },
+  "dependencies": {
+    "@fattafatta/rescript-jotai": "^0.4.2",
+    "@pierre/diffs": "^1.2.7",
+    "@rescript/core": "1.6.1",
+    "@rescript/react": "^0.12.1",
+    "@shikijs/markdown-it": "^3.23.0",
+    "jotai": "^2.11.3",
+    "markdown-it": "^14.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rescript": "11.1.4"
+  },
+  "scripts": {
+    "build": "yarn rescript && NODE_ENV=production node build.mjs",
+    "res:build": "rescript",
+    "res:clean": "rescript clean",
+    "res:dev": "rescript -w",
+    "serve": "npx serve .",
+    "liverel": "livereload 'out.js,out.css,index.html'",
+    "dev": "yarn liverel&yarn serve&nodemon --ext res --watch ./src --exec \"yarn build\""
+  }
+}

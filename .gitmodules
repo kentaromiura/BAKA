@@ -1,0 +1,3 @@
+[submodule "APP/webview-odin"]
+	path = APP/webview-odin
+	url = https://github.com/thechampagne/webview-odin.git
