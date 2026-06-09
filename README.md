@@ -9,6 +9,12 @@ It's combining different stuff I was doing so no code from codiff has been used 
 
 
 
+Screenshots:
+![Main screen v0.01](SCREEN/main.png)
+
+![light mode v0](SCREEN/light.png)
+![dark mode v0](SCREEN/dark.png)
+
 
 
 
