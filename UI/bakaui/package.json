@@ -16,6 +16,7 @@
   "dependencies": {
     "@fattafatta/rescript-jotai": "^0.4.2",
     "@pierre/diffs": "^1.2.7",
+    "@pierre/trees": "^1.0.0-beta.4",
     "@rescript/core": "1.6.1",
     "@rescript/react": "^0.12.1",
     "@shikijs/markdown-it": "^3.23.0",

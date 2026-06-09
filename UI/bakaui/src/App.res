@@ -60,6 +60,57 @@ module Styles = {
 
   let container = Html.css`display: flex; flex-direction: column; height: 100vh;`
 
+  let content = Html.css`
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  `
+
+  let sidebar = (colors: uiColors) => Html.css`
+    width: 280px;
+    min-width: 220px;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid ${colors.border};
+    background-color: ${colors.surfaceBg};
+    overflow: hidden;
+  `
+
+  let main = Html.css`
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  `
+
+  let diffWrapper = Html.css`
+    scroll-margin-top: 8px;
+  `
+
+  let treeHeader = (colors: uiColors) => Html.css`
+    padding: 10px 12px;
+    border-bottom: 1px solid ${colors.border};
+    color: ${colors.fg};
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  `
+
+  let treeStyle = (colors: uiColors): Js.t<{..}> =>
+    Obj.magic({
+      "height": "100%",
+      "--trees-fg-override": colors.fg,
+      "--trees-bg-override": colors.surfaceBg,
+      "--trees-border-color-override": colors.border,
+      "--trees-selected-bg-override": colors.selectionBg,
+      "--trees-selected-fg-override": colors.fg,
+    })
+
   let loadingContainer = Html.css`
     display: flex;
     align-items: center;
@@ -143,6 +194,54 @@ let make = () => {
     | None => ()
     }
   }
+
+  let scrollToDiffFile = (fileName: string): unit => {
+    let wrapper = virtualizerWrapperRef.current
+    switch Js.Nullable.toOption(wrapper) {
+    | Some(mainEl) =>
+      let firstChild: Js.Nullable.t<Dom.element> = Obj.magic(mainEl)["firstElementChild"]
+      switch Js.Nullable.toOption(firstChild) {
+      | Some(scrollEl) =>
+        %raw(`
+          (function(scroller, fileName) {
+            var el = document.getElementById(fileName);
+            if (el != null && scroller.contains(el)) {
+              var top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+              scroller.scrollTo({top: Math.max(0, Math.floor(top)), behavior: "instant"});
+            }
+          })
+        `)(scrollEl, fileName)
+      | None => ()
+      }
+    | None => ()
+    }
+  }
+
+  let diffFilePaths = React.useMemo1(() => {
+    switch patchState {
+    | PatchReady(patches) =>
+      patches->Array.flatMap(patch =>
+        patch.files->Array.map(fileDiff => fileDiffName(fileDiff))
+      )
+    | _ => []
+    }
+  }, [patchState])
+
+  let fileTree = Trees.useFileTree({
+    paths: diffFilePaths,
+    initialExpansion: "open",
+    onSelectionChange: selectedPaths => {
+      switch Belt.Array.get(selectedPaths, 0) {
+      | Some(fileName) => scrollToDiffFile(fileName)
+      | None => ()
+      }
+    },
+  })
+
+  React.useEffect1(() => {
+    Trees.resetPaths(fileTree.model, diffFilePaths)
+    None
+  }, [diffFilePaths])
 
   let handleThemeToggle = _event => {
     captureScrollTop()
@@ -269,13 +368,15 @@ let make = () => {
     | PatchReady(patches) =>
       patches->Array.flatMap(patch => {
         patch.files->Array.mapWithIndex((fileDiff, _i) => {
-          <InlineComment
-            key={fileDiffName(fileDiff)}
-            fileDiff={fileDiff}
-            theme={style}
-            themeType={if (isDark) { "dark" } else { "light" }}
-            uiColors={currentColors}
-          />
+          let fileName = fileDiffName(fileDiff)
+          <div key={fileName} id={fileName} className={Styles.diffWrapper}>
+            <InlineComment
+              fileDiff={fileDiff}
+              theme={style}
+              themeType={if (isDark) { "dark" } else { "light" }}
+              uiColors={currentColors}
+            />
+          </div>
         })
       })
     | _ => []
@@ -336,10 +437,19 @@ let make = () => {
           {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
         </button>
       </div>
-      <div ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)}>
-        <Virtualizer style={%raw(`{"height": "100vh", "overflow-y": "auto"}`)}>
-          {React.array(diffChildren)}
-        </Virtualizer>
+      <div className={Styles.content}>
+        <aside className={Styles.sidebar(currentColors)}>
+          <Trees.make
+            model={fileTree.model}
+            header={<div className={Styles.treeHeader(currentColors)}>{str("Changed files")}</div>}
+            style={Styles.treeStyle(currentColors)}
+          />
+        </aside>
+        <main ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)} className={Styles.main}>
+          <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
+            {React.array(diffChildren)}
+          </Virtualizer>
+        </main>
       </div>
     </div>
   }

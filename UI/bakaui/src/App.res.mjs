@@ -4,9 +4,11 @@ import * as Ipc from "./Ipc.res.mjs";
 import * as Html from "./Html.res.mjs";
 import * as Diffs from "./Diffs.res.mjs";
 import * as State from "./State.res.mjs";
+import * as Trees from "./Trees.res.mjs";
 import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
+import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
@@ -14,6 +16,7 @@ import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
+import * as React$2 from "@pierre/trees/react";
 
 function str(prim) {
   return prim;
@@ -66,6 +69,45 @@ function askPiButton(colors, disabled) {
 
 var container = Html.css(["display: flex; flex-direction: column; height: 100vh;"], []);
 
+var content = Html.css(["\n    display: flex;\n    flex-direction: row;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
+
+function sidebar(colors) {
+  return Html.css([
+              "\n    width: 280px;\n    min-width: 220px;\n    max-width: 360px;\n    display: flex;\n    flex-direction: column;\n    min-height: 0;\n    border-right: 1px solid ",
+              ";\n    background-color: ",
+              ";\n    overflow: hidden;\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg
+            ]);
+}
+
+var main = Html.css(["\n    flex: 1;\n    min-width: 0;\n    overflow: hidden;\n  "], []);
+
+var diffWrapper = Html.css(["\n    scroll-margin-top: 8px;\n  "], []);
+
+function treeHeader(colors) {
+  return Html.css([
+              "\n    padding: 10px 12px;\n    border-bottom: 1px solid ",
+              ";\n    color: ",
+              ";\n    font-family: monospace;\n    font-size: 12px;\n    font-weight: 600;\n    letter-spacing: 0.04em;\n    text-transform: uppercase;\n  "
+            ], [
+              colors.border,
+              colors.fg
+            ]);
+}
+
+function treeStyle(colors) {
+  return {
+          height: "100%",
+          "--trees-fg-override": colors.fg,
+          "--trees-bg-override": colors.surfaceBg,
+          "--trees-border-color-override": colors.border,
+          "--trees-selected-bg-override": colors.selectionBg,
+          "--trees-selected-fg-override": colors.fg
+        };
+}
+
 var loadingContainer = Html.css(["\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    font-family: monospace;\n    font-size: 14px;\n  "], []);
 
 function errorContainer(colors) {
@@ -82,6 +124,12 @@ var Styles = {
   button: button,
   askPiButton: askPiButton,
   container: container,
+  content: content,
+  sidebar: sidebar,
+  main: main,
+  diffWrapper: diffWrapper,
+  treeHeader: treeHeader,
+  treeStyle: treeStyle,
   loadingContainer: loadingContainer,
   errorContainer: errorContainer,
   errorMessage: errorMessage
@@ -151,6 +199,48 @@ function App(props) {
     }
     
   };
+  var diffFilePaths = React.useMemo((function () {
+          if (typeof patchState !== "object") {
+            return [];
+          } else if (patchState.TAG === "PatchReady") {
+            return patchState._0.flatMap(function (patch) {
+                        return patch.files.map(function (fileDiff) {
+                                    return Diffs.fileDiffName(fileDiff);
+                                  });
+                      });
+          } else {
+            return [];
+          }
+        }), [patchState]);
+  var fileTree = React$2.useFileTree({
+        initialExpansion: "open",
+        paths: diffFilePaths,
+        onSelectionChange: (function (selectedPaths) {
+            var fileName = Belt_Array.get(selectedPaths, 0);
+            if (fileName !== undefined) {
+              var wrapper = virtualizerWrapperRef.current;
+              if (wrapper == null) {
+                return ;
+              }
+              var firstChild = wrapper.firstElementChild;
+              if (!(firstChild == null)) {
+                return ((function(scroller, fileName) {
+            var el = document.getElementById(fileName);
+            if (el != null && scroller.contains(el)) {
+              var top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+              scroller.scrollTo({top: Math.max(0, Math.floor(top)), behavior: "instant"});
+            }
+          }))(firstChild, fileName);
+              } else {
+                return ;
+              }
+            }
+            
+          })
+      });
+  React.useEffect((function () {
+          Trees.resetPaths(fileTree.model, diffFilePaths);
+        }), [diffFilePaths]);
   var handleThemeToggle = function (_event) {
     captureScrollTop();
     setIsDark(function (prev) {
@@ -295,15 +385,20 @@ function App(props) {
           } else if (patchState.TAG === "PatchReady") {
             return patchState._0.flatMap(function (patch) {
                         return patch.files.map(function (fileDiff, _i) {
-                                    return JsxRuntime.jsx(InlineComment.make, {
-                                                fileDiff: fileDiff,
-                                                theme: {
-                                                  light: "rose-pine-dawn",
-                                                  dark: "tokyo-night"
-                                                },
-                                                themeType: isDark ? "dark" : "light",
-                                                uiColors: currentColors
-                                              }, Diffs.fileDiffName(fileDiff));
+                                    var fileName = Diffs.fileDiffName(fileDiff);
+                                    return JsxRuntime.jsx("div", {
+                                                children: JsxRuntime.jsx(InlineComment.make, {
+                                                      fileDiff: fileDiff,
+                                                      theme: {
+                                                        light: "rose-pine-dawn",
+                                                        dark: "tokyo-night"
+                                                      },
+                                                      themeType: isDark ? "dark" : "light",
+                                                      uiColors: currentColors
+                                                    }),
+                                                className: diffWrapper,
+                                                id: fileName
+                                              }, fileName);
                                   });
                       });
           } else {
@@ -353,12 +448,29 @@ function App(props) {
                         ],
                         className: headerStyle
                       }),
-                  JsxRuntime.jsx("div", {
-                        children: JsxRuntime.jsx(React$1.Virtualizer, {
-                              children: diffChildren,
-                              style: Caml_option.some({"height": "100vh", "overflow-y": "auto"})
-                            }),
-                        ref: Caml_option.some(virtualizerWrapperRef)
+                  JsxRuntime.jsxs("div", {
+                        children: [
+                          JsxRuntime.jsx("aside", {
+                                children: JsxRuntime.jsx(React$2.FileTree, {
+                                      model: fileTree.model,
+                                      header: Caml_option.some(JsxRuntime.jsx("div", {
+                                                children: "Changed files",
+                                                className: treeHeader(currentColors)
+                                              })),
+                                      style: Caml_option.some(treeStyle(currentColors))
+                                    }),
+                                className: sidebar(currentColors)
+                              }),
+                          JsxRuntime.jsx("main", {
+                                children: JsxRuntime.jsx(React$1.Virtualizer, {
+                                      children: diffChildren,
+                                      style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                                    }),
+                                ref: Caml_option.some(virtualizerWrapperRef),
+                                className: main
+                              })
+                        ],
+                        className: content
                       })
                 ],
                 className: container
