@@ -2,6 +2,7 @@
 
 import * as Ipc from "./Ipc.res.mjs";
 import * as Html from "./Html.res.mjs";
+import * as Diffs from "./Diffs.res.mjs";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Belt_Int from "rescript/lib/es6/belt_Int.js";
@@ -11,7 +12,7 @@ import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
-import * as Diffs from "@pierre/diffs";
+import * as Diffs$1 from "@pierre/diffs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
 
@@ -185,7 +186,7 @@ function FileViewer(props) {
           if (patch === undefined) {
             return null;
           }
-          var parsed = Diffs.parsePatchFiles(patch);
+          var parsed = Diffs$1.parsePatchFiles(patch);
           var first = Belt_Array.get(parsed, 0);
           if (first === undefined) {
             return null;
@@ -367,7 +368,9 @@ function FileViewer(props) {
                       JsxRuntime.jsxs("div", {
                             children: [
                               JsxRuntime.jsx("h3", {
-                                    children: fileName + " (full file)",
+                                    children: fileName + " (full file)" + (
+                                      Diffs.isEmptyFile(fileDiff) ? " (empty file)" : ""
+                                    ),
                                     className: headerTitle
                                   }),
                               JsxRuntime.jsxs("div", {

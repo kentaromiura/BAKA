@@ -85,8 +85,16 @@ function fullFileButton(colors) {
             ]);
 }
 
+function emptyFileLabel(colors) {
+  return Html.css([
+              "\n    margin-left: 8px;\n    color: ",
+              ";\n    font-size: 12px;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var Styles = {
-  fullFileButton: fullFileButton
+  fullFileButton: fullFileButton,
+  emptyFileLabel: emptyFileLabel
 };
 
 function InlineComment(props) {
@@ -98,6 +106,7 @@ function InlineComment(props) {
   var setComments = match[1];
   var comments = match[0];
   var fileName = Diffs.fileDiffName(fileDiff);
+  var isEmptyFile = Diffs.isEmptyFile(fileDiff);
   var match$1 = React.useState(function () {
         return false;
       });
@@ -148,15 +157,23 @@ function InlineComment(props) {
         toggleComment
       ]);
   var fullFileButton$1 = React.useCallback((function (_fd) {
-          return JsxRuntime.jsx("button", {
-                      children: "View full file",
-                      className: fullFileButton(uiColors),
-                      onClick: (function (ev) {
-                          ev.stopPropagation();
-                          setShowFullFile(function (param) {
-                                return true;
-                              });
-                        })
+          return JsxRuntime.jsxs(JsxRuntime.Fragment, {
+                      children: [
+                        JsxRuntime.jsx("button", {
+                              children: "View full file",
+                              className: fullFileButton(uiColors),
+                              onClick: (function (ev) {
+                                  ev.stopPropagation();
+                                  setShowFullFile(function (param) {
+                                        return true;
+                                      });
+                                })
+                            }),
+                        isEmptyFile ? JsxRuntime.jsx("span", {
+                                children: "(empty file)",
+                                className: emptyFileLabel(uiColors)
+                              }) : null
+                      ]
                     });
         }), []);
   return JsxRuntime.jsxs(JsxRuntime.Fragment, {

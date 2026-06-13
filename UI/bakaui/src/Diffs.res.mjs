@@ -2,7 +2,23 @@
 
 
 function fileDiffName(fd) {
-  return fd.name;
+  return (fd.name || "");
+}
+
+function fileDiffType(fd) {
+  return (fd.type || "");
+}
+
+function fileDiffAdditionLines(fd) {
+  return (fd.additionLines || []);
+}
+
+function fileDiffNewObjectId(fd) {
+  return (fd.newObjectId || "");
+}
+
+function isEmptyFile(fd) {
+  return (!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n");
 }
 
 var FileDiff = {};
@@ -11,6 +27,10 @@ var Virtualizer = {};
 
 export {
   fileDiffName ,
+  fileDiffType ,
+  fileDiffAdditionLines ,
+  fileDiffNewObjectId ,
+  isEmptyFile ,
   FileDiff ,
   Virtualizer ,
 }

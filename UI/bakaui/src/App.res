@@ -7,6 +7,7 @@ let str = React.string
 type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(string)
 
 @val external document: {..} = "document"
+@val external getDiffReloadRequestCount: int = "__bakaDiffReloadRequestCount"
 @val external requestAnimationFrame: (unit => unit) => float = "requestAnimationFrame"
 @val external cancelAnimationFrame: float => unit = "cancelAnimationFrame"
 
@@ -42,15 +43,15 @@ module Styles = {
   let askPiButton = (colors: uiColors, disabled: bool) => Html.css`
     padding: 6px 12px;
     border-radius: 4px;
-    border: 1px solid ${if disabled { colors.border } else { colors.focusBorder }};
-    background-color: ${if disabled { colors.buttonBg } else { colors.selectionBg }};
+    border: 1px solid ${colors.focusBorder};
+    background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
     cursor: ${if disabled { "not-allowed" } else { "pointer" }};
     opacity: ${disabled ? "0.6" : "1"};
     transition: all 0.2s ease;
 
     &:hover {
-      background-color: ${if disabled { colors.buttonBg } else { colors.hoverBg }};
+      background-color: ${if disabled { colors.buttonBg } else { colors.buttonHoverBg }};
     }
 
     &:active {
@@ -154,9 +155,22 @@ let make = () => {
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
+  let diffReloadPollVersionRef = React.useRef(0)
+  let (diffReloadPollVersion, setDiffReloadPollVersion) = React.useState(() => 0)
 
-  // Fetch patch on mount
   React.useEffect0(() => {
+    let interval = Js.Global.setInterval(() => {
+      let next = getDiffReloadRequestCount
+      if next != diffReloadPollVersionRef.current {
+        diffReloadPollVersionRef.current = next
+        setDiffReloadPollVersion(_ => next)
+      }
+    }, 250)
+    Some(() => Js.Global.clearInterval(interval))
+  })
+
+  // Fetch patch on mount and whenever the native watcher asks for a reload.
+  React.useEffect1(() => {
     let onSuccess = (rawPatch: string): Js.Promise.t<unit> => {
       let patches = parsePatchFiles(rawPatch)
       setPatchState(_ => PatchReady(patches))
@@ -172,7 +186,7 @@ let make = () => {
       onError,
     )
     None
-  })
+  }, [diffReloadPollVersion])
 
   let headerStyle = Styles.header(currentColors)
   let buttonStyle = Styles.button(currentColors)

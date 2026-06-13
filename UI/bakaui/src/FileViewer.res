@@ -330,7 +330,7 @@ let make = (
     <div className={Styles.content(uiColors)} onClick={stopProp}>
       <div className={Styles.header(uiColors)}>
         <h3 className={Styles.headerTitle}>
-          {React.string(fileName ++ " (full file)")}
+          {React.string(fileName ++ " (full file)" ++ if (Diffs.isEmptyFile(fileDiff)) { " (empty file)" } else { "" })}
         </h3>
         <div className={Styles.headerActions}>
           <button

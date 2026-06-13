@@ -8,9 +8,9 @@ import "core:c"
 import json "core:encoding/json"
 import "core:fmt"
 import "core:mem"
+//import os "core:os/os2"
 import "core:os"
 import "core:os/old"
-// import "core:os/os2"
 import "core:strings"
 import "core:sys/posix"
 import "core:thread"
@@ -326,7 +326,7 @@ process_ask_pi :: proc(req_str: string) -> (cstring, bool) {
 		if len(stderr) > 0 {
 			err_msg = string(stderr)
 		}
-		return strings.clone_to_cstring(fmt.tprintf(`{"error": "%s"}`, err_msg)), true
+		return strings.clone_to_cstring(fmt.tprintf(`{{"error": "%s"}}`, err_msg)), true
 	}
 
 	replies := parsePiOutput(string(stdout))
@@ -480,7 +480,7 @@ process_ask_pi_with_diff :: proc(req_str: string) -> (cstring, bool) {
 		if len(stderr) > 0 {
 			err_msg = string(stderr)
 		}
-		return strings.clone_to_cstring(fmt.tprintf(`{"error": "%s"}`, err_msg)), true
+		return strings.clone_to_cstring(fmt.tprintf(`{{"error": "%s"}}`, err_msg)), true
 	}
 
 	replies := parsePiOutput(string(stdout))

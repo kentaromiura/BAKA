@@ -58,12 +58,12 @@ function askPiButton(colors, disabled) {
               ";\n    transition: all 0.2s ease;\n\n    &:hover {\n      background-color: ",
               ";\n    }\n\n    &:active {\n      transform: translateY(1px);\n    }\n  "
             ], [
-              disabled ? colors.border : colors.focusBorder,
-              disabled ? colors.buttonBg : colors.selectionBg,
+              colors.focusBorder,
+              colors.buttonBg,
               colors.buttonFg,
               disabled ? "not-allowed" : "pointer",
               disabled ? "0.6" : "1",
-              disabled ? colors.buttonBg : colors.hoverBg
+              disabled ? colors.buttonBg : colors.buttonHoverBg
             ]);
 }
 
@@ -159,6 +159,26 @@ function App(props) {
       });
   var setPatchState = match$4[1];
   var patchState = match$4[0];
+  var diffReloadPollVersionRef = React.useRef(0);
+  var match$5 = React.useState(function () {
+        return 0;
+      });
+  var setDiffReloadPollVersion = match$5[1];
+  React.useEffect((function () {
+          var interval = setInterval((function () {
+                  var next = __bakaDiffReloadRequestCount;
+                  if (next !== diffReloadPollVersionRef.current) {
+                    diffReloadPollVersionRef.current = next;
+                    return setDiffReloadPollVersion(function (param) {
+                                return next;
+                              });
+                  }
+                  
+                }), 250);
+          return (function () {
+                    clearInterval(interval);
+                  });
+        }), []);
   React.useEffect((function () {
           var onSuccess = function (rawPatch) {
             var patches = Diffs$1.parsePatchFiles(rawPatch);
@@ -181,7 +201,7 @@ function App(props) {
             return Promise.resolve();
           };
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetPatch(), onSuccess), onError);
-        }), []);
+        }), [match$5[0]]);
   var headerStyle = header(currentColors);
   var buttonStyle = button(currentColors);
   var virtualizerWrapperRef = React.useRef(null);

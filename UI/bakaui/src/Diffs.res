@@ -25,7 +25,12 @@ type lineAnnotation = {
 
 type jsObj
 
-let fileDiffName = (fd: patchFile): string => %raw(`fd.name`)
+let fileDiffName = (fd: patchFile): string => %raw(`fd.name || ""`)
+let fileDiffType = (fd: patchFile): string => %raw(`fd.type || ""`)
+let fileDiffAdditionLines = (fd: patchFile): array<string> => %raw(`fd.additionLines || []`)
+let fileDiffNewObjectId = (fd: patchFile): string => %raw(`fd.newObjectId || ""`)
+let isEmptyFile = (fd: patchFile): bool =>
+  %raw(`!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n"`)
 
 module FileDiff = {
   type theme = {light: string, dark: string}
@@ -37,6 +42,7 @@ module FileDiff = {
     ~lineAnnotations: array<lineAnnotation>,
     ~renderAnnotation: lineAnnotation => React.element,
     ~renderHeaderPrefix: (patchFile => React.element)=?,
+    ~disableWorkerPool: bool=?,
   ) => React.element = "FileDiff"
 }
 

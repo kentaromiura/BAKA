@@ -58,6 +58,13 @@ module Styles = {
       border-color: ${colors.focusBorder};
     }
   `
+
+  let emptyFileLabel = (colors: uiColors) =>
+    Html.css`
+    margin-left: 8px;
+    color: ${colors.descriptionFg};
+    font-size: 12px;
+  `
 }
 
 @react.component
@@ -69,6 +76,7 @@ let make = (
 ) => {
   let (comments, setComments) = Jotai.Atom.useAtom(State.commentsAtom)
   let fileName = Diffs.fileDiffName(fileDiff)
+  let isEmptyFile = Diffs.isEmptyFile(fileDiff)
   let (showFullFile, setShowFullFile) = React.useState(_ => false)
 
   let toggleComment = React.useCallback0(props => {
@@ -111,14 +119,21 @@ let make = (
   , (theme, themeType, toggleComment))
 
   let fullFileButton = React.useCallback0((_fd: Diffs.patchFile) =>
-    <button
-      onClick={ev => {
-        let _ = ReactEvent.Mouse.stopPropagation(ev)
-        setShowFullFile(_ => true)
-      }}
-      className={Styles.fullFileButton(uiColors)}>
-      {React.string("View full file")}
-    </button>
+    <>
+      <button
+        onClick={ev => {
+          let _ = ReactEvent.Mouse.stopPropagation(ev)
+          setShowFullFile(_ => true)
+        }}
+        className={Styles.fullFileButton(uiColors)}>
+        {React.string("View full file")}
+      </button>
+      {isEmptyFile
+        ? <span className={Styles.emptyFileLabel(uiColors)}>
+            {React.string("(empty file)")}
+          </span>
+        : React.null}
+    </>
   )
 
   <>
@@ -127,23 +142,23 @@ let make = (
       options={optionsObj}
       lineAnnotations={annotations}
       renderAnnotation={(annotation: Diffs.lineAnnotation) => {
-        let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
-        switch Js.Dict.get(comments, ckey) {
-        | Some(_) =>
-          <CommentBox
-            commentKey={ckey}
-            lineNumber={annotation.lineNumber}
-            comments={comments}
-            onSave={setComments}
-            onRemove={setComments}
-            uiColors={uiColors}
-            themeType={themeType}
-          />
-        | None => <div />
-        }
-      }}
-      renderHeaderPrefix={fullFileButton}
-    />
+            let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
+            switch Js.Dict.get(comments, ckey) {
+            | Some(_) =>
+              <CommentBox
+                commentKey={ckey}
+                lineNumber={annotation.lineNumber}
+                comments={comments}
+                onSave={setComments}
+                onRemove={setComments}
+                uiColors={uiColors}
+                themeType={themeType}
+              />
+            | None => <div />
+            }
+          }}
+          renderHeaderPrefix={fullFileButton}
+        />
     {showFullFile
       ? <FileViewer
           fileName={fileName}
