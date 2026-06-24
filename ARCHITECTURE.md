@@ -137,9 +137,16 @@ Git submodule pointing to [thechampagne/webview-odin](https://github.com/thecham
 
 ### Build Process
 
-No Makefile exists. The project uses the Odin compiler directly with `#config(SHARED, true)` and `#config(LOCAL, true)` compile-time flags:
-- On macOS: use the provided `libwebview.dylib`, compile with `SHARED=true LOCAL=true`
-- On Linux: manually compile the webview library, copy `.so` files
+The top-level Makefile first builds the ReScript/esbuild UI bundle, builds the
+bundled webview source as a shared library, then builds the Odin application
+with `SHARED=true` and `LOCAL=false`. Native outputs stay under `build/`; the
+executable uses an embedded rpath to load the library from
+`build/webview/core`.
+
+```sh
+make
+make run
+```
 
 ## UI (ReScript Frontend)
 

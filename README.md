@@ -19,19 +19,23 @@ Screenshots:
 
 
 
-Compiling under linux:
-- you'll need to manually compile webview/webview project and copying the files:
-*.so both in webview_odin and APP folder (only numbered version is required),
-build config for linux in webview_odin is :
-SHARED :: #config(SHARED, true)
-LOCAL :: #config(LOCAL, true)
+Build the UI bundle, libwebview, and BAKA from the repository root:
 
-gtk and webkitgtk need to be installed
-sudo pacman -Syu webkitgtk-6.0
+```sh
+make
+```
 
+The Makefile installs the UI dependencies from `yarn.lock` when needed, then
+builds the ReScript/esbuild bundle before compiling the application. The
+executable and shared library are kept under `build/`. The executable has an
+rpath pointing to `build/webview/core`, so no webview library needs to be copied
+into `APP/` or `APP/webview-odin/`.
 
-For mac, you can use the dynamic dll available at free pascal webview, and change the config to:
+Run BAKA with:
 
-SHARED :: #config(SHARED, true)
-LOCAL :: #config(LOCAL, true)
-also copy libwebview.dylib from the odin folder inside odin_webview to successfully compile, eg from odin_webview: cp ../libwebview.dylib .
+```sh
+make run
+make run ARGS='--verbose /path/to/repository'
+```
+
+On Linux, install GTK and WebKitGTK development packages before building.
