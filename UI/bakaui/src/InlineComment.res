@@ -10,6 +10,9 @@ let deleteProp = (dict, key) => {
 let makeKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
+let cleanModelLine = (line: string): string =>
+  %raw(`String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, "")`)
+
 let parseKey = (key: string): option<(string, string, int)> => {
   let parts = key->String.split("|")
   switch parts {
@@ -30,12 +33,26 @@ let normalizeModelKey = (key: string): string => {
   switch Js.Array.length(parts) {
   | 3 =>
     let file = Js.Array.unsafe_get(parts, 0)
-    let side = Js.Array.unsafe_get(parts, 1)
-    let line = Js.Array.unsafe_get(parts, 2)
+    let side = Js.Array.unsafe_get(parts, 1)->String.trim
+    let rawLine = Js.Array.unsafe_get(parts, 2)->String.trim
+    let line = cleanModelLine(rawLine)
     let translatedSide = switch side {
     | "+" => "additions"
     | "-" => "deletions"
-    | _ => side
+    | "addition" => "additions"
+    | "additions" => "additions"
+    | "new" => "additions"
+    | "deletion" => "deletions"
+    | "deletions" => "deletions"
+    | "old" => "deletions"
+    | _ =>
+      if Js.String2.startsWith(rawLine, "+") {
+        "additions"
+      } else if Js.String2.startsWith(rawLine, "-") {
+        "deletions"
+      } else {
+        side
+      }
     }
     `${file}|${translatedSide}|${line}`
   | _ => key
@@ -64,6 +81,23 @@ module Styles = {
     margin-left: 8px;
     color: ${colors.descriptionFg};
     font-size: 12px;
+  `
+
+  let fileReviewList = (colors: uiColors) =>
+    Html.css`
+    margin: 0 0 12px 0;
+    padding: 8px 12px 10px 12px;
+    border-top: 1px solid ${colors.border};
+    background-color: ${colors.bg};
+  `
+
+  let fileReviewHeader = (colors: uiColors) =>
+    Html.css`
+    margin: 0 0 6px 0;
+    color: ${colors.descriptionFg};
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
   `
 }
 
@@ -100,15 +134,39 @@ let make = (
     })
   })
 
+  let validAnnotationKeys = React.useMemo(() => {
+    let keys: Js.Dict.t<bool> = Js.Dict.empty()
+    Diffs.changedLineAnnotations(fileDiff)->Array.forEach((annotation: Diffs.lineAnnotation) => {
+      Js.Dict.set(keys, makeKey(fileName, annotation.side, annotation.lineNumber), true)
+    })
+    keys
+  }, [fileDiff])
+
   let annotations = React.useMemo(() => {
     Js.Dict.keys(comments)->Array.filterMap(key => {
       switch parseKey(key) {
       | Some((kFileName, side, lineNumber)) if kFileName == fileName =>
-        Some(({side, lineNumber}: Diffs.lineAnnotation))
+        switch Js.Dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber)) {
+        | Some(true) => Some(({side, lineNumber}: Diffs.lineAnnotation))
+        | _ => None
+        }
       | _ => None
       }
     })
-  }, [comments])
+  }, (comments, validAnnotationKeys))
+
+  let fileReviewCommentKeys = React.useMemo(() => {
+    Js.Dict.keys(comments)->Array.filter(key => {
+      switch parseKey(key) {
+      | Some((kFileName, side, lineNumber)) if kFileName == fileName =>
+        switch Js.Dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber)) {
+        | Some(true) => false
+        | _ => true
+        }
+      | _ => false
+      }
+    })
+  }, (comments, validAnnotationKeys))
 
   let optionsObj = React.useMemo3((): Diffs.jsObj =>
     Obj.magic({
@@ -159,6 +217,31 @@ let make = (
           }}
           renderHeaderPrefix={fullFileButton}
         />
+    {fileReviewCommentKeys->Array.length > 0
+      ? <div className={Styles.fileReviewList(uiColors)}>
+          <div className={Styles.fileReviewHeader(uiColors)}>
+            {React.string("File-level review")}
+          </div>
+          {React.array(
+            fileReviewCommentKeys->Array.map(key => {
+              switch parseKey(key) {
+              | Some((_, _, lineNumber)) =>
+                <CommentBox
+                  key={key}
+                  commentKey={key}
+                  lineNumber={lineNumber}
+                  comments={comments}
+                  onSave={setComments}
+                  onRemove={setComments}
+                  uiColors={uiColors}
+                  themeType={themeType}
+                />
+              | None => React.null
+              }
+            }),
+          )}
+        </div>
+      : React.null}
     {showFullFile
       ? <FileViewer
           fileName={fileName}

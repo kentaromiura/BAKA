@@ -26,6 +26,10 @@ function makeKey(fileName, side, lineNumber) {
   return fileName + "|" + side + "|" + lineNumber.toString();
 }
 
+function cleanModelLine(line) {
+  return (String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, ""));
+}
+
 function parseKey(key) {
   var parts = key.split("|");
   if (parts.length !== 3) {
@@ -52,18 +56,27 @@ function normalizeModelKey(key) {
     return key;
   }
   var file = parts[0];
-  var side = parts[1];
-  var line = parts[2];
+  var side = parts[1].trim();
+  var rawLine = parts[2].trim();
+  var line = cleanModelLine(rawLine);
   var translatedSide;
   switch (side) {
     case "+" :
+    case "addition" :
+    case "additions" :
+    case "new" :
         translatedSide = "additions";
         break;
     case "-" :
+    case "deletion" :
+    case "deletions" :
+    case "old" :
         translatedSide = "deletions";
         break;
     default:
-      translatedSide = side;
+      translatedSide = rawLine.startsWith("+") ? "additions" : (
+          rawLine.startsWith("-") ? "deletions" : side
+        );
   }
   return file + "|" + translatedSide + "|" + line;
 }
@@ -92,9 +105,29 @@ function emptyFileLabel(colors) {
             ], [colors.descriptionFg]);
 }
 
+function fileReviewList(colors) {
+  return Html.css([
+              "\n    margin: 0 0 12px 0;\n    padding: 8px 12px 10px 12px;\n    border-top: 1px solid ",
+              ";\n    background-color: ",
+              ";\n  "
+            ], [
+              colors.border,
+              colors.bg
+            ]);
+}
+
+function fileReviewHeader(colors) {
+  return Html.css([
+              "\n    margin: 0 0 6px 0;\n    color: ",
+              ";\n    font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif;\n    font-size: 12px;\n    font-weight: 600;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var Styles = {
   fullFileButton: fullFileButton,
-  emptyFileLabel: emptyFileLabel
+  emptyFileLabel: emptyFileLabel,
+  fileReviewList: fileReviewList,
+  fileReviewHeader: fileReviewHeader
 };
 
 function InlineComment(props) {
@@ -130,18 +163,57 @@ function InlineComment(props) {
                 return newDict$1;
               });
         }), []);
+  var validAnnotationKeys = React.useMemo((function () {
+          var keys = {};
+          Diffs.changedLineAnnotations(fileDiff).forEach(function (annotation) {
+                keys[makeKey(fileName, annotation.side, annotation.lineNumber)] = true;
+              });
+          return keys;
+        }), [fileDiff]);
   var annotations = React.useMemo((function () {
           return Core__Array.filterMap(Object.keys(comments), (function (key) {
                         var match = parseKey(key);
-                        if (match !== undefined && match[0] === fileName) {
+                        if (match === undefined) {
+                          return ;
+                        }
+                        if (match[0] !== fileName) {
+                          return ;
+                        }
+                        var lineNumber = match[2];
+                        var side = match[1];
+                        var match$1 = Js_dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber));
+                        if (match$1 !== undefined && match$1) {
                           return {
-                                  side: match[1],
-                                  lineNumber: match[2]
+                                  side: side,
+                                  lineNumber: lineNumber
                                 };
                         }
                         
                       }));
-        }), [comments]);
+        }), [
+        comments,
+        validAnnotationKeys
+      ]);
+  var fileReviewCommentKeys = React.useMemo((function () {
+          return Object.keys(comments).filter(function (key) {
+                      var match = parseKey(key);
+                      if (match === undefined) {
+                        return false;
+                      }
+                      if (match[0] !== fileName) {
+                        return false;
+                      }
+                      var match$1 = Js_dict.get(validAnnotationKeys, makeKey(fileName, match[1], match[2]));
+                      if (match$1 !== undefined && match$1) {
+                        return false;
+                      } else {
+                        return true;
+                      }
+                    });
+        }), [
+        comments,
+        validAnnotationKeys
+      ]);
   var optionsObj = React.useMemo((function () {
           return {
                   theme: {
@@ -201,6 +273,31 @@ function InlineComment(props) {
                         }),
                       renderHeaderPrefix: fullFileButton$1
                     }),
+                fileReviewCommentKeys.length > 0 ? JsxRuntime.jsxs("div", {
+                        children: [
+                          JsxRuntime.jsx("div", {
+                                children: "File-level review",
+                                className: fileReviewHeader(uiColors)
+                              }),
+                          fileReviewCommentKeys.map(function (key) {
+                                var match = parseKey(key);
+                                if (match !== undefined) {
+                                  return JsxRuntime.jsx(CommentBox.make, {
+                                              commentKey: key,
+                                              lineNumber: match[2],
+                                              comments: comments,
+                                              onSave: setComments,
+                                              onRemove: setComments,
+                                              uiColors: uiColors,
+                                              themeType: themeType
+                                            }, key);
+                                } else {
+                                  return null;
+                                }
+                              })
+                        ],
+                        className: fileReviewList(uiColors)
+                      }) : null,
                 match$1[0] ? JsxRuntime.jsx(FileViewer.make, {
                         fileName: fileName,
                         theme: theme,
@@ -222,6 +319,7 @@ export {
   copyDict ,
   deleteProp ,
   makeKey ,
+  cleanModelLine ,
   parseKey ,
   normalizeModelKey ,
   Styles ,

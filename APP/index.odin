@@ -236,6 +236,106 @@ CommitSelection_Request :: struct {
 	patch:   string `json:"patch"`,
 }
 
+CreateFeaturePlan_Result :: struct {
+	plan: string `json:"plan"`,
+}
+
+create_feature_plan :: proc(description: string) -> (string, string) {
+	prompt := fmt.tprintf(
+		`You are an expert software architect. The user wants to implement the following in the current codebase:
+
+%s
+
+Analyze the project structure, current state, and provide a detailed step-by-step implementation plan. Include:
+1. Files to create or modify
+2. Key changes needed in each file
+3. Architecture decisions
+4. Potential risks and edge cases
+
+Focus on concrete, actionable steps. Keep it practical.
+	`,
+		description,
+	)
+
+	plan_text, pi_err, pi_ok := runPiPrompt(prompt)
+	if !pi_ok {
+		return "", pi_err
+	}
+	defer delete(plan_text)
+
+	if strings.trim_space(plan_text) == "" {
+		return "", "pi returned empty output"
+	}
+
+	owned_plan, clone_err := strings.clone(strings.trim_space(plan_text), context.allocator)
+	if clone_err != nil {
+		return "", "Failed to clone feature plan"
+	}
+	return owned_plan, ""
+}
+
+handle_create_feature_plan :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	description := strings.trim_space(string(req))
+	if description == "" || description == "\"\"" {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(`{"error": "Feature description is required"}`),
+		)
+		return
+	}
+
+	// Strip surrounding quotes if present (webview JSON-stringifies args)
+	cleaned := description
+	if len(cleaned) >= 2 && cleaned[0] == '"' && cleaned[len(cleaned)-1] == '"' {
+		cleaned = cleaned[1:len(cleaned)-1]
+	}
+	cleaned = strings.trim_space(cleaned)
+
+	if len(cleaned) == 0 {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(`{"error": "Feature description is required"}`),
+		)
+		return
+	}
+
+	plan, err := create_feature_plan(cleaned)
+	if err != "" {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(fmt.tprintf(`{"error": "Failed: %s"}`, err)),
+		)
+		return
+	}
+	defer delete(plan)
+
+	resp := CreateFeaturePlan_Result {
+		plan = plan,
+	}
+	data, merr := json.marshal(resp)
+	if merr != nil {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(`{"error": "marshal failed"}`),
+		)
+		return
+	}
+	defer delete(data)
+
+	full_result := fmt.tprintf(`{"result": %s}`, string(data))
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(full_result))
+}
+
 commit_error_response :: proc(message: string) -> cstring {
 	resp := Ipc_Error_Response {
 		error = message,
@@ -498,6 +598,7 @@ main :: proc() {
 	webview.bind(w, "startFullReview", handle_start_full_review, nil)
 	webview.bind(w, "applyReviewSuggestion", handle_apply_review_suggestion, nil)
 	webview.bind(w, "commitSelection", handle_commit_selection, nil)
+	webview.bind(w, "createFeaturePlan", handle_create_feature_plan, nil)
 
 	html := strings.builder_make()
 	strings.write_string(&html, `<html>

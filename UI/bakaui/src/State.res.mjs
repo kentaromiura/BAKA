@@ -17,6 +17,10 @@ var isDarkAtom = Jotai.atom(true);
 
 var themeColorsAtom = Jotai.atom(undefined);
 
+var featurePlanAtom = Jotai.atom("Idle");
+
+var featureDescriptionAtom = Jotai.atom("");
+
 var defaultUiColors = {
   bg: "#1f2937",
   fg: "#f9fafb",
@@ -74,5 +78,7 @@ export {
   defaultUiColors ,
   lightDefaultUiColors ,
   themeColorsAtom ,
+  featurePlanAtom ,
+  featureDescriptionAtom ,
 }
 /* counter Not a pure module */

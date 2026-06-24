@@ -135,6 +135,25 @@ let callApplyReviewSuggestion = (
   Js.Promise.then_(parseResponse)(promise)
 }
 
+type createFeaturePlanRequest = {description: string}
+type createFeaturePlanResult = {plan: string}
+
+@val external createFeaturePlan_raw: string => Js.Promise.t<string> = "createFeaturePlan"
+
+let callCreateFeaturePlan = (description: string): Js.Promise.t<createFeaturePlanResult> => {
+  Js.log2("[BAKA UI] createFeaturePlan called", description)
+  let parseResponse = (raw: string): Js.Promise.t<createFeaturePlanResult> => {
+    let _ = %raw(`console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw)`)
+  }
+  let promise = createFeaturePlan_raw(description)
+  Js.Promise.then_(parseResponse)(promise)
+}
+
 @val external commitSelection_raw: string => Js.Promise.t<string> = "commitSelection"
 
 let callCommitSelection = (request: commitSelectionRequest): Js.Promise.t<string> => {

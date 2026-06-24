@@ -15,6 +15,7 @@ import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
+import * as NewFeatureView from "./NewFeatureView.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
 import * as React$2 from "@pierre/trees/react";
@@ -22,6 +23,8 @@ import * as React$2 from "@pierre/trees/react";
 function str(prim) {
   return prim;
 }
+
+var appFont = "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif";
 
 function header(colors) {
   return Html.css([
@@ -93,10 +96,12 @@ function treeHeader(colors) {
   return Html.css([
               "\n    padding: 10px 12px;\n    border-bottom: 1px solid ",
               ";\n    color: ",
-              ";\n    font-family: monospace;\n    font-size: 12px;\n    font-weight: 600;\n    letter-spacing: 0.04em;\n    text-transform: uppercase;\n  "
+              ";\n    font-family: ",
+              ";\n    font-size: 13px;\n    font-weight: 600;\n  "
             ], [
               colors.border,
-              colors.fg
+              colors.fg,
+              appFont
             ]);
 }
 
@@ -127,22 +132,29 @@ function reviewSummaryBar(colors) {
               "\n    padding: 8px 12px;\n    border-bottom: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
+              ";\n    font-family: ",
               ";\n    font-size: 13px;\n    line-height: 1.45;\n    white-space: pre-wrap;\n    max-height: 120px;\n    overflow: auto;\n  "
             ], [
               colors.border,
               colors.inputBg,
-              colors.fg
+              colors.fg,
+              appFont
             ]);
 }
 
 function reviewSummaryLabel(colors) {
   return Html.css([
               "\n    color: ",
-              ";\n    font-size: 12px;\n    font-weight: 600;\n    margin-right: 8px;\n    text-transform: uppercase;\n  "
-            ], [colors.descriptionFg]);
+              ";\n    font-family: ",
+              ";\n    font-size: 13px;\n    font-weight: 600;\n    margin-right: 8px;\n  "
+            ], [
+              colors.descriptionFg,
+              appFont
+            ]);
 }
 
 var Styles = {
+  appFont: appFont,
   header: header,
   headerActions: headerActions,
   button: button,
@@ -194,10 +206,10 @@ function App(props) {
   var setReviewSummary = match$6[1];
   var reviewSummary = match$6[0];
   var match$7 = React.useState(function () {
-        return false;
+        return "Review";
       });
-  var setIsCommitView = match$7[1];
-  var isCommitView = match$7[0];
+  var setViewMode = match$7[1];
+  var viewMode = match$7[0];
   var match$8 = React.useState(function () {
         return "PatchLoading";
       });
@@ -315,6 +327,20 @@ function App(props) {
   React.useEffect((function () {
           Trees.resetPaths(fileTree.model, diffFilePaths);
         }), [diffFilePaths]);
+  var validReviewKeys = React.useMemo((function () {
+          var keys = {};
+          if (typeof patchState === "object" && patchState.TAG === "PatchReady") {
+            patchState._0.forEach(function (patch) {
+                  patch.files.forEach(function (fileDiff) {
+                        var fileName = Diffs.fileDiffName(fileDiff);
+                        Diffs.changedLineAnnotations(fileDiff).forEach(function (annotation) {
+                              keys[InlineComment.makeKey(fileName, annotation.side, annotation.lineNumber)] = true;
+                            });
+                      });
+                });
+          }
+          return keys;
+        }), [patchState]);
   var handleThemeToggle = function (_event) {
     captureScrollTop();
     setIsDark(function (prev) {
@@ -455,16 +481,26 @@ function App(props) {
             var newDict = InlineComment.copyDict(prev);
             review.findings.forEach(function (finding) {
                   var key = InlineComment.normalizeModelKey(finding.commentKey);
-                  console.log("[BAKA UI] Full review inserting annotation", key);
-                  var text = "Pi review: " + finding.summary;
-                  var body = finding.body.trim().length > 0 ? finding.body : finding.summary;
-                  newDict[key] = {
-                    text: text,
-                    aiReply: {
-                      TAG: "AiDone",
-                      _0: body
+                  var match = InlineComment.parseKey(key);
+                  if (match !== undefined) {
+                    var match$1 = Js_dict.get(validReviewKeys, key);
+                    if (match$1 !== undefined && match$1) {
+                      console.log("[BAKA UI] Full review inserting annotation", key);
+                    } else {
+                      console.log("[BAKA UI] Full review inserting file-level finding", key);
                     }
-                  };
+                    var text = "Pi review: " + finding.summary;
+                    var body = finding.body.trim().length > 0 ? finding.body : finding.summary;
+                    newDict[key] = {
+                      text: text,
+                      aiReply: {
+                        TAG: "AiDone",
+                        _0: body
+                      }
+                    };
+                    return ;
+                  }
+                  console.log("[BAKA UI] Full review skipping malformed finding", key);
                 });
             return newDict;
           });
@@ -472,16 +508,21 @@ function App(props) {
             var newDict = (Object.assign({}, prev));
             review.findings.forEach(function (finding) {
                   var key = InlineComment.normalizeModelKey(finding.commentKey);
-                  console.log("[BAKA UI] Full review storing suggestion metadata", key);
-                  newDict[key] = {
-                    summary: finding.summary,
-                    severity: finding.severity,
-                    actionable: finding.actionable,
-                    suggestion: finding.suggestion,
-                    isApplying: false,
-                    applyResult: undefined,
-                    applyError: undefined
-                  };
+                  var match = InlineComment.parseKey(key);
+                  if (match !== undefined) {
+                    console.log("[BAKA UI] Full review storing suggestion metadata", key);
+                    newDict[key] = {
+                      summary: finding.summary,
+                      severity: finding.severity,
+                      actionable: finding.actionable,
+                      suggestion: finding.suggestion,
+                      isApplying: false,
+                      applyResult: undefined,
+                      applyError: undefined
+                    };
+                    return ;
+                  }
+                  
                 });
             return newDict;
           });
@@ -593,98 +634,8 @@ function App(props) {
                 ],
                 className: container
               });
-  } else if (patchState.TAG === "PatchReady") {
-    return JsxRuntime.jsxs("div", {
-                children: [
-                  JsxRuntime.jsxs("div", {
-                        children: [
-                          JsxRuntime.jsxs("div", {
-                                children: [
-                                  JsxRuntime.jsx("button", {
-                                        children: isCommitView ? "Review View" : "Commit View",
-                                        className: buttonStyle,
-                                        type: "button",
-                                        onClick: (function (param) {
-                                            setIsCommitView(function (prev) {
-                                                  return !prev;
-                                                });
-                                          })
-                                      }),
-                                  isCommitView ? null : JsxRuntime.jsxs(JsxRuntime.Fragment, {
-                                          children: [
-                                            JsxRuntime.jsx("button", {
-                                                  children: isReviewing ? "Reviewing..." : "Code Review",
-                                                  className: askPiButton(currentColors, isReviewing),
-                                                  title: reviewButtonTitle,
-                                                  disabled: isReviewing,
-                                                  type: "button",
-                                                  onClick: handleFullReview
-                                                }),
-                                            JsxRuntime.jsx("button", {
-                                                  children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
-                                                  className: askPiButton(currentColors, isAskingPi),
-                                                  disabled: isAskingPi,
-                                                  type: "button",
-                                                  onClick: handleAskPi
-                                                })
-                                          ]
-                                        })
-                                ],
-                                className: headerActions
-                              }),
-                          JsxRuntime.jsx("button", {
-                                children: isDark ? "Light Mode" : "Dark Mode",
-                                className: buttonStyle,
-                                type: "button",
-                                onClick: handleThemeToggle
-                              })
-                        ],
-                        className: headerStyle
-                      }),
-                  !isCommitView && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
-                          children: [
-                            JsxRuntime.jsx("span", {
-                                  children: "Review",
-                                  className: reviewSummaryLabel(currentColors)
-                                }),
-                            reviewSummaryText
-                          ],
-                          className: reviewSummaryBar(currentColors)
-                        }) : null,
-                  isCommitView ? JsxRuntime.jsx(CommitView.make, {
-                          patches: patchState._0,
-                          theme: style,
-                          themeType: isDark ? "dark" : "light",
-                          uiColors: currentColors,
-                          onCommitted: requestPatchReload
-                        }) : JsxRuntime.jsxs("div", {
-                          children: [
-                            JsxRuntime.jsx("aside", {
-                                  children: JsxRuntime.jsx(React$2.FileTree, {
-                                        model: fileTree.model,
-                                        header: Caml_option.some(JsxRuntime.jsx("div", {
-                                                  children: "Changed files",
-                                                  className: treeHeader(currentColors)
-                                                })),
-                                        style: Caml_option.some(treeStyle(currentColors))
-                                      }),
-                                  className: sidebar(currentColors)
-                                }),
-                            JsxRuntime.jsx("main", {
-                                  children: JsxRuntime.jsx(React$1.Virtualizer, {
-                                        children: diffChildren,
-                                        style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                                      }),
-                                  ref: Caml_option.some(virtualizerWrapperRef),
-                                  className: main
-                                })
-                          ],
-                          className: content
-                        })
-                ],
-                className: container
-              });
-  } else {
+  }
+  if (patchState.TAG !== "PatchReady") {
     return JsxRuntime.jsxs("div", {
                 children: [
                   JsxRuntime.jsx("div", {
@@ -707,6 +658,157 @@ function App(props) {
                 className: container
               });
   }
+  var tmp;
+  switch (viewMode) {
+    case "Commit" :
+        tmp = "Review View";
+        break;
+    case "Review" :
+    case "Feature" :
+        tmp = "Commit View";
+        break;
+    
+  }
+  var tmp$1;
+  switch (viewMode) {
+    case "Review" :
+    case "Commit" :
+        tmp$1 = "New Feature";
+        break;
+    case "Feature" :
+        tmp$1 = "Review View";
+        break;
+    
+  }
+  var tmp$2;
+  switch (viewMode) {
+    case "Review" :
+        tmp$2 = JsxRuntime.jsxs("div", {
+              children: [
+                JsxRuntime.jsx("aside", {
+                      children: JsxRuntime.jsx(React$2.FileTree, {
+                            model: fileTree.model,
+                            header: Caml_option.some(JsxRuntime.jsx("div", {
+                                      children: "Changed files",
+                                      className: treeHeader(currentColors)
+                                    })),
+                            style: Caml_option.some(treeStyle(currentColors))
+                          }),
+                      className: sidebar(currentColors)
+                    }),
+                JsxRuntime.jsx("main", {
+                      children: JsxRuntime.jsx(React$1.Virtualizer, {
+                            children: diffChildren,
+                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                          }),
+                      ref: Caml_option.some(virtualizerWrapperRef),
+                      className: main
+                    })
+              ],
+              className: content
+            });
+        break;
+    case "Commit" :
+        tmp$2 = JsxRuntime.jsx(CommitView.make, {
+              patches: patchState._0,
+              theme: style,
+              themeType: isDark ? "dark" : "light",
+              uiColors: currentColors,
+              onCommitted: requestPatchReload
+            });
+        break;
+    case "Feature" :
+        tmp$2 = JsxRuntime.jsx(NewFeatureView.make, {
+              uiColors: currentColors
+            });
+        break;
+    
+  }
+  return JsxRuntime.jsxs("div", {
+              children: [
+                JsxRuntime.jsxs("div", {
+                      children: [
+                        JsxRuntime.jsxs("div", {
+                              children: [
+                                JsxRuntime.jsx("button", {
+                                      children: tmp,
+                                      className: buttonStyle,
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (prev) {
+                                                switch (prev) {
+                                                  case "Commit" :
+                                                      return "Review";
+                                                  case "Review" :
+                                                  case "Feature" :
+                                                      return "Commit";
+                                                  
+                                                }
+                                              });
+                                        })
+                                    }),
+                                JsxRuntime.jsx("button", {
+                                      children: tmp$1,
+                                      className: buttonStyle,
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (prev) {
+                                                switch (prev) {
+                                                  case "Review" :
+                                                  case "Commit" :
+                                                      return "Feature";
+                                                  case "Feature" :
+                                                      return "Review";
+                                                  
+                                                }
+                                              });
+                                        })
+                                    }),
+                                viewMode === "Review" ? JsxRuntime.jsxs(JsxRuntime.Fragment, {
+                                        children: [
+                                          JsxRuntime.jsx("button", {
+                                                children: isReviewing ? "Reviewing..." : "Code Review",
+                                                className: askPiButton(currentColors, isReviewing),
+                                                title: reviewButtonTitle,
+                                                disabled: isReviewing,
+                                                type: "button",
+                                                onClick: handleFullReview
+                                              }),
+                                          JsxRuntime.jsx("button", {
+                                                children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
+                                                className: askPiButton(currentColors, isAskingPi),
+                                                disabled: isAskingPi,
+                                                type: "button",
+                                                onClick: handleAskPi
+                                              })
+                                        ]
+                                      }) : null
+                              ],
+                              className: headerActions
+                            }),
+                        JsxRuntime.jsx("button", {
+                              children: isDark ? "Light Mode" : "Dark Mode",
+                              className: buttonStyle,
+                              type: "button",
+                              onClick: handleThemeToggle
+                            })
+                      ],
+                      className: headerStyle
+                    }),
+                viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
+                        children: [
+                          JsxRuntime.jsx("span", {
+                                children: "Review",
+                                className: reviewSummaryLabel(currentColors)
+                              }),
+                          reviewSummaryText
+                        ],
+                        className: reviewSummaryBar(currentColors)
+                      }) : null,
+                tmp$2
+              ],
+              className: container
+            });
 }
 
 var styled = Html.styled;

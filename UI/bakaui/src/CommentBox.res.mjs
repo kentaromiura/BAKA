@@ -188,6 +188,7 @@ function CommentBox(props) {
         aiReply: "AiIdle"
       });
   var reviewSuggestion = Js_dict.get(match[0], commentKey);
+  var isReviewComment = reviewSuggestion !== undefined;
   var initialText = comment.text;
   var match$1 = React.useState(function () {
         return initialText;
@@ -360,9 +361,13 @@ function CommentBox(props) {
                         JsxRuntime.jsx("textarea", {
                               className: textarea(uiColors),
                               placeholder: "Add a comment for line " + props.lineNumber.toString() + "...",
+                              readOnly: isReviewComment,
                               value: localText,
                               onBlur: saveComment,
                               onChange: (function (ev) {
+                                  if (isReviewComment) {
+                                    return ;
+                                  }
                                   var target = ev.target;
                                   setLocalText(function (param) {
                                         return target.value;

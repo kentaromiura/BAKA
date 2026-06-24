@@ -267,6 +267,10 @@ let make = (
   let comment =
     Js.Dict.get(comments, commentKey)->Belt.Option.getWithDefault({text: "", aiReply: AiIdle})
   let reviewSuggestion = Js.Dict.get(reviewSuggestions, commentKey)
+  let isReviewComment = switch reviewSuggestion {
+  | Some(_) => true
+  | None => false
+  }
   let initialText: string = comment.text
   let (localText, setLocalText) = React.useState(() => initialText)
 
@@ -395,9 +399,12 @@ let make = (
     <div className={Styles.box(uiColors)}>
       <textarea
         value={localText}
+        readOnly={isReviewComment}
         onChange={(ev: JsxEvent.Form.t) => {
-          let target = JsxEvent.Form.target(ev)
-          setLocalText(_ => target["value"])
+          if !isReviewComment {
+            let target = JsxEvent.Form.target(ev)
+            setLocalText(_ => target["value"])
+          }
         }}
         onBlur={saveComment}
         placeholder={"Add a comment for line " ++ Int.toString(lineNumber) ++ "..."}

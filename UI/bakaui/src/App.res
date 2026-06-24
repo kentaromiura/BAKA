@@ -5,6 +5,7 @@ let styled = Html.styled
 let str = React.string
 
 type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(string)
+type viewMode = Review | Commit | Feature
 
 @val external document: {..} = "document"
 @val external getDiffReloadRequestCount: int = "__bakaDiffReloadRequestCount"
@@ -12,6 +13,8 @@ type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(str
 @val external cancelAnimationFrame: float => unit = "cancelAnimationFrame"
 
 module Styles = {
+  let appFont = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+
   let header = (colors: uiColors) => Html.css`
     display: flex;
     align-items: center;
@@ -101,11 +104,9 @@ module Styles = {
     padding: 10px 12px;
     border-bottom: 1px solid ${colors.border};
     color: ${colors.fg};
-    font-family: monospace;
-    font-size: 12px;
+    font-family: ${appFont};
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   `
 
   let treeStyle = (colors: uiColors): Js.t<{..}> =>
@@ -150,6 +151,7 @@ module Styles = {
     border-bottom: 1px solid ${colors.border};
     background-color: ${colors.inputBg};
     color: ${colors.fg};
+    font-family: ${appFont};
     font-size: 13px;
     line-height: 1.45;
     white-space: pre-wrap;
@@ -159,10 +161,10 @@ module Styles = {
 
   let reviewSummaryLabel = (colors: uiColors) => Html.css`
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-family: ${appFont};
+    font-size: 13px;
     font-weight: 600;
     margin-right: 8px;
-    text-transform: uppercase;
   `
 }
 
@@ -181,7 +183,7 @@ let make = () => {
   let (isAskingPi, setIsAskingPi) = React.useState(() => false)
   let (isReviewing, setIsReviewing) = React.useState(() => false)
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
-  let (isCommitView, setIsCommitView) = React.useState(() => false)
+  let (viewMode, setViewMode) = React.useState(() => Review)
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
@@ -279,10 +281,10 @@ let make = () => {
     }
   }, [patchState])
 
-  let fileTree = Trees.useFileTree({
-    paths: diffFilePaths,
-    initialExpansion: "open",
-    onSelectionChange: selectedPaths => {
+	  let fileTree = Trees.useFileTree({
+	    paths: diffFilePaths,
+	    initialExpansion: "open",
+	    onSelectionChange: selectedPaths => {
       switch Belt.Array.get(selectedPaths, 0) {
       | Some(fileName) => scrollToDiffFile(fileName)
       | None => ()
@@ -290,10 +292,31 @@ let make = () => {
     },
   })
 
-  React.useEffect1(() => {
-    Trees.resetPaths(fileTree.model, diffFilePaths)
-    None
-  }, [diffFilePaths])
+	  React.useEffect1(() => {
+	    Trees.resetPaths(fileTree.model, diffFilePaths)
+	    None
+	  }, [diffFilePaths])
+
+	  let validReviewKeys = React.useMemo1(() => {
+	    let keys: Js.Dict.t<bool> = Js.Dict.empty()
+	    switch patchState {
+	    | PatchReady(patches) =>
+	      patches->Array.forEach(patch => {
+	        patch.files->Array.forEach(fileDiff => {
+	          let fileName = fileDiffName(fileDiff)
+	          changedLineAnnotations(fileDiff)->Array.forEach((annotation: lineAnnotation) => {
+	            Js.Dict.set(
+	              keys,
+	              InlineComment.makeKey(fileName, annotation.side, annotation.lineNumber),
+	              true,
+	            )
+	          })
+	        })
+	      })
+	    | _ => ()
+	    }
+	    keys
+	  }, [patchState])
 
   let handleThemeToggle = _event => {
     captureScrollTop()
@@ -400,38 +423,49 @@ let make = () => {
         Js.log2("[BAKA UI] Full review success summary", review.summary)
         Js.log2("[BAKA UI] Full review finding count", review.findings->Array.length)
         setReviewSummary(_ => review.summary)
-        setComments(prev => {
-          let newDict = InlineComment.copyDict(prev)
-          review.findings->Array.forEach(finding => {
-            let key = InlineComment.normalizeModelKey(finding.commentKey)
-            Js.log2("[BAKA UI] Full review inserting annotation", key)
-            let text = "Pi review: " ++ finding.summary
-            let body = if finding.body->String.trim->String.length > 0 {
-              finding.body
-            } else {
-              finding.summary
-            }
-            Js.Dict.set(newDict, key, {text: text, aiReply: State.AiDone(body)})
-          })
-          newDict
-        })
-        setReviewSuggestions(prev => {
-          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
-          review.findings->Array.forEach(finding => {
-            let key = InlineComment.normalizeModelKey(finding.commentKey)
-            Js.log2("[BAKA UI] Full review storing suggestion metadata", key)
-            Js.Dict.set(newDict, key, {
-              summary: finding.summary,
-              severity: finding.severity,
-              actionable: finding.actionable,
-              suggestion: finding.suggestion,
-              isApplying: false,
-              applyResult: None,
-              applyError: None,
-            })
-          })
-          newDict
-        })
+	        setComments(prev => {
+	          let newDict = InlineComment.copyDict(prev)
+	          review.findings->Array.forEach(finding => {
+	            let key = InlineComment.normalizeModelKey(finding.commentKey)
+	            switch InlineComment.parseKey(key) {
+	            | Some(_) =>
+	              switch Js.Dict.get(validReviewKeys, key) {
+	              | Some(true) => Js.log2("[BAKA UI] Full review inserting annotation", key)
+	              | _ => Js.log2("[BAKA UI] Full review inserting file-level finding", key)
+	              }
+	              let text = "Pi review: " ++ finding.summary
+	              let body = if finding.body->String.trim->String.length > 0 {
+	                finding.body
+	              } else {
+	                finding.summary
+	              }
+	              Js.Dict.set(newDict, key, {text: text, aiReply: State.AiDone(body)})
+	            | None => Js.log2("[BAKA UI] Full review skipping malformed finding", key)
+	            }
+	          })
+	          newDict
+	        })
+	        setReviewSuggestions(prev => {
+	          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+	          review.findings->Array.forEach(finding => {
+	            let key = InlineComment.normalizeModelKey(finding.commentKey)
+	            switch InlineComment.parseKey(key) {
+	            | Some(_) =>
+	              Js.log2("[BAKA UI] Full review storing suggestion metadata", key)
+	              Js.Dict.set(newDict, key, {
+	                summary: finding.summary,
+	                severity: finding.severity,
+	                actionable: finding.actionable,
+	                suggestion: finding.suggestion,
+	                isApplying: false,
+	                applyResult: None,
+	                applyError: None,
+	              })
+	            | None => ()
+	            }
+	          })
+	          newDict
+	        })
         setIsReviewing(_ => false)
         Js.Promise2.resolve()
       }
@@ -567,12 +601,19 @@ let make = () => {
         <div className={Styles.headerActions}>
           <button
             type_="button"
-            onClick={_ => setIsCommitView(prev => !prev)}
+            onClick={_ => setViewMode(prev => switch prev { | Commit => Review | _ => Commit })}
             className={buttonStyle}
           >
-            {str(if isCommitView { "Review View" } else { "Commit View" })}
+            {str(switch viewMode { | Commit => "Review View" | _ => "Commit View" })}
           </button>
-          {!isCommitView
+          <button
+            type_="button"
+            onClick={_ => setViewMode(prev => switch prev { | Feature => Review | _ => Feature })}
+            className={buttonStyle}
+          >
+            {str(switch viewMode { | Feature => "Review View" | _ => "New Feature" })}
+          </button>
+          {viewMode == Review
             ? <>
                 <button
                   type_="button"
@@ -602,7 +643,7 @@ let make = () => {
           {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
         </button>
       </div>
-      {!isCommitView && shouldShowReviewSummary
+      {viewMode != Commit && shouldShowReviewSummary
         ? <div className={Styles.reviewSummaryBar(currentColors)}>
             <span className={Styles.reviewSummaryLabel(currentColors)}>
               {str("Review")}
@@ -610,15 +651,16 @@ let make = () => {
             {str(reviewSummaryText)}
           </div>
         : React.null}
-      {isCommitView
-        ? <CommitView
+      {switch viewMode {
+      | Commit => <CommitView
             patches={patches}
             theme={style}
             themeType={if (isDark) { "dark" } else { "light" }}
             uiColors={currentColors}
             onCommitted={requestPatchReload}
           />
-        : <div className={Styles.content}>
+      | Feature => <NewFeatureView uiColors={currentColors} />
+      | Review => <div className={Styles.content}>
             <aside className={Styles.sidebar(currentColors)}>
               <Trees.make
                 model={fileTree.model}
@@ -629,9 +671,10 @@ let make = () => {
             <main ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)} className={Styles.main}>
               <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
                 {React.array(diffChildren)}
-              </Virtualizer>
-            </main>
-          </div>}
-    </div>
-  }
-}
+	              </Virtualizer>
+	            </main>
+	          </div>
+	      }}
+	    </div>
+	  }
+	}

@@ -358,26 +358,95 @@ Another analysis...
 	return strings.clone(strings.to_string(prompt))
 }
 
+buildDiffFileList :: proc(diff: string) -> string {
+	lines := strings.split(diff, "\n")
+	defer delete(lines)
+
+	files := strings.builder_make()
+	defer strings.builder_destroy(&files)
+	seen := map[string]bool{}
+	defer delete(seen)
+
+	for line in lines {
+		if !strings.has_prefix(line, "diff --git ") {
+			continue
+		}
+
+		path := ""
+		b_path_pos := strings.index(line, " b/")
+		if b_path_pos != -1 {
+			path = string(line[b_path_pos + len(" b/"):])
+		} else {
+			parts := strings.split(line, " ")
+			if len(parts) >= 4 {
+				path = string(parts[3])
+				if strings.has_prefix(path, "b/") {
+					path = string(path[2:])
+				}
+			}
+			delete(parts)
+		}
+
+		path = strings.trim_space(path)
+		if len(path) == 0 || seen[path] {
+			continue
+		}
+		seen[path] = true
+		fmt.sbprintf(&files, "- %s\n", path)
+	}
+
+	file_list := strings.to_string(files)
+	if len(file_list) == 0 {
+		return strings.clone("- (no file headers found)\n", context.allocator) or_else "- (no file headers found)\n"
+	}
+	return strings.clone(file_list, context.allocator) or_else "- (failed to list files)\n"
+}
+
 buildFullReviewPrompt :: proc(diff: string, batch_index, batch_count: int) -> (string, mem.Allocator_Error) {
 	prompt := strings.builder_make()
 	defer strings.builder_destroy(&prompt)
+	file_list := buildDiffFileList(diff)
+	defer delete(file_list)
 
 	fmt.sbprintf(
 		&prompt,
 		`You are an expert code reviewer. Review batch %d of %d from the current git working tree.
+
+You are running in a non-interactive review pipeline. Do not inspect files, use
+tools, ask questions, or describe a plan. The git diff below is the complete
+input. Return the review result immediately.
+
+Hard output requirements:
+- The first non-whitespace characters in your reply must be [SUMMARY].
+- Do not write preamble such as "I'll review", "Let me inspect", or "I need to examine".
+- Use only the exact markers and field names shown in Reply Format.
+- If there are no real issues, return a concise [SUMMARY] block and no [FINDING] blocks.
+- If a concern needs source context that is not present in the diff, omit it.
+
+This batch may contain only part of the complete working-tree diff. Imports,
+references, and related files can exist outside this batch. Do not report a file,
+symbol, import, or dependency as missing merely because it is not shown in this
+batch. Review only the changed lines present in this batch.
 
 Focus on real issues only: correctness bugs, missed edge cases, security issues,
 data loss risks, broken UX, performance problems, or maintainability problems
 that would matter in this patch. Ignore tiny style preferences.
 
 Return only findings that can be attached to changed lines in this diff. Use
-the new-line side "additions" for added/context lines and "deletions" only when
-the removed line itself is the finding. Line numbers must be the line numbers
-shown by the diff hunk.
+the new-line side "additions" only for added lines and "deletions" only for
+removed lines. Do not attach findings to unmodified context lines. Line numbers
+must be the line numbers shown by the diff hunk.
+Finding markers must have exactly this shape:
+[FINDING:path/to/file|additions|42]
+Do not put hunk ranges, relative offsets, +42, -42, line ranges, or slash
+suffixes in the marker.
 
 For actionable findings, include a concrete suggestion that another model can
 apply later. Do not rewrite whole files.
 
+## Files In This Review Batch
+
+%s
 ## Git Diff
 
 [DIFF]
@@ -400,10 +469,11 @@ Details:
 Markdown explanation.
 [END_FINDING]
 `,
-		batch_index,
-		batch_count,
-		diff,
-	)
+			batch_index,
+			batch_count,
+			file_list,
+			diff,
+		)
 
 	return strings.clone(strings.to_string(prompt))
 }
@@ -429,9 +499,16 @@ writeTempFile :: proc(content: string) -> (string, bool) {
 	return owned_path, true
 }
 
-Pi_Event :: struct {
+Pi_Assistant_Message_Event :: struct {
 	type:  string `json:"type"`,
 	delta: string `json:"delta"`,
+	text:  string `json:"text"`,
+}
+
+Pi_Event :: struct {
+	type:                    string                     `json:"type"`,
+	delta:                   string                     `json:"delta"`,
+	assistant_message_event: Pi_Assistant_Message_Event `json:"assistantMessageEvent"`,
 }
 
 parsePiDeltaLine :: proc(line: string) -> (string, bool, bool) {
@@ -443,7 +520,19 @@ parsePiDeltaLine :: proc(line: string) -> (string, bool, bool) {
 	if err := json.unmarshal(transmute([]byte)line, &event); err != nil {
 		return "", false, true
 	}
-	if event.type == "message_update" && len(event.delta) > 0 {
+	if event.type == "message_update" {
+		if event.assistant_message_event.type == "text_delta" && len(event.assistant_message_event.delta) > 0 {
+			return event.assistant_message_event.delta, true, false
+		}
+		if event.assistant_message_event.type == "text" && len(event.assistant_message_event.text) > 0 {
+			return event.assistant_message_event.text, true, false
+		}
+		if len(event.delta) > 0 {
+			return event.delta, true, false
+		}
+		return "", false, false
+	}
+	if event.type == "text_delta" && len(event.delta) > 0 {
 		return event.delta, true, false
 	}
 	return "", false, false
@@ -562,7 +651,7 @@ flushPiStreamLine :: proc(
 	}
 }
 
-runPiPrompt :: proc(prompt: string) -> (string, string, bool) {
+runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, bool) {
 	prompt_path, ok := writeTempFile(prompt)
 	if !ok {
 		return "", "Failed to write prompt to temp file", false
@@ -581,10 +670,14 @@ runPiPrompt :: proc(prompt: string) -> (string, string, bool) {
 		"pi",
 		"--mode",
 		"json",
+		"--print",
 		"--no-session",
 		"--no-context-files",
-		pi_arg,
 	}
+	if disable_tools {
+		append(&pi_command, "--no-tools")
+	}
+	append(&pi_command, pi_arg)
 	defer delete(pi_command)
 
 	pipe_read, pipe_write, pipe_err := os.pipe()
@@ -850,7 +943,16 @@ parseReviewOutput :: proc(output: string) -> FullReview_Result_Data {
 
 	if len(result.summary) == 0 {
 		if len(result.findings) == 0 {
-			result.summary = strings.clone("Pi did not find review issues in the current diff.", context.allocator) or_else "Pi did not find review issues in the current diff."
+			trimmed_output := strings.trim_space(output)
+			if len(trimmed_output) > 0 {
+				fallback_summary := fmt.tprintf(
+					"Pi returned a response, but BAKA could not parse any attachable findings:\n\n%s",
+					preview(trimmed_output, 2000),
+				)
+				result.summary = strings.clone(fallback_summary, context.allocator) or_else "Pi returned an unparseable review response."
+			} else {
+				result.summary = strings.clone("Pi did not find review issues in the current diff.", context.allocator) or_else "Pi did not find review issues in the current diff."
+			}
 		} else {
 			result.summary = strings.clone(fmt.tprintf("Pi found %d review item(s).", len(result.findings)), context.allocator) or_else "Pi found review items."
 		}
@@ -872,6 +974,10 @@ Return a unified git patch only. The patch must apply cleanly with git apply
 from the repository root. Do not include commentary outside [PATCH] markers.
 Keep the change minimal and only implement the suggestion.
 
+The result must compile. Before returning the patch, mentally check syntax,
+imports, variant names, JSX structure, generated bindings, and any affected
+type signatures. Preserve existing behavior outside the suggestion.
+
 File: %s
 
 Suggestion:
@@ -886,6 +992,73 @@ Current diff/context:
 diff --git ...
 [END_PATCH]
 `,
+		file_name,
+		suggestion,
+		diff,
+	)
+
+	return strings.clone(strings.to_string(prompt))
+}
+
+buildApplyValidationPrompt :: proc(repo_root, file_name, diff, suggestion: string, attempt: int) -> (string, mem.Allocator_Error) {
+	prompt := strings.builder_make()
+	defer strings.builder_destroy(&prompt)
+
+	fmt.sbprintf(
+		&prompt,
+		`You are validating a code review suggestion that BAKA already applied to a generic repository.
+
+Use your tools to inspect the repository and run the appropriate validation for
+this project. Do not assume a language, framework, package manager, or command.
+Infer the right checks from the changed files and repo conventions such as
+README files, package/build manifests, lockfiles, CI config, test config, and
+existing scripts.
+
+Run the smallest useful validation that gives confidence the applied patch did
+not break the project. Prefer existing project scripts over invented commands.
+If there is no obvious validation command, perform the best available static
+inspection and say that no runnable validation was discovered.
+
+Do not edit files directly with tools. If validation fails and you can repair the
+applied patch, return a unified git patch inside [PATCH] markers. The repair
+patch must apply cleanly with git apply from the repository root and must be
+minimal. If validation passes, do not return a patch.
+
+Repo root: %s
+Validation attempt: %d
+Original target file: %s
+
+Original suggestion:
+%s
+
+Current working-tree diff:
+[DIFF]
+%s
+[END_DIFF]
+
+Reply format:
+
+When validation passes:
+[VALIDATION_OK]
+Commands or checks run, and a concise result.
+[END_VALIDATION_OK]
+
+When validation fails and you can repair it:
+[VALIDATION_FAILED]
+Commands or checks run, failure output summary, and why the repair is needed.
+[END_VALIDATION_FAILED]
+[PATCH]
+diff --git ...
+[END_PATCH]
+
+When validation fails and you cannot repair it:
+[VALIDATION_FAILED]
+Commands or checks run and failure output summary. Explain why no safe repair
+patch is available.
+[END_VALIDATION_FAILED]
+`,
+		repo_root,
+		attempt,
 		file_name,
 		suggestion,
 		diff,
@@ -912,6 +1085,95 @@ extractPatchFromPiText :: proc(text: string) -> string {
 	}
 
 	return ""
+}
+
+getWorkingTreeDiff :: proc(repo_root: string) -> string {
+	command: [dynamic]string = {"git", "--no-pager", "diff", "HEAD", "--"}
+	defer delete(command)
+	_, stdout, stderr, err := os.process_exec(
+		os.Process_Desc{working_dir = repo_root, command = command[:]},
+		context.allocator,
+	)
+	defer delete(stdout)
+	defer delete(stderr)
+
+	if err != nil {
+		if len(stderr) > 0 {
+			return strings.clone(string(stderr), context.allocator) or_else ""
+		}
+		return ""
+	}
+	return strings.clone(string(stdout), context.allocator) or_else ""
+}
+
+runPiApplyValidation :: proc(repo_root, file_name, suggestion: string, attempt: int) -> (bool, string, string, bool) {
+	diff := getWorkingTreeDiff(repo_root)
+	defer delete(diff)
+
+	prompt, prompt_err := buildApplyValidationPrompt(repo_root, file_name, diff, suggestion, attempt)
+	if prompt_err != nil {
+		return false, "", "Failed to build validation prompt", false
+	}
+
+	validation_text, pi_err, pi_ok := runPiPrompt(prompt)
+	delete(prompt)
+	if !pi_ok {
+		return false, "", pi_err, false
+	}
+
+	validation_ok := strings.contains(validation_text, "[VALIDATION_OK]")
+	debug_log(fmt.tprintf("pi validation attempt %d ok=%v preview=%s", attempt, validation_ok, preview(validation_text)))
+	return validation_ok, validation_text, "", true
+}
+
+applyPatchFile :: proc(repo_root, patch_path: string, reverse := false) -> (bool, string) {
+	apply_command: [dynamic]string = {
+		"git",
+		"apply",
+		"--whitespace=nowarn",
+	}
+	if reverse {
+		append(&apply_command, "--reverse")
+	}
+	append(&apply_command, patch_path)
+	defer delete(apply_command)
+
+	_, _, stderr, apply_err := os.process_exec(
+		os.Process_Desc{working_dir = repo_root, command = apply_command[:]},
+		context.allocator,
+	)
+	defer delete(stderr)
+	if apply_err == nil {
+		return true, ""
+	}
+
+	err_msg := "git apply failed"
+	if reverse {
+		err_msg = "git apply --reverse failed"
+	}
+	if len(stderr) > 0 {
+		err_msg = string(stderr)
+	}
+	return false, strings.clone(err_msg, context.allocator) or_else "git apply failed"
+}
+
+rollbackAppliedPatches :: proc(repo_root, primary_patch_path, repair_patch_path: string, repair_applied: bool) -> string {
+	builder := strings.builder_make()
+	defer strings.builder_destroy(&builder)
+
+	if repair_applied && len(repair_patch_path) > 0 {
+		if ok, msg := applyPatchFile(repo_root, repair_patch_path, reverse = true); !ok {
+			fmt.sbprintf(&builder, "Failed to roll back repair patch: %s\n", msg)
+			delete(msg)
+		}
+	}
+	if ok, msg := applyPatchFile(repo_root, primary_patch_path, reverse = true); !ok {
+		fmt.sbprintf(&builder, "Failed to roll back original patch: %s\n", msg)
+		delete(msg)
+	}
+
+	message := strings.to_string(builder)
+	return strings.clone(message, context.allocator) or_else ""
 }
 
 process_full_review :: proc() -> (cstring, bool) {
@@ -1022,7 +1284,7 @@ process_full_review :: proc() -> (cstring, bool) {
 		if perr != nil {
 			return make_error_cstring("Failed to build review prompt"), true
 		}
-		pi_text, pi_err, pi_ok := runPiPrompt(prompt)
+		pi_text, pi_err, pi_ok := runPiPrompt(prompt, disable_tools = true)
 		delete(prompt)
 		if !pi_ok {
 			return make_error_cstring(pi_err), true
@@ -1046,7 +1308,11 @@ process_full_review :: proc() -> (cstring, bool) {
 	}
 
 	if len(merged.findings) == 0 {
-		merged.summary = strings.clone("Pi did not find review issues in the current diff.", context.allocator) or_else "Pi did not find review issues in the current diff."
+		merged_summary_raw := strings.to_string(summary_builder)
+		merged.summary = cloneTrimmed(merged_summary_raw)
+		if len(merged.summary) == 0 {
+			merged.summary = strings.clone("Pi did not find review issues in the current diff.", context.allocator) or_else "Pi did not find review issues in the current diff."
+		}
 	} else {
 		merged_summary_raw := strings.to_string(summary_builder)
 		merged.summary = cloneTrimmed(merged_summary_raw)
@@ -1134,28 +1400,77 @@ process_apply_suggestion :: proc(req_str: string) -> (cstring, bool) {
 	}
 	defer os.remove(patch_path)
 
-	apply_command: [dynamic]string = {
-		"git",
-		"apply",
-		"--whitespace=nowarn",
-		patch_path,
-	}
-	defer delete(apply_command)
-	_, _, stderr, apply_err := os.process_exec(
-		os.Process_Desc{working_dir = repo_root, command = apply_command[:]},
-		context.allocator,
-	)
-	defer delete(stderr)
-	if apply_err != nil {
-		err_msg := "git apply failed"
-		if len(stderr) > 0 {
-			err_msg = string(stderr)
-		}
-		return make_error_cstring(err_msg), true
+	if ok, apply_msg := applyPatchFile(repo_root, patch_path); !ok {
+		defer delete(apply_msg)
+		return make_error_cstring(apply_msg), true
 	}
 	debug_log(fmt.tprintf("git apply succeeded for %s", file_name))
 
-	resp := ApplySuggestion_Result{result = fmt.tprintf("Applied suggestion to %s", file_name)}
+	validation_ok, validation_message, validation_err, validation_call_ok := runPiApplyValidation(repo_root, file_name, request.suggestion, 1)
+	defer delete(validation_message)
+	if !validation_call_ok {
+		rollback_msg := rollbackAppliedPatches(repo_root, patch_path, "", false)
+		defer delete(rollback_msg)
+		return make_error_cstring(fmt.tprintf("Applied patch, but Pi validation failed to run: %s\n\n%s", validation_err, rollback_msg)), true
+	}
+	if !validation_ok {
+		debug_log(fmt.tprintf("validation failed after apply; attempting repair: %s", preview(validation_message)))
+
+		repair_patch := extractPatchFromPiText(validation_message)
+		defer delete(repair_patch)
+		if len(repair_patch) == 0 {
+			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, "", false)
+			defer delete(rollback_msg)
+			return make_error_cstring(fmt.tprintf("Applied patch failed Pi-selected validation and Pi did not return a repair patch. The patch was rolled back.\n\n%s", validation_message)), true
+		}
+
+		repair_patch_path, repair_patch_ok := writeTempFile(repair_patch)
+		if !repair_patch_ok {
+			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, "", false)
+			defer delete(rollback_msg)
+			return make_error_cstring("Applied patch failed validation, and BAKA could not write the repair patch. The patch was rolled back."), true
+		}
+		defer os.remove(repair_patch_path)
+
+		repair_applied := false
+		if ok, repair_apply_msg := applyPatchFile(repo_root, repair_patch_path); !ok {
+			defer delete(repair_apply_msg)
+			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, "", false)
+			defer delete(rollback_msg)
+			return make_error_cstring(fmt.tprintf("Applied patch failed validation, and the repair patch did not apply: %s\n\n%s", repair_apply_msg, rollback_msg)), true
+		} else {
+			repair_applied = true
+		}
+
+		second_validation_ok, second_validation_message, second_validation_err, second_validation_call_ok := runPiApplyValidation(repo_root, file_name, request.suggestion, 2)
+		defer delete(second_validation_message)
+		if !second_validation_call_ok {
+			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, repair_patch_path, repair_applied)
+			defer delete(rollback_msg)
+			return make_error_cstring(fmt.tprintf("Applied patch repair was attempted, but Pi validation failed to run: %s\n\n%s", second_validation_err, rollback_msg)), true
+		}
+		if !second_validation_ok {
+			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, repair_patch_path, repair_applied)
+			defer delete(rollback_msg)
+			return make_error_cstring(
+				fmt.tprintf(
+					"Applied patch still failed Pi-selected validation after one repair attempt. BAKA rolled back the generated patch.\n\n%s\n%s",
+					second_validation_message,
+					rollback_msg,
+				),
+			), true
+		}
+
+		resp := ApplySuggestion_Result{result = fmt.tprintf("Applied suggestion to %s, repaired validation errors, and Pi-selected validation passed.\n\n%s", file_name, second_validation_message)}
+		data, merr := json.marshal(resp)
+		if merr != nil {
+			return make_error_cstring("Failed to marshal apply result"), true
+		}
+		defer delete(data)
+		return strings.clone_to_cstring(string(data)), false
+	}
+
+	resp := ApplySuggestion_Result{result = fmt.tprintf("Applied suggestion to %s and Pi-selected validation passed.\n\n%s", file_name, validation_message)}
 	data, merr := json.marshal(resp)
 	if merr != nil {
 		return make_error_cstring("Failed to marshal apply result"), true
