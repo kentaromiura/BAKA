@@ -3,7 +3,8 @@ open State
 let str = React.string
 
 module Styles = {
-  let container = (colors: uiColors) => Html.css`
+  let container = (colors: uiColors) =>
+    Html.css`
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -21,19 +22,22 @@ module Styles = {
     gap: 16px;
   `
 
-  let heading = (colors: uiColors) => Html.css`
+  let heading = (colors: uiColors) =>
+    Html.css`
     color: ${colors.fg};
     font-size: 18px;
     font-weight: 600;
   `
 
-  let description = (colors: uiColors) => Html.css`
+  let description = (colors: uiColors) =>
+    Html.css`
     color: ${colors.descriptionFg};
     font-size: 13px;
     line-height: 1.5;
   `
 
-  let textarea = (colors: uiColors) => Html.css`
+  let textarea = (colors: uiColors) =>
+    Html.css`
     width: 100%;
     min-height: 200px;
     box-sizing: border-box;
@@ -63,7 +67,8 @@ module Styles = {
     align-items: center;
   `
 
-  let button = (colors: uiColors, disabled: bool) => Html.css`
+  let button = (colors: uiColors, disabled: bool) =>
+    Html.css`
     padding: 8px 16px;
     border-radius: 4px;
     border: 1px solid ${colors.focusBorder};
@@ -71,13 +76,25 @@ module Styles = {
     color: ${colors.buttonFg};
     font-size: 13px;
     font-weight: 600;
-    cursor: ${if disabled { "not-allowed" } else { "pointer" }};
+    cursor: ${if disabled {
+      "not-allowed"
+    } else {
+      "pointer"
+    }};
     opacity: ${disabled ? "0.55" : "1"};
     transition: all 0.2s ease;
 
     &:hover {
-      background-color: ${if disabled { colors.buttonBg } else { colors.buttonHoverBg }};
-      border-color: ${if disabled { colors.focusBorder } else { colors.fg }};
+      background-color: ${if disabled {
+      colors.buttonBg
+    } else {
+      colors.buttonHoverBg
+    }};
+      border-color: ${if disabled {
+      colors.focusBorder
+    } else {
+      colors.fg
+    }};
     }
 
     &:active {
@@ -85,7 +102,8 @@ module Styles = {
     }
   `
 
-  let dangerButton = (colors: uiColors, disabled: bool) => Html.css`
+  let dangerButton = (colors: uiColors, disabled: bool) =>
+    Html.css`
     padding: 8px 16px;
     border-radius: 4px;
     border: 1px solid ${colors.dangerBg};
@@ -93,13 +111,25 @@ module Styles = {
     color: ${colors.dangerBg};
     font-size: 13px;
     font-weight: 600;
-    cursor: ${if disabled { "not-allowed" } else { "pointer" }};
+    cursor: ${if disabled {
+      "not-allowed"
+    } else {
+      "pointer"
+    }};
     opacity: ${disabled ? "0.55" : "1"};
     transition: all 0.2s ease;
 
     &:hover {
-      background-color: ${if disabled { "transparent" } else { colors.dangerBg }};
-      color: ${if disabled { colors.dangerBg } else { "#ffffff" }};
+      background-color: ${if disabled {
+      "transparent"
+    } else {
+      colors.dangerBg
+    }};
+      color: ${if disabled {
+      colors.dangerBg
+    } else {
+      "#ffffff"
+    }};
     }
 
     &:active {
@@ -107,7 +137,8 @@ module Styles = {
     }
   `
 
-  let planContainer = (colors: uiColors) => Html.css`
+  let planContainer = (colors: uiColors) =>
+    Html.css`
     border: 1px solid ${colors.border};
     border-radius: 6px;
     background-color: ${colors.inputBg};
@@ -121,7 +152,8 @@ module Styles = {
     overflow-y: auto;
   `
 
-  let statusBar = (colors: uiColors) => Html.css`
+  let statusBar = (colors: uiColors) =>
+    Html.css`
     display: flex;
     align-items: center;
     gap: 8px;
@@ -137,7 +169,8 @@ module Styles = {
     animation: spin 1s linear infinite;
   `
 
-  let successBar = (colors: uiColors) => Html.css`
+  let successBar = (colors: uiColors) =>
+    Html.css`
     padding: 12px;
     border-radius: 6px;
     background-color: ${colors.focusBorder}22;
@@ -148,11 +181,13 @@ module Styles = {
     white-space: pre-wrap;
   `
 
-  let statusText = (colors: uiColors) => Html.css`
+  let statusText = (colors: uiColors) =>
+    Html.css`
     color: ${colors.descriptionFg};
   `
 
-  let statusTextError = (colors: uiColors) => Html.css`
+  let statusTextError = (colors: uiColors) =>
+    Html.css`
     color: ${colors.dangerBg};
   `
 }
@@ -239,22 +274,25 @@ let make = (~uiColors: uiColors) => {
   | Error(_) => true
   | _ => false
   }
+  let placeholder = `Describe the new feature or bug fix in detail...
+
+Example: 'Add a dark mode toggle button to the sidebar'
+Or: 'Fix the issue where undo sometimes crashes when the file has unsaved changes'`
 
   <div className={Styles.container(uiColors)}>
     <div className={Styles.content}>
-      <div className={Styles.heading(uiColors)}>
-        {str("New Feature / Bug Fix")}
-      </div>
+      <div className={Styles.heading(uiColors)}> {str("New Feature / Bug Fix")} </div>
       <div className={Styles.description(uiColors)}>
-        {str("Describe the feature or bug fix you want to implement. Pi will analyze the current codebase and create a plan to guide the implementation.")}
+        {str(
+          "Describe the feature or bug fix you want to implement. Pi will analyze the current codebase and create a plan to guide the implementation.",
+        )}
       </div>
-
       {switch featurePlan {
       | Idle | GeneratingPlan | Applying | Error(_) | ApplyDone(_) =>
         <>
           <textarea
             className={Styles.textarea(uiColors)}
-            placeholder="Describe the new feature or bug fix in detail...&#10;&#10;Example: 'Add a dark mode toggle button to the sidebar'&#10;Or: 'Fix the issue where undo sometimes crashes when the file has unsaved changes'"
+            placeholder={placeholder}
             value={featureDescription}
             disabled={isGenerating || isApplying}
             onChange={(ev: JsxEvent.Form.t) => {
@@ -267,34 +305,30 @@ let make = (~uiColors: uiColors) => {
               type_="button"
               className={Styles.button(uiColors, !canGenerate)}
               disabled={!canGenerate}
-              onClick={handleGenerate}
-            >
+              onClick={handleGenerate}>
               {str(
-                if isGenerating { "Loading... Generating..." }
-                else if isApplying { "Loading... Applying..." }
-                else { "Create Plan  →" }
+                if isGenerating {
+                  "Loading... Generating..."
+                } else if isApplying {
+                  "Loading... Applying..."
+                } else {
+                  "Create Plan  →"
+                },
               )}
             </button>
           </div>
         </>
       | PlanReady(plan) =>
         <>
-          <div className={Styles.planContainer(uiColors)}>
-            {str(plan)}
-          </div>
+          <div className={Styles.planContainer(uiColors)}> {str(plan)} </div>
           <div className={Styles.actions}>
             <button
               type_="button"
               className={Styles.dangerButton(uiColors, false)}
-              onClick={handleRefine}
-            >
+              onClick={handleRefine}>
               {str("↩ Refine")}
             </button>
-            <button
-              type_="button"
-              className={Styles.button(uiColors, false)}
-              onClick={handleApply}
-            >
+            <button type_="button" className={Styles.button(uiColors, false)} onClick={handleApply}>
               {str("✓ Start Applying")}
             </button>
           </div>
@@ -305,11 +339,16 @@ let make = (~uiColors: uiColors) => {
       ? React.null
       : <div className={Styles.statusBar(uiColors)}>
           {if isGenerating || isApplying {
-            <span className={Styles.spinner}>{str("*")}</span>
+            <span className={Styles.spinner}> {str("*")} </span>
           } else {
             React.null
           }}
-          <span className={if statusIsError { Styles.statusTextError(uiColors) } else { Styles.statusText(uiColors) }}>
+          <span
+            className={if statusIsError {
+              Styles.statusTextError(uiColors)
+            } else {
+              Styles.statusText(uiColors)
+            }}>
             {str(statusMessage)}
           </span>
         </div>}

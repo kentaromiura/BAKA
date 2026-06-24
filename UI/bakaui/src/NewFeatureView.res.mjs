@@ -318,7 +318,7 @@ function NewFeatureView(props) {
             JsxRuntime.jsx("textarea", {
                   className: textarea(uiColors),
                   disabled: isGenerating || isApplying,
-                  placeholder: "Describe the new feature or bug fix in detail...&#10;&#10;Example: 'Add a dark mode toggle button to the sidebar'&#10;Or: 'Fix the issue where undo sometimes crashes when the file has unsaved changes'",
+                  placeholder: "Describe the new feature or bug fix in detail...\n\nExample: 'Add a dark mode toggle button to the sidebar'\nOr: 'Fix the issue where undo sometimes crashes when the file has unsaved changes'",
                   value: featureDescription,
                   onChange: (function (ev) {
                       var target = ev.target;

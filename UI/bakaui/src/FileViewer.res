@@ -161,15 +161,15 @@ let make = (
   // Fetch the full-context patch on mount
   React.useEffect0(() => {
     Ipc.callGetFilePatch(fileName)
-      ->Js.Promise2.then(p => {
-        setPatch(_ => Some(p))
-        Js.Promise2.resolve()
-      })
-      ->Js.Promise2.catch(e => {
-        setError(_ => Some(Js.String.make(e)))
-        Js.Promise2.resolve()
-      })
-      ->ignore
+    ->Js.Promise2.then(p => {
+      setPatch(_ => Some(p))
+      Js.Promise2.resolve()
+    })
+    ->Js.Promise2.catch(e => {
+      setError(_ => Some(Js.String.make(e)))
+      Js.Promise2.resolve()
+    })
+    ->ignore
     None
   })
 
@@ -258,7 +258,7 @@ let make = (
       let payloadComments = Js.Dict.keys(comments)->Array.filterMap(key => {
         switch Js.Dict.get(comments, key) {
         | Some(c) if c.text->String.trim->String.length > 0 && c.aiReply == State.AiIdle =>
-          Some({commentKey: key, text: c.text}: Ipc.askPiRequest)
+          Some(({commentKey: key, text: c.text}: Ipc.askPiRequest))
         | _ => None
         }
       })
@@ -269,7 +269,14 @@ let make = (
           Js.Dict.keys(newDict)->Array.forEach(key => {
             switch Js.Dict.get(newDict, key) {
             | Some(c) if c.text->String.trim->String.length > 0 && c.aiReply == State.AiIdle =>
-              Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiDone("No new questions — your comments are already reviewed.")})
+              Js.Dict.set(
+                newDict,
+                key,
+                {
+                  text: c.text,
+                  aiReply: State.AiDone("No new questions — your comments are already reviewed."),
+                },
+              )
             | _ => ()
             }
           })
@@ -343,10 +350,18 @@ let make = (
   })
 
   let viewer =
-    <div className={embedded ? Styles.embedded(uiColors) : Styles.content(uiColors)} onClick={stopProp}>
+    <div
+      className={embedded ? Styles.embedded(uiColors) : Styles.content(uiColors)}
+      onClick={stopProp}>
       <div className={Styles.header(uiColors)}>
         <h3 className={Styles.headerTitle}>
-          {React.string(fileName ++ if (Diffs.isEmptyFile(fileDiff)) { " (empty file)" } else { "" })}
+          {React.string(
+            fileName ++ if Diffs.isEmptyFile(fileDiff) {
+              " (empty file)"
+            } else {
+              ""
+            },
+          )}
         </h3>
         <div className={Styles.headerActions}>
           <button
@@ -366,44 +381,39 @@ let make = (
       </div>
       <div className={themeType === "dark" ? Styles.bodyDark : Styles.body}>
         {switch (patch, error) {
-         | (Some(_), None) =>
-           <Diffs.Virtualizer
-             style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
-             <Diffs.FileDiff.makeRaw
-               fileDiff={fileDiff}
-               options={optionsObj}
-               lineAnnotations={annotations}
-               renderAnnotation={(annotation: Diffs.lineAnnotation) => {
-                 let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
-                 switch Js.Dict.get(comments, ckey) {
-                 | Some(_) =>
-                   <CommentBox
-                     commentKey={ckey}
-                     lineNumber={annotation.lineNumber}
-                     comments={comments}
-                     onSave={setComments}
-                     onRemove={setComments}
-                     uiColors={uiColors}
-                     themeType={themeType}
-                   />
-                 | None => <div />
-                 }
-               }}
-             />
-           </Diffs.Virtualizer>
-         | (None, Some(e)) =>
-           <div className={Styles.error(uiColors)}>
-             {React.string("Failed to load file: " ++ e)}
-           </div>
-         | (None, None) =>
-           <div className={Styles.status(uiColors)}>
-             {React.string("Loading...")}
-           </div>
-         | (Some(_), Some(_)) =>
-           <div className={Styles.status(uiColors)}>
-             {React.string("Loaded")}
-           </div>
-         }}
+        | (Some(_), None) =>
+          <Diffs.Virtualizer style={%raw(`{"height": "calc(100% - 56px)", "overflow-y": "auto"}`)}>
+            <Diffs.FileDiff.makeRaw
+              fileDiff={fileDiff}
+              options={optionsObj}
+              lineAnnotations={annotations}
+              renderAnnotation={(annotation: Diffs.lineAnnotation) => {
+                let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
+                switch Js.Dict.get(comments, ckey) {
+                | Some(_) =>
+                  <CommentBox
+                    commentKey={ckey}
+                    lineNumber={annotation.lineNumber}
+                    comments={comments}
+                    onSave={setComments}
+                    onRemove={setComments}
+                    uiColors={uiColors}
+                    themeType={themeType}
+                  />
+                | None => <div />
+                }
+              }}
+            />
+          </Diffs.Virtualizer>
+        | (None, Some(e)) =>
+          <div className={Styles.error(uiColors)}>
+            {React.string("Failed to load file: " ++ e)}
+          </div>
+        | (None, None) =>
+          <div className={Styles.status(uiColors)}> {React.string("Loading...")} </div>
+        | (Some(_), Some(_)) =>
+          <div className={Styles.status(uiColors)}> {React.string("Loaded")} </div>
+        }}
       </div>
     </div>
 

@@ -439,7 +439,7 @@ function FileViewer(props) {
                                       }
                                     })
                                 }),
-                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                            style: Caml_option.some({"height": "calc(100% - 56px)", "overflow-y": "auto"})
                           })
                   ) : (
                     error$1 !== undefined ? JsxRuntime.jsx("div", {
