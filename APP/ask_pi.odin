@@ -1328,10 +1328,7 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 		return strings.clone_to_cstring(string(data)), false
 	}
 
-	repo_root := getRepoRoot()
-	if len(repo_root) == 0 {
-		repo_root = "."
-	}
+	repo_root := getRepoWorkingDirectory()
 	defer delete(repo_root)
 
 	batches := [dynamic]string{}
@@ -1500,10 +1497,7 @@ process_apply_suggestion :: proc(req_str: string) -> (cstring, bool) {
 		return make_error_cstring("Missing suggestion text"), true
 	}
 
-	repo_root := getRepoRoot()
-	if len(repo_root) == 0 {
-		repo_root = "."
-	}
+	repo_root := getRepoWorkingDirectory()
 	defer delete(repo_root)
 
 	diff := getFilePatchFromGit(file_name)

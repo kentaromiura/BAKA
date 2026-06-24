@@ -49,13 +49,11 @@ module Styles = {
       "--trees-font-family-override": appFont,
     })
 
-  let main = (colors: uiColors) =>
-    Html.css`
+  let main = Html.css`
     flex: 1;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    background-color: ${colors.bg};
   `
 
   let status = (colors: uiColors) =>
@@ -130,7 +128,7 @@ let make = (~theme: Diffs.FileDiff.theme, ~themeType: string, ~uiColors: uiColor
         style={Styles.treeStyle(uiColors)}
       />
     </aside>
-    <main className={Styles.main(uiColors)}>
+    <main className={Styles.main}>
       {switch (state, selectedFile) {
       | (Loading, _) =>
         <div className={Styles.status(uiColors)}> {React.string("Loading project files...")} </div>

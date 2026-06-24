@@ -45,10 +45,7 @@ isZeroByteFile :: proc(path: string) -> bool {
 }
 
 getCurrentGitPatch :: proc() -> string {
-	repo_root := getRepoRoot()
-	if repo_root == "" {
-		repo_root = "."
-	}
+	repo_root := getRepoWorkingDirectory()
 	defer delete(repo_root)
 
 	patch: [dynamic]u8
@@ -131,6 +128,22 @@ getRepoRoot :: proc() -> string {
 	trimmed := strings.trim_space(string(stdout))
 	trimmed = strings.trim_right(trimmed, "\n")
 	return strings.clone(trimmed, context.allocator)
+}
+
+// Return the repository root, or an owned "." fallback when the current
+// directory is not inside a Git repository. The result must be deleted.
+getRepoWorkingDirectory :: proc() -> string {
+	repo_root := getRepoRoot()
+	if repo_root != "" {
+		return repo_root
+	}
+	delete(repo_root)
+
+	working_dir, err := strings.clone(".", context.allocator)
+	if err != nil {
+		return ""
+	}
+	return working_dir
 }
 
 // Full-context diff for a single file. `-U999999` makes git include the
@@ -376,10 +389,7 @@ apply_feature_plan :: proc(description, plan: string) -> (string, string) {
 		return "", "Feature plan is required"
 	}
 
-	repo_root := getRepoRoot()
-	if len(repo_root) == 0 {
-		repo_root = "."
-	}
+	repo_root := getRepoWorkingDirectory()
 	defer delete(repo_root)
 
 	current_diff := getCurrentGitPatch()
@@ -868,10 +878,7 @@ handle_get_file_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 handle_get_project_files :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 
-	repo_root := getRepoRoot()
-	if repo_root == "" {
-		repo_root = "."
-	}
+	repo_root := getRepoWorkingDirectory()
 	defer delete(repo_root)
 
 	command: [dynamic]string = {
@@ -909,7 +916,7 @@ handle_get_project_files :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 		if len(path) == 0 || !isPathSafe(path) {
 			continue
 		}
-		full_path := fmt.tprintf("%s/%s", repo_root, path)
+		full_path := fmt.aprintf("%s/%s", repo_root, path)
 		exists := os.exists(full_path)
 		delete(full_path)
 		if !exists {

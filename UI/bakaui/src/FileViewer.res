@@ -60,7 +60,6 @@ module Styles = {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background-color: ${colors.bg};
     color: ${colors.fg};
   `
 
@@ -127,6 +126,13 @@ module Styles = {
     min-height: 0;
     overflow: hidden;
     background-color: #0d1117;
+  `
+
+  let embeddedBody = Html.css`
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background-color: transparent;
   `
 
   let status = (colors: uiColors) =>
@@ -373,7 +379,14 @@ let make = (
           }}
         </div>
       </div>
-      <div className={themeType === "dark" ? Styles.bodyDark : Styles.body}>
+      <div
+        className={if embedded {
+          Styles.embeddedBody
+        } else if themeType === "dark" {
+          Styles.bodyDark
+        } else {
+          Styles.body
+        }}>
         {switch (patch, error) {
         | (Some(_), None) =>
           <Diffs.Virtualizer style={%raw(`{"height": "calc(100% - 56px)", "overflow-y": "auto"}`)}>

@@ -65,13 +65,9 @@ function content(colors) {
 
 function embedded(colors) {
   return Html.css([
-              "\n    height: 100%;\n    display: flex;\n    flex-direction: column;\n    overflow: hidden;\n    background-color: ",
-              ";\n    color: ",
+              "\n    height: 100%;\n    display: flex;\n    flex-direction: column;\n    overflow: hidden;\n    color: ",
               ";\n  "
-            ], [
-              colors.bg,
-              colors.fg
-            ]);
+            ], [colors.fg]);
 }
 
 function header(colors) {
@@ -117,6 +113,8 @@ var body = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\
 
 var bodyDark = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n    background-color: #0d1117;\n  "], []);
 
+var embeddedBody = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n    background-color: transparent;\n  "], []);
+
 function status(colors) {
   return Html.css([
               "\n    padding: 24px;\n    color: ",
@@ -142,6 +140,7 @@ var Styles = {
   closeButton: closeButton,
   body: body,
   bodyDark: bodyDark,
+  embeddedBody: embeddedBody,
   status: status,
   error: error
 };
@@ -445,7 +444,9 @@ function FileViewer(props) {
                             className: status(uiColors)
                           })
                   ),
-                className: themeType === "dark" ? bodyDark : body
+                className: embedded$1 ? embeddedBody : (
+                    themeType === "dark" ? bodyDark : body
+                  )
               })
         ],
         className: embedded$1 ? embedded(uiColors) : content(uiColors),

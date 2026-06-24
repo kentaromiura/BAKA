@@ -52,12 +52,7 @@ function treeStyle(colors) {
         };
 }
 
-function main(colors) {
-  return Html.css([
-              "\n    flex: 1;\n    min-width: 0;\n    min-height: 0;\n    overflow: hidden;\n    background-color: ",
-              ";\n  "
-            ], [colors.bg]);
-}
+var main = Html.css(["\n    flex: 1;\n    min-width: 0;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
 
 function status(colors) {
   return Html.css([
@@ -184,7 +179,7 @@ function ProjectView(props) {
                     }),
                 JsxRuntime.jsx("main", {
                       children: tmp,
-                      className: main(uiColors)
+                      className: main
                     })
               ],
               className: content
