@@ -84,6 +84,24 @@ function callApplyReviewSuggestion(request) {
   return Js_promise.then_(parseResponse, promise);
 }
 
+function callCommitSelection(request) {
+  console.log("[BAKA UI] commitSelection called", {
+        messageBytes: request.message.length,
+        bodyBytes: request.body.length,
+        patchBytes: request.patch.length
+      });
+  var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
+    return ((async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw));
+  };
+  var promise = (commitSelection(request));
+  return Js_promise.then_(parseResponse, promise);
+}
+
 export {
   callGetPatch ,
   callGetFilePatch ,
@@ -91,5 +109,6 @@ export {
   callAskPiWithDiff ,
   callStartFullReview ,
   callApplyReviewSuggestion ,
+  callCommitSelection ,
 }
 /* No side effect */

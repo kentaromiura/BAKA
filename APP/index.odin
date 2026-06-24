@@ -230,6 +230,127 @@ Ipc_Response :: struct {
 	result: string,
 }
 
+CommitSelection_Request :: struct {
+	message: string `json:"message"`,
+	body:    string `json:"body"`,
+	patch:   string `json:"patch"`,
+}
+
+commit_error_response :: proc(message: string) -> cstring {
+	resp := Ipc_Error_Response {
+		error = message,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		return strings.clone_to_cstring(`{"error": "commit failed"}`)
+	}
+	defer delete(data)
+	return strings.clone_to_cstring(string(data))
+}
+
+parseCommitSelectionRequest :: proc(req_str: string) -> (CommitSelection_Request, string) {
+	arr: [dynamic]CommitSelection_Request
+	defer delete(arr)
+	if err := json.unmarshal(transmute([]byte)req_str, &arr); err != nil {
+		return {}, "Failed to parse commit request"
+	}
+	if len(arr) == 0 {
+		return {}, "Missing commit request"
+	}
+	request := CommitSelection_Request {
+		message = strings.clone(arr[0].message, context.allocator),
+		body    = strings.clone(arr[0].body, context.allocator),
+		patch   = strings.clone(arr[0].patch, context.allocator),
+	}
+	return request, ""
+}
+
+run_git_command :: proc(repo_root: string, command: []string) -> (string, string, bool) {
+	desc := os.Process_Desc {
+		working_dir = repo_root,
+		command     = command,
+	}
+	_, stdout, stderr, proc_err := os.process_exec(desc, context.allocator)
+	defer delete(stdout)
+	defer delete(stderr)
+	if proc_err != nil {
+		message := strings.trim_space(string(stderr))
+		if message == "" {
+			message = strings.trim_space(string(stdout))
+		}
+		return strings.clone(string(stdout), context.allocator), strings.clone(message, context.allocator), false
+	}
+	return strings.clone(string(stdout), context.allocator), strings.clone(string(stderr), context.allocator), true
+}
+
+commitSelectedPatch :: proc(request: CommitSelection_Request) -> (string, string) {
+	message := strings.trim_space(request.message)
+	body := strings.trim_space(request.body)
+	patch := strings.trim_space(request.patch)
+	if message == "" {
+		return "", "Commit message is required"
+	}
+	if patch == "" {
+		return "", "No selected changes to commit"
+	}
+
+	repo_root := getRepoRoot()
+	defer delete(repo_root)
+	if repo_root == "" {
+		return "", "Not inside a git repository"
+	}
+
+	patch_path := "/tmp/baka-commit-selection.patch"
+	if err := os.write_entire_file(patch_path, request.patch); err != nil {
+		return "", "Failed to write selected patch"
+	}
+	defer os.remove(patch_path)
+
+	fmt.eprintln("[BAKA commit] resetting index to HEAD")
+	reset_cmd: [dynamic]string = {"git", "reset", "--mixed", "HEAD"}
+	_, reset_err, reset_ok := run_git_command(repo_root, reset_cmd[:])
+	defer delete(reset_cmd)
+	defer delete(reset_err)
+	if !reset_ok {
+		return "", fmt.tprintf("Failed to reset index: %s", reset_err)
+	}
+
+	fmt.eprintln("[BAKA commit] applying selected patch to index")
+	apply_cmd: [dynamic]string = {
+		"git",
+		"apply",
+		"--cached",
+		"--whitespace=nowarn",
+		patch_path,
+	}
+	_, apply_err, apply_ok := run_git_command(repo_root, apply_cmd[:])
+	defer delete(apply_cmd)
+	defer delete(apply_err)
+	if !apply_ok {
+		return "", fmt.tprintf("Failed to apply selected patch: %s", apply_err)
+	}
+
+	commit_cmd: [dynamic]string = {"git", "commit", "-m", message}
+	if body != "" {
+		append(&commit_cmd, "-m")
+		append(&commit_cmd, body)
+	}
+	fmt.eprintln("[BAKA commit] creating commit")
+	commit_stdout, commit_err, commit_ok := run_git_command(repo_root, commit_cmd[:])
+	defer delete(commit_cmd)
+	defer delete(commit_stdout)
+	defer delete(commit_err)
+	if !commit_ok {
+		return "", fmt.tprintf("Failed to create commit: %s", commit_err)
+	}
+
+	result := strings.trim_space(commit_stdout)
+	if result == "" {
+		result = "Commit created."
+	}
+	return strings.clone(result, context.allocator), ""
+}
+
 handle_get_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 	patch := getCurrentGitPatch()
@@ -245,6 +366,37 @@ handle_get_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	result_string := string(data)
 	c_result := strings.clone_to_cstring(result_string)
 	webview.ret(w, seq, WebView_Return_Ok, c_result)
+}
+
+handle_commit_selection :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	request, perr := parseCommitSelectionRequest(string(req))
+	if perr != "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response(perr))
+		return
+	}
+	defer delete(request.message)
+	defer delete(request.body)
+	defer delete(request.patch)
+
+	result, cerr := commitSelectedPatch(request)
+	if cerr != "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response(cerr))
+		return
+	}
+	defer delete(result)
+
+	resp := Ipc_Response {
+		result = result,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response("marshal failed"))
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
 }
 
 handle_get_file_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
@@ -345,6 +497,7 @@ main :: proc() {
 	webview.bind(w, "askPiWithDiff", handle_ask_pi_with_diff, nil)
 	webview.bind(w, "startFullReview", handle_start_full_review, nil)
 	webview.bind(w, "applyReviewSuggestion", handle_apply_review_suggestion, nil)
+	webview.bind(w, "commitSelection", handle_commit_selection, nil)
 
 	html := strings.builder_make()
 	strings.write_string(&html, `<html>

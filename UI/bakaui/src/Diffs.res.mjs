@@ -17,6 +17,37 @@ function fileDiffNewObjectId(fd) {
   return (fd.newObjectId || "");
 }
 
+function changedLineAnnotations(fd) {
+  return (((fd) => {
+    if (!fd || !Array.isArray(fd.hunks)) return [];
+    const annotations = [];
+    for (const hunk of fd.hunks) {
+      const content = Array.isArray(hunk.hunkContent) ? hunk.hunkContent : [];
+      let deletionLine = hunk.deletionStart || 0;
+      let additionLine = hunk.additionStart || 0;
+      for (const item of content) {
+        if (item.type === "context") {
+          const lines = item.lines || 0;
+          deletionLine += lines;
+          additionLine += lines;
+        } else if (item.type === "change") {
+          const deletions = item.deletions || 0;
+          const additions = item.additions || 0;
+          for (let i = 0; i < deletions; i += 1) {
+            annotations.push({side: "deletions", lineNumber: deletionLine + i});
+          }
+          for (let i = 0; i < additions; i += 1) {
+            annotations.push({side: "additions", lineNumber: additionLine + i});
+          }
+          deletionLine += deletions;
+          additionLine += additions;
+        }
+      }
+    }
+    return annotations;
+  })(fd));
+}
+
 function isEmptyFile(fd) {
   return (!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n");
 }
@@ -30,6 +61,7 @@ export {
   fileDiffType ,
   fileDiffAdditionLines ,
   fileDiffNewObjectId ,
+  changedLineAnnotations ,
   isEmptyFile ,
   FileDiff ,
   Virtualizer ,

@@ -22,6 +22,12 @@ module Styles = {
     transition: all 0.2s ease;
   `
 
+  let headerActions = Html.css`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  `
+
   let button = (colors: uiColors) => Html.css`
     padding: 6px 12px;
     border-radius: 4px;
@@ -175,11 +181,16 @@ let make = () => {
   let (isAskingPi, setIsAskingPi) = React.useState(() => false)
   let (isReviewing, setIsReviewing) = React.useState(() => false)
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
+  let (isCommitView, setIsCommitView) = React.useState(() => false)
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
   let diffReloadPollVersionRef = React.useRef(0)
   let (diffReloadPollVersion, setDiffReloadPollVersion) = React.useState(() => 0)
+
+  let requestPatchReload = () => {
+    setDiffReloadPollVersion(prev => prev + 1)
+  }
 
   React.useEffect0(() => {
     let interval = Js.Global.setInterval(() => {
@@ -550,26 +561,39 @@ let make = () => {
       </div>
     </div>
 
-  | PatchReady(_) =>
+  | PatchReady(patches) =>
     <div className={Styles.container}>
       <div className={headerStyle}>
-        <button
-          type_="button"
-          onClick={handleFullReview}
-          disabled={isReviewing}
-          title={reviewButtonTitle}
-          className={Styles.askPiButton(currentColors, isReviewing)}
-        >
-          {str(if isReviewing { "Reviewing..." } else { "Code Review" })}
-        </button>
-        <button
-          type_="button"
-          onClick={handleAskPi}
-          disabled={isAskingPi}
-          className={Styles.askPiButton(currentColors, isAskingPi)}
-        >
-          {str(if isAskingPi { "⠋ Asking Pi..." } else { "🤖 Ask Pi" })}
-        </button>
+        <div className={Styles.headerActions}>
+          <button
+            type_="button"
+            onClick={_ => setIsCommitView(prev => !prev)}
+            className={buttonStyle}
+          >
+            {str(if isCommitView { "Review View" } else { "Commit View" })}
+          </button>
+          {!isCommitView
+            ? <>
+                <button
+                  type_="button"
+                  onClick={handleFullReview}
+                  disabled={isReviewing}
+                  title={reviewButtonTitle}
+                  className={Styles.askPiButton(currentColors, isReviewing)}
+                >
+                  {str(if isReviewing { "Reviewing..." } else { "Code Review" })}
+                </button>
+                <button
+                  type_="button"
+                  onClick={handleAskPi}
+                  disabled={isAskingPi}
+                  className={Styles.askPiButton(currentColors, isAskingPi)}
+                >
+                  {str(if isAskingPi { "⠋ Asking Pi..." } else { "🤖 Ask Pi" })}
+                </button>
+              </>
+            : React.null}
+        </div>
         <button
           type_="button"
           onClick={handleThemeToggle}
@@ -578,7 +602,7 @@ let make = () => {
           {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
         </button>
       </div>
-      {shouldShowReviewSummary
+      {!isCommitView && shouldShowReviewSummary
         ? <div className={Styles.reviewSummaryBar(currentColors)}>
             <span className={Styles.reviewSummaryLabel(currentColors)}>
               {str("Review")}
@@ -586,20 +610,28 @@ let make = () => {
             {str(reviewSummaryText)}
           </div>
         : React.null}
-      <div className={Styles.content}>
-        <aside className={Styles.sidebar(currentColors)}>
-          <Trees.make
-            model={fileTree.model}
-            header={<div className={Styles.treeHeader(currentColors)}>{str("Changed files")}</div>}
-            style={Styles.treeStyle(currentColors)}
+      {isCommitView
+        ? <CommitView
+            patches={patches}
+            theme={style}
+            themeType={if (isDark) { "dark" } else { "light" }}
+            uiColors={currentColors}
+            onCommitted={requestPatchReload}
           />
-        </aside>
-        <main ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)} className={Styles.main}>
-          <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
-            {React.array(diffChildren)}
-          </Virtualizer>
-        </main>
-      </div>
+        : <div className={Styles.content}>
+            <aside className={Styles.sidebar(currentColors)}>
+              <Trees.make
+                model={fileTree.model}
+                header={<div className={Styles.treeHeader(currentColors)}>{str("Changed files")}</div>}
+                style={Styles.treeStyle(currentColors)}
+              />
+            </aside>
+            <main ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)} className={Styles.main}>
+              <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
+                {React.array(diffChildren)}
+              </Virtualizer>
+            </main>
+          </div>}
     </div>
   }
 }

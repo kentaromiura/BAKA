@@ -23,12 +23,48 @@ type lineAnnotation = {
   lineNumber: int,
 }
 
+type selectedLineRange = {
+  start: int,
+  side?: string,
+  end: int,
+  endSide?: string,
+}
+
 type jsObj
 
 let fileDiffName = (fd: patchFile): string => %raw(`fd.name || ""`)
 let fileDiffType = (fd: patchFile): string => %raw(`fd.type || ""`)
 let fileDiffAdditionLines = (fd: patchFile): array<string> => %raw(`fd.additionLines || []`)
 let fileDiffNewObjectId = (fd: patchFile): string => %raw(`fd.newObjectId || ""`)
+let changedLineAnnotations = (fd: patchFile): array<lineAnnotation> =>
+  %raw(`((fd) => {
+    if (!fd || !Array.isArray(fd.hunks)) return [];
+    const annotations = [];
+    for (const hunk of fd.hunks) {
+      const content = Array.isArray(hunk.hunkContent) ? hunk.hunkContent : [];
+      let deletionLine = hunk.deletionStart || 0;
+      let additionLine = hunk.additionStart || 0;
+      for (const item of content) {
+        if (item.type === "context") {
+          const lines = item.lines || 0;
+          deletionLine += lines;
+          additionLine += lines;
+        } else if (item.type === "change") {
+          const deletions = item.deletions || 0;
+          const additions = item.additions || 0;
+          for (let i = 0; i < deletions; i += 1) {
+            annotations.push({side: "deletions", lineNumber: deletionLine + i});
+          }
+          for (let i = 0; i < additions; i += 1) {
+            annotations.push({side: "additions", lineNumber: additionLine + i});
+          }
+          deletionLine += deletions;
+          additionLine += additions;
+        }
+      }
+    }
+    return annotations;
+  })(fd)`)
 let isEmptyFile = (fd: patchFile): bool =>
   %raw(`!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n"`)
 
@@ -39,8 +75,9 @@ module FileDiff = {
   external makeRaw: (
     ~fileDiff: patchFile,
     ~options: jsObj,
-    ~lineAnnotations: array<lineAnnotation>,
-    ~renderAnnotation: lineAnnotation => React.element,
+    ~lineAnnotations: array<lineAnnotation>=?,
+    ~selectedLines: selectedLineRange=?,
+    ~renderAnnotation: (lineAnnotation => React.element)=?,
     ~renderHeaderPrefix: (patchFile => React.element)=?,
     ~disableWorkerPool: bool=?,
   ) => React.element = "FileDiff"

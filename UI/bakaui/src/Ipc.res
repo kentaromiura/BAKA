@@ -49,6 +49,11 @@ type applySuggestionRequest = {
   commentKey: string,
   suggestion: string,
 }
+type commitSelectionRequest = {
+  message: string,
+  body: string,
+  patch: string,
+}
 
 // Ask Pi: send all comments as JSON, receive back {replies: [{commentKey, reply}]}
 // Odin spawns `pi --mode json @prompt.txt`, parses [REPLY:key] blocks from output.
@@ -127,5 +132,25 @@ let callApplyReviewSuggestion = (
     })(raw)`)
   }
   let promise = %raw(`applyReviewSuggestion(request)`)
+  Js.Promise.then_(parseResponse)(promise)
+}
+
+@val external commitSelection_raw: string => Js.Promise.t<string> = "commitSelection"
+
+let callCommitSelection = (request: commitSelectionRequest): Js.Promise.t<string> => {
+  Js.log2("[BAKA UI] commitSelection called", {
+    "messageBytes": request.message->String.length,
+    "bodyBytes": request.body->String.length,
+    "patchBytes": request.patch->String.length,
+  })
+  let parseResponse = (raw: string): Js.Promise.t<string> => {
+    let _ = %raw(`console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw)`)
+  }
+  let promise = %raw(`commitSelection(request)`)
   Js.Promise.then_(parseResponse)(promise)
 }

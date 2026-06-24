@@ -9,6 +9,7 @@ import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
+import * as CommitView from "./CommitView.res.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
@@ -32,6 +33,8 @@ function header(colors) {
               colors.border
             ]);
 }
+
+var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n  "], []);
 
 function button(colors) {
   return Html.css([
@@ -141,6 +144,7 @@ function reviewSummaryLabel(colors) {
 
 var Styles = {
   header: header,
+  headerActions: headerActions,
   button: button,
   askPiButton: askPiButton,
   container: container,
@@ -190,16 +194,26 @@ function App(props) {
   var setReviewSummary = match$6[1];
   var reviewSummary = match$6[0];
   var match$7 = React.useState(function () {
+        return false;
+      });
+  var setIsCommitView = match$7[1];
+  var isCommitView = match$7[0];
+  var match$8 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$7[1];
-  var patchState = match$7[0];
+  var setPatchState = match$8[1];
+  var patchState = match$8[0];
   var diffReloadPollVersionRef = React.useRef(0);
-  var match$8 = React.useState(function () {
+  var match$9 = React.useState(function () {
         return 0;
       });
-  var setDiffReloadPollVersion = match$8[1];
-  var diffReloadPollVersion = match$8[0];
+  var setDiffReloadPollVersion = match$9[1];
+  var diffReloadPollVersion = match$9[0];
+  var requestPatchReload = function () {
+    setDiffReloadPollVersion(function (prev) {
+          return prev + 1 | 0;
+        });
+  };
   React.useEffect((function () {
           var interval = setInterval((function () {
                   var next = __bakaDiffReloadRequestCount;
@@ -514,6 +528,10 @@ function App(props) {
                     cancelAnimationFrame(handle);
                   });
         }), [isDark]);
+  var style = {
+    light: "rose-pine-dawn",
+    dark: "tokyo-night"
+  };
   var reviewCount = Object.keys(reviewSuggestions).length;
   var actionableReviewCount = Core__Array.reduce(Object.keys(reviewSuggestions), 0, (function (count, key) {
           var item = Js_dict.get(reviewSuggestions, key);
@@ -540,10 +558,7 @@ function App(props) {
                                     return JsxRuntime.jsx("div", {
                                                 children: JsxRuntime.jsx(InlineComment.make, {
                                                       fileDiff: fileDiff,
-                                                      theme: {
-                                                        light: "rose-pine-dawn",
-                                                        dark: "tokyo-night"
-                                                      },
+                                                      theme: style,
                                                       themeType: isDark ? "dark" : "light",
                                                       uiColors: currentColors
                                                     }),
@@ -583,20 +598,39 @@ function App(props) {
                 children: [
                   JsxRuntime.jsxs("div", {
                         children: [
-                          JsxRuntime.jsx("button", {
-                                children: isReviewing ? "Reviewing..." : "Code Review",
-                                className: askPiButton(currentColors, isReviewing),
-                                title: reviewButtonTitle,
-                                disabled: isReviewing,
-                                type: "button",
-                                onClick: handleFullReview
-                              }),
-                          JsxRuntime.jsx("button", {
-                                children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
-                                className: askPiButton(currentColors, isAskingPi),
-                                disabled: isAskingPi,
-                                type: "button",
-                                onClick: handleAskPi
+                          JsxRuntime.jsxs("div", {
+                                children: [
+                                  JsxRuntime.jsx("button", {
+                                        children: isCommitView ? "Review View" : "Commit View",
+                                        className: buttonStyle,
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setIsCommitView(function (prev) {
+                                                  return !prev;
+                                                });
+                                          })
+                                      }),
+                                  isCommitView ? null : JsxRuntime.jsxs(JsxRuntime.Fragment, {
+                                          children: [
+                                            JsxRuntime.jsx("button", {
+                                                  children: isReviewing ? "Reviewing..." : "Code Review",
+                                                  className: askPiButton(currentColors, isReviewing),
+                                                  title: reviewButtonTitle,
+                                                  disabled: isReviewing,
+                                                  type: "button",
+                                                  onClick: handleFullReview
+                                                }),
+                                            JsxRuntime.jsx("button", {
+                                                  children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
+                                                  className: askPiButton(currentColors, isAskingPi),
+                                                  disabled: isAskingPi,
+                                                  type: "button",
+                                                  onClick: handleAskPi
+                                                })
+                                          ]
+                                        })
+                                ],
+                                className: headerActions
                               }),
                           JsxRuntime.jsx("button", {
                                 children: isDark ? "Light Mode" : "Dark Mode",
@@ -607,7 +641,7 @@ function App(props) {
                         ],
                         className: headerStyle
                       }),
-                  shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
+                  !isCommitView && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
                           children: [
                             JsxRuntime.jsx("span", {
                                   children: "Review",
@@ -617,30 +651,36 @@ function App(props) {
                           ],
                           className: reviewSummaryBar(currentColors)
                         }) : null,
-                  JsxRuntime.jsxs("div", {
-                        children: [
-                          JsxRuntime.jsx("aside", {
-                                children: JsxRuntime.jsx(React$2.FileTree, {
-                                      model: fileTree.model,
-                                      header: Caml_option.some(JsxRuntime.jsx("div", {
-                                                children: "Changed files",
-                                                className: treeHeader(currentColors)
-                                              })),
-                                      style: Caml_option.some(treeStyle(currentColors))
-                                    }),
-                                className: sidebar(currentColors)
-                              }),
-                          JsxRuntime.jsx("main", {
-                                children: JsxRuntime.jsx(React$1.Virtualizer, {
-                                      children: diffChildren,
-                                      style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                                    }),
-                                ref: Caml_option.some(virtualizerWrapperRef),
-                                className: main
-                              })
-                        ],
-                        className: content
-                      })
+                  isCommitView ? JsxRuntime.jsx(CommitView.make, {
+                          patches: patchState._0,
+                          theme: style,
+                          themeType: isDark ? "dark" : "light",
+                          uiColors: currentColors,
+                          onCommitted: requestPatchReload
+                        }) : JsxRuntime.jsxs("div", {
+                          children: [
+                            JsxRuntime.jsx("aside", {
+                                  children: JsxRuntime.jsx(React$2.FileTree, {
+                                        model: fileTree.model,
+                                        header: Caml_option.some(JsxRuntime.jsx("div", {
+                                                  children: "Changed files",
+                                                  className: treeHeader(currentColors)
+                                                })),
+                                        style: Caml_option.some(treeStyle(currentColors))
+                                      }),
+                                  className: sidebar(currentColors)
+                                }),
+                            JsxRuntime.jsx("main", {
+                                  children: JsxRuntime.jsx(React$1.Virtualizer, {
+                                        children: diffChildren,
+                                        style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                                      }),
+                                  ref: Caml_option.some(virtualizerWrapperRef),
+                                  className: main
+                                })
+                          ],
+                          className: content
+                        })
                 ],
                 className: container
               });
@@ -679,4 +719,4 @@ export {
   Styles ,
   make ,
 }
-/* container Not a pure module */
+/* headerActions Not a pure module */
