@@ -98,6 +98,23 @@ function callCreateFeaturePlan(description) {
   return Js_promise.then_(parseResponse, promise);
 }
 
+function callApplyFeaturePlan(request) {
+  console.log("[BAKA UI] applyFeaturePlan called", {
+        descriptionBytes: request.description.length,
+        planBytes: request.plan.length
+      });
+  var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
+    return ((async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw));
+  };
+  var promise = applyFeaturePlan(request);
+  return Js_promise.then_(parseResponse, promise);
+}
+
 function callCommitSelection(request) {
   console.log("[BAKA UI] commitSelection called", {
         messageBytes: request.message.length,
@@ -124,6 +141,7 @@ export {
   callStartFullReview ,
   callApplyReviewSuggestion ,
   callCreateFeaturePlan ,
+  callApplyFeaturePlan ,
   callCommitSelection ,
 }
 /* No side effect */

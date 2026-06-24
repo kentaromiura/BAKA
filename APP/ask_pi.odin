@@ -505,10 +505,25 @@ Pi_Assistant_Message_Event :: struct {
 	text:  string `json:"text"`,
 }
 
+Pi_Message_Content :: struct {
+	type: string `json:"type"`,
+	text: string `json:"text"`,
+}
+
+Pi_Message :: struct {
+	role:    string                       `json:"role"`,
+	content: [dynamic]Pi_Message_Content `json:"content"`,
+}
+
 Pi_Event :: struct {
 	type:                    string                     `json:"type"`,
 	delta:                   string                     `json:"delta"`,
 	assistant_message_event: Pi_Assistant_Message_Event `json:"assistantMessageEvent"`,
+}
+
+Pi_Final_Event :: struct {
+	type:    string     `json:"type"`,
+	message: Pi_Message `json:"message"`,
 }
 
 parsePiDeltaLine :: proc(line: string) -> (string, bool, bool) {
@@ -536,6 +551,71 @@ parsePiDeltaLine :: proc(line: string) -> (string, bool, bool) {
 		return event.delta, true, false
 	}
 	return "", false, false
+}
+
+deletePiFinalEvent :: proc(event: ^Pi_Final_Event) {
+	for item in event.message.content {
+		delete(item.type)
+		delete(item.text)
+	}
+	delete(event.message.content)
+	delete(event.message.role)
+	delete(event.type)
+}
+
+appendPiMessageText :: proc(out: ^strings.Builder, message: Pi_Message) -> bool {
+	if message.role != "" && message.role != "assistant" {
+		return false
+	}
+
+	wrote := false
+	for item in message.content {
+		if item.type == "text" && len(item.text) > 0 {
+			strings.write_string(out, item.text)
+			wrote = true
+		}
+	}
+	return wrote
+}
+
+extractPiFinalMessageText :: proc(output: string) -> string {
+	lines := strings.split(output, "\n")
+	defer delete(lines)
+
+	final_text := strings.builder_make()
+	defer strings.builder_destroy(&final_text)
+	message_text := strings.builder_make()
+	defer strings.builder_destroy(&message_text)
+	final_events := 0
+
+	for line in lines {
+		if !strings.contains(line, `"message"`) {
+			continue
+		}
+		if !strings.contains(line, `"type":"message_end"`) && !strings.contains(line, `"type":"turn_end"`) {
+			continue
+		}
+
+		event: Pi_Final_Event
+		if err := json.unmarshal(transmute([]byte)line, &event); err != nil {
+			continue
+		}
+
+		strings.builder_reset(&message_text)
+		if appendPiMessageText(&message_text, event.message) {
+			strings.builder_reset(&final_text)
+			strings.write_string(&final_text, strings.to_string(message_text))
+			final_events += 1
+		}
+		deletePiFinalEvent(&event)
+	}
+
+	text := strings.to_string(final_text)
+	debug_log(fmt.tprintf("pi final message parsed: %d final text event(s), extracted %d byte(s)", final_events, len(text)))
+	if len(text) > 0 {
+		debug_log(fmt.tprintf("pi final message preview: %s", preview(text)))
+	}
+	return strings.clone(text, context.allocator)
 }
 
 extractPiOutputText :: proc(output: string) -> string {
@@ -670,7 +750,6 @@ runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, 
 		"pi",
 		"--mode",
 		"json",
-		"--print",
 		"--no-session",
 		"--no-context-files",
 	}
@@ -775,6 +854,12 @@ runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, 
 		}
 		return "", err_msg, false
 	}
+
+	final_text := extractPiFinalMessageText(stdout_text)
+	if len(final_text) > 0 {
+		return final_text, "", true
+	}
+	delete(final_text)
 
 	return strings.clone(text, context.allocator), "", true
 }

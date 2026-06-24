@@ -208,13 +208,24 @@ let make = (~uiColors: uiColors) => {
   }
 
   let handleApply = _event => {
-    setFeaturePlan(_ => State.Applying)
-    // Call IPC to apply the plan — we'll add this later
-    Js.log("[BAKA UI] Apply plan requested")
-    Js.Global.setTimeout(() => {
-      setFeaturePlan(_ => State.ApplyDone("Plan applied successfully! (placeholder)"))
-    }, 2000)
-    |> ignore
+    let description = featureDescription->String.trim
+    let plan = planText->String.trim
+    if description != "" && plan != "" {
+      setFeaturePlan(_ => State.Applying)
+      let onSuccess = (result: string): Js.Promise.t<unit> => {
+        setFeaturePlan(_ => State.ApplyDone(result))
+        Js.Promise2.resolve()
+      }
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        setFeaturePlan(_ => State.Error(msg))
+        Js.Promise2.resolve()
+      }
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callApplyFeaturePlan({description, plan}), onSuccess),
+        onError,
+      )
+    }
   }
 
   let canGenerate = !isGenerating && !isApplying && featureDescription->String.trim != ""

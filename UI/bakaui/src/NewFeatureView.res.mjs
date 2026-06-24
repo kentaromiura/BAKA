@@ -180,9 +180,8 @@ function NewFeatureView(props) {
   if (typeof featurePlan === "object") {
     featurePlan.TAG === "PlanReady";
   }
-  if (typeof featurePlan === "object") {
-    featurePlan.TAG === "PlanReady";
-  }
+  var planText;
+  planText = typeof featurePlan !== "object" || featurePlan.TAG !== "PlanReady" ? "" : featurePlan._0;
   var handleGenerate = function (_event) {
     var trimmed = featureDescription.trim();
     if (trimmed === "") {
@@ -221,18 +220,37 @@ function NewFeatureView(props) {
         });
   };
   var handleApply = function (_event) {
+    var description = featureDescription.trim();
+    var plan = planText.trim();
+    if (!(description !== "" && plan !== "")) {
+      return ;
+    }
     setFeaturePlan(function (param) {
           return "Applying";
         });
-    console.log("[BAKA UI] Apply plan requested");
-    setTimeout((function () {
-            setFeaturePlan(function (param) {
-                  return {
-                          TAG: "ApplyDone",
-                          _0: "Plan applied successfully! (placeholder)"
-                        };
-                });
-          }), 2000);
+    var onSuccess = function (result) {
+      setFeaturePlan(function (param) {
+            return {
+                    TAG: "ApplyDone",
+                    _0: result
+                  };
+          });
+      return Promise.resolve();
+    };
+    var onError = function (err) {
+      var msg = (String(err).replace(/^Error: /, ''));
+      setFeaturePlan(function (param) {
+            return {
+                    TAG: "Error",
+                    _0: msg
+                  };
+          });
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callApplyFeaturePlan({
+                  description: description,
+                  plan: plan
+                }), onSuccess), onError);
   };
   var canGenerate = !isGenerating && !isApplying && featureDescription.trim() !== "";
   var statusMessage;

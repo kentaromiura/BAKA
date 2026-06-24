@@ -137,6 +137,7 @@ let callApplyReviewSuggestion = (
 
 type createFeaturePlanRequest = {description: string}
 type createFeaturePlanResult = {plan: string}
+type applyFeaturePlanRequest = {description: string, plan: string}
 
 @val external createFeaturePlan_raw: string => Js.Promise.t<string> = "createFeaturePlan"
 
@@ -151,6 +152,25 @@ let callCreateFeaturePlan = (description: string): Js.Promise.t<createFeaturePla
     })(raw)`)
   }
   let promise = createFeaturePlan_raw(description)
+  Js.Promise.then_(parseResponse)(promise)
+}
+
+@val external applyFeaturePlan_raw: applyFeaturePlanRequest => Js.Promise.t<string> = "applyFeaturePlan"
+
+let callApplyFeaturePlan = (request: applyFeaturePlanRequest): Js.Promise.t<string> => {
+  Js.log2("[BAKA UI] applyFeaturePlan called", {
+    "descriptionBytes": request.description->String.length,
+    "planBytes": request.plan->String.length,
+  })
+  let parseResponse = (raw: string): Js.Promise.t<string> => {
+    let _ = %raw(`console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw)`)
+  }
+  let promise = applyFeaturePlan_raw(request)
   Js.Promise.then_(parseResponse)(promise)
 }
 

@@ -42,6 +42,9 @@ Watcher_Event_File :: struct {
 repo_watcher_started: bool
 
 watchman_log :: proc(message: string) {
+	if !baka_verbose {
+		return
+	}
 	fmt.eprintln("[BAKA watcher]", message)
 }
 
@@ -68,7 +71,7 @@ write_watcher_event :: proc(message: string) {
 	defer delete(payload)
 
 	if err := os.write_entire_file(path, transmute([]byte)payload); err != nil {
-		fmt.eprintln("[BAKA watcher] Failed to write watcher event:", err)
+		watchman_log(fmt.tprintf("Failed to write watcher event: %v", err))
 	}
 }
 
