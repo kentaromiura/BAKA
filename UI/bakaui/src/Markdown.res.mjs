@@ -3,8 +3,8 @@
 import * as MarkdownMjs from "./Markdown.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 
-function preloadMarkdown(prim) {
-  return MarkdownMjs.preloadMarkdown();
+function preloadMarkdown(prim0, prim1) {
+  return MarkdownMjs.preloadMarkdown(prim0, prim1);
 }
 
 function renderMarkdown(prim0, prim1) {

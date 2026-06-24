@@ -5,7 +5,7 @@ let styled = Html.styled
 let str = React.string
 
 type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(string)
-type viewMode = Review | Project | Commit | Feature
+type viewMode = Review | Project | Commit | Feature | Settings
 
 @val external document: {..} = "document"
 @val external getDiffReloadRequestCount: int = "__bakaDiffReloadRequestCount"
@@ -92,6 +92,34 @@ module Styles = {
 
     &:active {
       transform: translateY(1px);
+    }
+  `
+
+  let iconButton = (colors: uiColors) => Html.css`
+    width: 34px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 4px;
+    border: 1px solid ${colors.border};
+    background-color: ${colors.buttonBg};
+    color: ${colors.buttonFg};
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover,
+    &[aria-pressed="true"] {
+      background-color: ${colors.hoverBg};
+      color: ${colors.fg};
+    }
+
+    &:focus-visible {
+      outline: 2px solid ${colors.focusBorder};
+      outline-offset: 1px;
     }
   `
 
@@ -225,12 +253,80 @@ module Styles = {
     font-weight: 600;
     margin-right: 8px;
   `
+
+  let settingsPage = (colors: uiColors) => Html.css`
+    flex: 1;
+    overflow: auto;
+    padding: 32px;
+    background-color: ${colors.bg};
+    color: ${colors.fg};
+  `
+
+  let settingsContent = Html.css`
+    width: min(720px, 100%);
+    margin: 0 auto;
+  `
+
+  let settingsTitle = Html.css`
+    margin: 0 0 8px;
+    font-size: 24px;
+  `
+
+  let settingsDescription = (colors: uiColors) => Html.css`
+    margin: 0 0 24px;
+    color: ${colors.descriptionFg};
+    line-height: 1.5;
+  `
+
+  let settingsGrid = Html.css`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  `
+
+  let settingsCard = (colors: uiColors) => Html.css`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    border: 1px solid ${colors.border};
+    border-radius: 8px;
+    background-color: ${colors.surfaceBg};
+  `
+
+  let settingsLabel = Html.css`
+    font-size: 14px;
+    font-weight: 700;
+  `
+
+  let settingsSelect = (colors: uiColors) => Html.css`
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid ${colors.inputBorder};
+    border-radius: 5px;
+    background-color: ${colors.inputBg};
+    color: ${colors.inputFg};
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid ${colors.focusBorder};
+      outline-offset: 1px;
+    }
+  `
+
+  let settingsHint = (colors: uiColors) => Html.css`
+    min-height: 20px;
+    margin: 16px 0 0;
+    color: ${colors.descriptionFg};
+    font-size: 12px;
+  `
 }
 
 @react.component
 let make = () => {
   let (isDark, setIsDark) = Jotai.Atom.useAtom(isDarkAtom)
-  let (loadedThemes, _) = Jotai.Atom.useAtom(State.themeColorsAtom)
+  let (themeNames, setThemeNames) = Jotai.Atom.useAtom(State.themeAtom)
+  let (loadedThemes, setLoadedThemes) = Jotai.Atom.useAtom(State.themeColorsAtom)
   let (comments, setComments) = Jotai.Atom.useAtom(State.commentsAtom)
   let (reviewSuggestions, setReviewSuggestions) = Jotai.Atom.useAtom(State.reviewSuggestionsAtom)
   let currentColors: uiColors = switch loadedThemes {
@@ -244,6 +340,47 @@ let make = () => {
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
   let (reviewSummaryLabel, setReviewSummaryLabel) = React.useState(() => "Review")
   let (viewMode, setViewMode) = React.useState(() => Review)
+  let (isThemeLoading, setIsThemeLoading) = React.useState(() => false)
+  let themeLoadVersionRef = React.useRef(0)
+  let lightThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("light"))
+  let darkThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("dark"))
+
+  React.useEffect1(() => {
+    themeLoadVersionRef.current = themeLoadVersionRef.current + 1
+    let loadVersion = themeLoadVersionRef.current
+    ThemePreferences.save(themeNames)
+    setIsThemeLoading(_ => true)
+
+    let onMarkdownReady = _ => {
+      if themeLoadVersionRef.current == loadVersion {
+        setIsThemeLoading(_ => false)
+      }
+      Js.Promise2.resolve()
+    }
+    let onThemesReady = themes => {
+      if themeLoadVersionRef.current == loadVersion {
+        setLoadedThemes(_ => themes)
+      }
+      Js.Promise2.then(
+        Markdown.preloadMarkdown(themeNames.light, themeNames.dark),
+        onMarkdownReady,
+      )
+    }
+    let onThemeError = (_error: Js.Promise2.error) => {
+      if themeLoadVersionRef.current == loadVersion {
+        setIsThemeLoading(_ => false)
+      }
+      Js.Promise2.resolve()
+    }
+    let _ = Js.Promise2.catch(
+      Js.Promise2.then(
+        Shiki.loadBothThemes(themeNames.light, themeNames.dark),
+        onThemesReady,
+      ),
+      onThemeError,
+    )
+    None
+  }, [themeNames])
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
@@ -290,6 +427,7 @@ let make = () => {
 
   let headerStyle = Styles.header(currentColors)
   let buttonStyle = Styles.button(currentColors)
+  let settingsAriaPressed = if viewMode == Settings {#"true"} else {#"false"}
 
   let virtualizerWrapperRef: React.ref<Js.Nullable.t<Dom.element>> =
     React.useRef(Js.Nullable.null)
@@ -381,6 +519,18 @@ let make = () => {
   let handleThemeToggle = _event => {
     captureScrollTop()
     setIsDark(prev => !prev)
+  }
+
+  let handleLightThemeChange = event => {
+    let themeName: string = %raw(`event.target.value`)
+    captureScrollTop()
+    setThemeNames(previous => {...previous, light: themeName})
+  }
+
+  let handleDarkThemeChange = event => {
+    let themeName: string = %raw(`event.target.value`)
+    captureScrollTop()
+    setThemeNames(previous => {...previous, dark: themeName})
   }
 
   // Collect all comments with non-empty text, send to pi for review
@@ -581,8 +731,8 @@ let make = () => {
 
   // Build diff children from loaded patches (memoized)
   let style: FileDiff.theme = {
-    light: "rose-pine-dawn",
-    dark: "tokyo-night",
+    light: themeNames.light,
+    dark: themeNames.dark,
   }
 
   let reviewCount = Js.Dict.keys(reviewSuggestions)->Array.length
@@ -612,7 +762,7 @@ let make = () => {
       ""
     }
 
-  let diffChildren = React.useMemo2((): array<React.element> => {
+  let diffChildren = React.useMemo4((): array<React.element> => {
     switch patchState {
     | PatchReady(patches) =>
       patches->Array.flatMap(patch => {
@@ -630,41 +780,116 @@ let make = () => {
       })
     | _ => []
     }
-  }, (patchState, isDark))
+  }, (patchState, isDark, themeNames, currentColors))
+
+  let renderSettings = () =>
+    <main className={Styles.settingsPage(currentColors)}>
+      <div className={Styles.settingsContent}>
+        <h1 className={Styles.settingsTitle}>{str("Settings")}</h1>
+        <p className={Styles.settingsDescription(currentColors)}>
+          {str("Choose the Shiki themes used throughout BAKA. Your selections are saved automatically.")}
+        </p>
+        <div className={Styles.settingsGrid}>
+          <label className={Styles.settingsCard(currentColors)}>
+            <span className={Styles.settingsLabel}>{str("Light theme")}</span>
+            <select
+              value={themeNames.light}
+              onChange={handleLightThemeChange}
+              className={Styles.settingsSelect(currentColors)}
+            >
+              {React.array(lightThemeOptions->Array.map(theme =>
+                <option key={theme.id} value={theme.id}>
+                  {str(theme.displayName)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={Styles.settingsCard(currentColors)}>
+            <span className={Styles.settingsLabel}>{str("Dark theme")}</span>
+            <select
+              value={themeNames.dark}
+              onChange={handleDarkThemeChange}
+              className={Styles.settingsSelect(currentColors)}
+            >
+              {React.array(darkThemeOptions->Array.map(theme =>
+                <option key={theme.id} value={theme.id}>
+                  {str(theme.displayName)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className={Styles.settingsHint(currentColors)}>
+          {str(if isThemeLoading { "Applying themes…" } else { "Theme preferences saved locally." })}
+        </p>
+      </div>
+    </main>
 
   switch patchState {
   | PatchLoading =>
     <div className={Styles.container}>
       <div className={headerStyle}>
-        <button
-          type_="button"
-          onClick={handleThemeToggle}
-          className={buttonStyle}
-        >
-          {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
-        </button>
+        <div className={Styles.headerActions}>
+          <button
+            type_="button"
+            onClick={handleThemeToggle}
+            className={buttonStyle}
+          >
+            {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
+          </button>
+          <button
+            type_="button"
+            ariaLabel="Open settings"
+            title="Settings"
+            ariaPressed={settingsAriaPressed}
+            onClick={_ => setViewMode(_ => Settings)}
+            className={Styles.iconButton(currentColors)}
+          >
+            {str("⚙")}
+          </button>
+        </div>
       </div>
-      <div className={Styles.loadingContainer}>
-        {str("Loading diff...")}
-      </div>
+      {if viewMode == Settings {
+        renderSettings()
+      } else {
+        <div className={Styles.loadingContainer}>
+          {str("Loading diff...")}
+        </div>
+      }}
     </div>
 
   | PatchError(msg) =>
     <div className={Styles.container}>
       <div className={headerStyle}>
-        <button
-          type_="button"
-          onClick={handleThemeToggle}
-          className={buttonStyle}
-        >
-          {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
-        </button>
-      </div>
-      <div className={Styles.errorContainer(currentColors)}>
-        <div className={Styles.errorMessage}>
-          {str("Failed to load diff:\n\n" ++ msg)}
+        <div className={Styles.headerActions}>
+          <button
+            type_="button"
+            onClick={handleThemeToggle}
+            className={buttonStyle}
+          >
+            {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
+          </button>
+          <button
+            type_="button"
+            ariaLabel="Open settings"
+            title="Settings"
+            ariaPressed={settingsAriaPressed}
+            onClick={_ => setViewMode(_ => Settings)}
+            className={Styles.iconButton(currentColors)}
+          >
+            {str("⚙")}
+          </button>
         </div>
       </div>
+      {if viewMode == Settings {
+        renderSettings()
+      } else {
+        <div className={Styles.errorContainer(currentColors)}>
+          <div className={Styles.errorMessage}>
+            {str("Failed to load diff:\n\n" ++ msg)}
+          </div>
+        </div>
+      }}
     </div>
 
   | PatchReady(patches) =>
@@ -746,6 +971,16 @@ let make = () => {
           >
             {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
           </button>
+          <button
+            type_="button"
+            ariaLabel="Open settings"
+            title="Settings"
+            ariaPressed={settingsAriaPressed}
+            onClick={_ => setViewMode(_ => Settings)}
+            className={Styles.iconButton(currentColors)}
+          >
+            {str("⚙")}
+          </button>
         </div>
       </div>
       {viewMode != Commit && shouldShowReviewSummary
@@ -757,6 +992,7 @@ let make = () => {
           </div>
         : React.null}
       {switch viewMode {
+      | Settings => renderSettings()
       | Commit => <CommitView
             patches={patches}
             theme={style}

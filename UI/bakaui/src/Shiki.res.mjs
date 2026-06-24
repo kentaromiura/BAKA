@@ -10,8 +10,8 @@ function loadBothThemes(prim0, prim1) {
   return ShikiThemeMjs.loadBothThemes(prim0, prim1);
 }
 
-function preloadShiki(prim) {
-  return ShikiThemeMjs.preloadShiki();
+function preloadShiki(prim0, prim1) {
+  return ShikiThemeMjs.preloadShiki(prim0, prim1);
 }
 
 export {

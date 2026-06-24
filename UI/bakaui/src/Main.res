@@ -10,11 +10,12 @@ let store = Jotai.Store.make()
 let start = () => {
   registerRescript()
   registerOdinExtension()
-  let _ = Shiki.preloadShiki()
-  let _ = Markdown.preloadMarkdown()
+  let themeNames = ThemePreferences.load()
+  Jotai.Store.set(store, State.themeAtom, themeNames)
+  let _ = Shiki.preloadShiki(themeNames.light, themeNames.dark)
+  let _ = Markdown.preloadMarkdown(themeNames.light, themeNames.dark)
   switch ReactDOM.querySelector("#root") {
   | Some(domElement) =>
-    let themeNames = Jotai.Store.get(store, State.themeAtom)
     let root = ReactDOM.Client.createRoot(domElement)
     let render = () =>
       ReactDOM.Client.Root.render(

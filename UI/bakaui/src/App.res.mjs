@@ -3,12 +3,14 @@
 import * as Ipc from "./Ipc.res.mjs";
 import * as Html from "./Html.res.mjs";
 import * as Diffs from "./Diffs.res.mjs";
+import * as Shiki from "./Shiki.res.mjs";
 import * as State from "./State.res.mjs";
 import * as Trees from "./Trees.res.mjs";
 import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Caml_obj from "rescript/lib/es6/caml_obj.js";
+import * as Markdown from "./Markdown.res.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as CommitView from "./CommitView.res.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
@@ -18,6 +20,7 @@ import * as ProjectView from "./ProjectView.res.mjs";
 import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
 import * as NewFeatureView from "./NewFeatureView.res.mjs";
+import * as ThemePreferences from "./ThemePreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
 import * as React$2 from "@pierre/trees/react";
@@ -89,6 +92,25 @@ function button(colors) {
               colors.buttonBg,
               colors.buttonFg,
               colors.hoverBg
+            ]);
+}
+
+function iconButton(colors) {
+  return Html.css([
+              "\n    width: 34px;\n    height: 32px;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    padding: 0;\n    border-radius: 4px;\n    border: 1px solid ",
+              ";\n    background-color: ",
+              ";\n    color: ",
+              ";\n    font-size: 18px;\n    line-height: 1;\n    cursor: pointer;\n    transition: all 0.2s ease;\n\n    &:hover,\n    &[aria-pressed=\"true\"] {\n      background-color: ",
+              ";\n      color: ",
+              ";\n    }\n\n    &:focus-visible {\n      outline: 2px solid ",
+              ";\n      outline-offset: 1px;\n    }\n  "
+            ], [
+              colors.border,
+              colors.buttonBg,
+              colors.buttonFg,
+              colors.hoverBg,
+              colors.fg,
+              colors.focusBorder
             ]);
 }
 
@@ -202,6 +224,65 @@ function reviewSummaryLabel(colors) {
             ]);
 }
 
+function settingsPage(colors) {
+  return Html.css([
+              "\n    flex: 1;\n    overflow: auto;\n    padding: 32px;\n    background-color: ",
+              ";\n    color: ",
+              ";\n  "
+            ], [
+              colors.bg,
+              colors.fg
+            ]);
+}
+
+var settingsContent = Html.css(["\n    width: min(720px, 100%);\n    margin: 0 auto;\n  "], []);
+
+var settingsTitle = Html.css(["\n    margin: 0 0 8px;\n    font-size: 24px;\n  "], []);
+
+function settingsDescription(colors) {
+  return Html.css([
+              "\n    margin: 0 0 24px;\n    color: ",
+              ";\n    line-height: 1.5;\n  "
+            ], [colors.descriptionFg]);
+}
+
+var settingsGrid = Html.css(["\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));\n    gap: 16px;\n  "], []);
+
+function settingsCard(colors) {
+  return Html.css([
+              "\n    display: flex;\n    flex-direction: column;\n    gap: 10px;\n    padding: 18px;\n    border: 1px solid ",
+              ";\n    border-radius: 8px;\n    background-color: ",
+              ";\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg
+            ]);
+}
+
+var settingsLabel = Html.css(["\n    font-size: 14px;\n    font-weight: 700;\n  "], []);
+
+function settingsSelect(colors) {
+  return Html.css([
+              "\n    width: 100%;\n    padding: 9px 10px;\n    border: 1px solid ",
+              ";\n    border-radius: 5px;\n    background-color: ",
+              ";\n    color: ",
+              ";\n    cursor: pointer;\n\n    &:focus-visible {\n      outline: 2px solid ",
+              ";\n      outline-offset: 1px;\n    }\n  "
+            ], [
+              colors.inputBorder,
+              colors.inputBg,
+              colors.inputFg,
+              colors.focusBorder
+            ]);
+}
+
+function settingsHint(colors) {
+  return Html.css([
+              "\n    min-height: 20px;\n    margin: 16px 0 0;\n    color: ",
+              ";\n    font-size: 12px;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var Styles = {
   appFont: appFont,
   header: header,
@@ -209,6 +290,7 @@ var Styles = {
   tab: tab,
   headerActions: headerActions,
   button: button,
+  iconButton: iconButton,
   askPiButton: askPiButton,
   container: container,
   content: content,
@@ -221,61 +303,119 @@ var Styles = {
   errorContainer: errorContainer,
   errorMessage: errorMessage,
   reviewSummaryBar: reviewSummaryBar,
-  reviewSummaryLabel: reviewSummaryLabel
+  reviewSummaryLabel: reviewSummaryLabel,
+  settingsPage: settingsPage,
+  settingsContent: settingsContent,
+  settingsTitle: settingsTitle,
+  settingsDescription: settingsDescription,
+  settingsGrid: settingsGrid,
+  settingsCard: settingsCard,
+  settingsLabel: settingsLabel,
+  settingsSelect: settingsSelect,
+  settingsHint: settingsHint
 };
 
 function App(props) {
   var match = Jotai.useAtom(State.isDarkAtom);
   var setIsDark = match[1];
   var isDark = match[0];
-  var match$1 = Jotai.useAtom(State.themeColorsAtom);
-  var loadedThemes = match$1[0];
-  var match$2 = Jotai.useAtom(State.commentsAtom);
-  var setComments = match$2[1];
-  var comments = match$2[0];
-  var match$3 = Jotai.useAtom(State.reviewSuggestionsAtom);
-  var setReviewSuggestions = match$3[1];
-  var reviewSuggestions = match$3[0];
+  var match$1 = Jotai.useAtom(State.themeAtom);
+  var setThemeNames = match$1[1];
+  var themeNames = match$1[0];
+  var match$2 = Jotai.useAtom(State.themeColorsAtom);
+  var setLoadedThemes = match$2[1];
+  var loadedThemes = match$2[0];
+  var match$3 = Jotai.useAtom(State.commentsAtom);
+  var setComments = match$3[1];
+  var comments = match$3[0];
+  var match$4 = Jotai.useAtom(State.reviewSuggestionsAtom);
+  var setReviewSuggestions = match$4[1];
+  var reviewSuggestions = match$4[0];
   var currentColors = loadedThemes !== undefined ? (
       isDark ? loadedThemes.dark : loadedThemes.light
     ) : (
       isDark ? State.defaultUiColors : State.lightDefaultUiColors
     );
-  var match$4 = React.useState(function () {
+  var match$5 = React.useState(function () {
         return false;
       });
-  var setIsAskingPi = match$4[1];
-  var isAskingPi = match$4[0];
-  var match$5 = React.useState(function () {
+  var setIsAskingPi = match$5[1];
+  var isAskingPi = match$5[0];
+  var match$6 = React.useState(function () {
         
       });
-  var setActiveReview = match$5[1];
-  var activeReview = match$5[0];
-  var match$6 = React.useState(function () {
+  var setActiveReview = match$6[1];
+  var activeReview = match$6[0];
+  var match$7 = React.useState(function () {
         return "No full review has run yet.";
       });
-  var setReviewSummary = match$6[1];
-  var reviewSummary = match$6[0];
-  var match$7 = React.useState(function () {
-        return "Review";
-      });
-  var setReviewSummaryLabel = match$7[1];
+  var setReviewSummary = match$7[1];
+  var reviewSummary = match$7[0];
   var match$8 = React.useState(function () {
         return "Review";
       });
-  var setViewMode = match$8[1];
-  var viewMode = match$8[0];
+  var setReviewSummaryLabel = match$8[1];
   var match$9 = React.useState(function () {
+        return "Review";
+      });
+  var setViewMode = match$9[1];
+  var viewMode = match$9[0];
+  var match$10 = React.useState(function () {
+        return false;
+      });
+  var setIsThemeLoading = match$10[1];
+  var isThemeLoading = match$10[0];
+  var themeLoadVersionRef = React.useRef(0);
+  var lightThemeOptions = React.useMemo((function () {
+          return ThemePreferences.getOptions("light");
+        }), []);
+  var darkThemeOptions = React.useMemo((function () {
+          return ThemePreferences.getOptions("dark");
+        }), []);
+  React.useEffect((function () {
+          themeLoadVersionRef.current = themeLoadVersionRef.current + 1 | 0;
+          var loadVersion = themeLoadVersionRef.current;
+          ThemePreferences.save(themeNames);
+          setIsThemeLoading(function (param) {
+                return true;
+              });
+          var onMarkdownReady = function (param) {
+            if (themeLoadVersionRef.current === loadVersion) {
+              setIsThemeLoading(function (param) {
+                    return false;
+                  });
+            }
+            return Promise.resolve();
+          };
+          var onThemesReady = function (themes) {
+            if (themeLoadVersionRef.current === loadVersion) {
+              setLoadedThemes(function (param) {
+                    return themes;
+                  });
+            }
+            return Js_promise2.then(Markdown.preloadMarkdown(themeNames.light, themeNames.dark), onMarkdownReady);
+          };
+          var onThemeError = function (_error) {
+            if (themeLoadVersionRef.current === loadVersion) {
+              setIsThemeLoading(function (param) {
+                    return false;
+                  });
+            }
+            return Promise.resolve();
+          };
+          Js_promise2.$$catch(Js_promise2.then(Shiki.loadBothThemes(themeNames.light, themeNames.dark), onThemesReady), onThemeError);
+        }), [themeNames]);
+  var match$11 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$9[1];
-  var patchState = match$9[0];
+  var setPatchState = match$11[1];
+  var patchState = match$11[0];
   var diffReloadPollVersionRef = React.useRef(0);
-  var match$10 = React.useState(function () {
+  var match$12 = React.useState(function () {
         return 0;
       });
-  var setDiffReloadPollVersion = match$10[1];
-  var diffReloadPollVersion = match$10[0];
+  var setDiffReloadPollVersion = match$12[1];
+  var diffReloadPollVersion = match$12[0];
   var requestPatchReload = function () {
     setDiffReloadPollVersion(function (prev) {
           return prev + 1 | 0;
@@ -325,6 +465,7 @@ function App(props) {
         }), [diffReloadPollVersion]);
   var headerStyle = header(currentColors);
   var buttonStyle = button(currentColors);
+  var settingsAriaPressed = viewMode === "Settings" ? "true" : "false";
   var virtualizerWrapperRef = React.useRef(null);
   var savedScrollTop = React.useRef(0.0);
   var isInitialRender = React.useRef(true);
@@ -400,6 +541,26 @@ function App(props) {
     captureScrollTop();
     setIsDark(function (prev) {
           return !prev;
+        });
+  };
+  var handleLightThemeChange = function ($$event) {
+    var themeName = event.target.value;
+    captureScrollTop();
+    setThemeNames(function (previous) {
+          return {
+                  light: themeName,
+                  dark: previous.dark
+                };
+        });
+  };
+  var handleDarkThemeChange = function ($$event) {
+    var themeName = event.target.value;
+    captureScrollTop();
+    setThemeNames(function (previous) {
+          return {
+                  light: previous.light,
+                  dark: themeName
+                };
         });
   };
   var handleAskPi = function (_event) {
@@ -640,9 +801,11 @@ function App(props) {
                     cancelAnimationFrame(handle);
                   });
         }), [isDark]);
+  var style_light = themeNames.light;
+  var style_dark = themeNames.dark;
   var style = {
-    light: "rose-pine-dawn",
-    dark: "tokyo-night"
+    light: style_light,
+    dark: style_dark
   };
   var reviewCount = Object.keys(reviewSuggestions).length;
   var actionableReviewCount = Core__Array.reduce(Object.keys(reviewSuggestions), 0, (function (count, key) {
@@ -687,24 +850,111 @@ function App(props) {
           }
         }), [
         patchState,
-        isDark
+        isDark,
+        themeNames,
+        currentColors
       ]);
+  var renderSettings = function () {
+    return JsxRuntime.jsx("main", {
+                children: JsxRuntime.jsxs("div", {
+                      children: [
+                        JsxRuntime.jsx("h1", {
+                              children: "Settings",
+                              className: settingsTitle
+                            }),
+                        JsxRuntime.jsx("p", {
+                              children: "Choose the Shiki themes used throughout BAKA. Your selections are saved automatically.",
+                              className: settingsDescription(currentColors)
+                            }),
+                        JsxRuntime.jsxs("div", {
+                              children: [
+                                JsxRuntime.jsxs("label", {
+                                      children: [
+                                        JsxRuntime.jsx("span", {
+                                              children: "Light theme",
+                                              className: settingsLabel
+                                            }),
+                                        JsxRuntime.jsx("select", {
+                                              children: lightThemeOptions.map(function (theme) {
+                                                    return JsxRuntime.jsx("option", {
+                                                                children: theme.displayName,
+                                                                value: theme.id
+                                                              }, theme.id);
+                                                  }),
+                                              className: settingsSelect(currentColors),
+                                              value: themeNames.light,
+                                              onChange: handleLightThemeChange
+                                            })
+                                      ],
+                                      className: settingsCard(currentColors)
+                                    }),
+                                JsxRuntime.jsxs("label", {
+                                      children: [
+                                        JsxRuntime.jsx("span", {
+                                              children: "Dark theme",
+                                              className: settingsLabel
+                                            }),
+                                        JsxRuntime.jsx("select", {
+                                              children: darkThemeOptions.map(function (theme) {
+                                                    return JsxRuntime.jsx("option", {
+                                                                children: theme.displayName,
+                                                                value: theme.id
+                                                              }, theme.id);
+                                                  }),
+                                              className: settingsSelect(currentColors),
+                                              value: themeNames.dark,
+                                              onChange: handleDarkThemeChange
+                                            })
+                                      ],
+                                      className: settingsCard(currentColors)
+                                    })
+                              ],
+                              className: settingsGrid
+                            }),
+                        JsxRuntime.jsx("p", {
+                              children: isThemeLoading ? "Applying themes…" : "Theme preferences saved locally.",
+                              className: settingsHint(currentColors)
+                            })
+                      ],
+                      className: settingsContent
+                    }),
+                className: settingsPage(currentColors)
+              });
+  };
   if (typeof patchState !== "object") {
     return JsxRuntime.jsxs("div", {
                 children: [
                   JsxRuntime.jsx("div", {
-                        children: JsxRuntime.jsx("button", {
-                              children: isDark ? "Light Mode" : "Dark Mode",
-                              className: buttonStyle,
-                              type: "button",
-                              onClick: handleThemeToggle
+                        children: JsxRuntime.jsxs("div", {
+                              children: [
+                                JsxRuntime.jsx("button", {
+                                      children: isDark ? "Light Mode" : "Dark Mode",
+                                      className: buttonStyle,
+                                      type: "button",
+                                      onClick: handleThemeToggle
+                                    }),
+                                JsxRuntime.jsx("button", {
+                                      children: "⚙",
+                                      "aria-label": "Open settings",
+                                      "aria-pressed": settingsAriaPressed,
+                                      className: iconButton(currentColors),
+                                      title: "Settings",
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (param) {
+                                                return "Settings";
+                                              });
+                                        })
+                                    })
+                              ],
+                              className: headerActions
                             }),
                         className: headerStyle
                       }),
-                  JsxRuntime.jsx("div", {
-                        children: "Loading diff...",
-                        className: loadingContainer
-                      })
+                  viewMode === "Settings" ? renderSettings() : JsxRuntime.jsx("div", {
+                          children: "Loading diff...",
+                          className: loadingContainer
+                        })
                 ],
                 className: container
               });
@@ -713,21 +963,39 @@ function App(props) {
     return JsxRuntime.jsxs("div", {
                 children: [
                   JsxRuntime.jsx("div", {
-                        children: JsxRuntime.jsx("button", {
-                              children: isDark ? "Light Mode" : "Dark Mode",
-                              className: buttonStyle,
-                              type: "button",
-                              onClick: handleThemeToggle
+                        children: JsxRuntime.jsxs("div", {
+                              children: [
+                                JsxRuntime.jsx("button", {
+                                      children: isDark ? "Light Mode" : "Dark Mode",
+                                      className: buttonStyle,
+                                      type: "button",
+                                      onClick: handleThemeToggle
+                                    }),
+                                JsxRuntime.jsx("button", {
+                                      children: "⚙",
+                                      "aria-label": "Open settings",
+                                      "aria-pressed": settingsAriaPressed,
+                                      className: iconButton(currentColors),
+                                      title: "Settings",
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (param) {
+                                                return "Settings";
+                                              });
+                                        })
+                                    })
+                              ],
+                              className: headerActions
                             }),
                         className: headerStyle
                       }),
-                  JsxRuntime.jsx("div", {
-                        children: JsxRuntime.jsx("div", {
-                              children: "Failed to load diff:\n\n" + patchState._0,
-                              className: errorMessage
-                            }),
-                        className: errorContainer(currentColors)
-                      })
+                  viewMode === "Settings" ? renderSettings() : JsxRuntime.jsx("div", {
+                          children: JsxRuntime.jsx("div", {
+                                children: "Failed to load diff:\n\n" + patchState._0,
+                                className: errorMessage
+                              }),
+                          className: errorContainer(currentColors)
+                        })
                 ],
                 className: container
               });
@@ -780,6 +1048,9 @@ function App(props) {
         tmp = JsxRuntime.jsx(NewFeatureView.make, {
               uiColors: currentColors
             });
+        break;
+    case "Settings" :
+        tmp = renderSettings();
         break;
     
   }
@@ -880,6 +1151,19 @@ function App(props) {
                                       className: buttonStyle,
                                       type: "button",
                                       onClick: handleThemeToggle
+                                    }),
+                                JsxRuntime.jsx("button", {
+                                      children: "⚙",
+                                      "aria-label": "Open settings",
+                                      "aria-pressed": settingsAriaPressed,
+                                      className: iconButton(currentColors),
+                                      title: "Settings",
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (param) {
+                                                return "Settings";
+                                              });
+                                        })
                                     })
                               ],
                               className: headerActions
@@ -890,7 +1174,7 @@ function App(props) {
                 viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("span", {
-                                children: match$7[0],
+                                children: match$8[0],
                                 className: reviewSummaryLabel(currentColors)
                               }),
                           reviewSummaryText

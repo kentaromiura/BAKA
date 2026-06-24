@@ -3,9 +3,6 @@ import Shiki from "@shikijs/markdown-it";
 import { bundledLanguages } from "shiki";
 import rescriptGrammar from "./rescript.tmLanguage.json";
 
-const SHIKI_LIGHT = "rose-pine-dawn";
-const SHIKI_DARK = "tokyo-night";
-
 const rescriptLang = {
   ...rescriptGrammar,
   name: "rescript",
@@ -14,41 +11,53 @@ const rescriptLang = {
 
 const langs = [...Object.keys(bundledLanguages), rescriptLang];
 
-let preloadPromise = null;
 let lightMd = null;
 let darkMd = null;
 let preloadError = null;
+let loadedThemeKey = null;
+let requestedThemeKey = null;
+const markdownCache = new Map();
 
-async function preloadMarkdown() {
-  if (preloadPromise) return preloadPromise;
-  preloadPromise = (async () => {
-    try {
-      console.log("[Markdown] preload starting");
-      const [lightPlugin, darkPlugin] = await Promise.all([
-        Shiki({ theme: SHIKI_LIGHT, langs }),
-        Shiki({ theme: SHIKI_DARK, langs }),
-      ]);
-
-      lightMd = new MarkdownIt({
-        html: false,
-        linkify: true,
-        breaks: true,
-      });
-      lightMd.use(lightPlugin);
-
-      darkMd = new MarkdownIt({
-        html: false,
-        linkify: true,
-        breaks: true,
-      });
-      darkMd.use(darkPlugin);
-      console.log("[Markdown] preload done, instances ready");
-    } catch (err) {
-      preloadError = err;
-      console.error("[Markdown] preload failed:", err);
-    }
+function createMarkdown(theme) {
+  if (markdownCache.has(theme)) return markdownCache.get(theme);
+  const promise = (async () => {
+    const plugin = await Shiki({ theme, langs });
+    const markdown = new MarkdownIt({
+      html: false,
+      linkify: true,
+      breaks: true,
+    });
+    markdown.use(plugin);
+    return markdown;
   })();
-  return preloadPromise;
+  markdownCache.set(theme, promise);
+  return promise;
+}
+
+async function preloadMarkdown(lightTheme, darkTheme) {
+  const themeKey = `${lightTheme}:${darkTheme}`;
+  requestedThemeKey = themeKey;
+  if (loadedThemeKey === themeKey && lightMd && darkMd) return;
+
+  preloadError = null;
+  try {
+    console.log("[Markdown] preload starting");
+    const [nextLightMd, nextDarkMd] = await Promise.all([
+      createMarkdown(lightTheme),
+      createMarkdown(darkTheme),
+    ]);
+    if (requestedThemeKey === themeKey) {
+      lightMd = nextLightMd;
+      darkMd = nextDarkMd;
+      loadedThemeKey = themeKey;
+      console.log("[Markdown] preload done, instances ready");
+    }
+  } catch (err) {
+    markdownCache.delete(lightTheme);
+    markdownCache.delete(darkTheme);
+    preloadError = err;
+    console.error("[Markdown] preload failed:", err);
+  }
 }
 
 function escapeHtml(s) {

@@ -1,16 +1,11 @@
 const themeCache = new Map();
-let preloadPromise = null;
 
-async function preloadShiki() {
-  if (preloadPromise) return preloadPromise;
-  preloadPromise = (async () => {
-    const { preloadHighlighter } = await import("@pierre/diffs");
-    await preloadHighlighter({
-      themes: ["rose-pine-dawn", "tokyo-night"],
-      langs: ["javascript", "typescript", "json", "html", "css", "markdown", "tsx", "jsx", "rescript", "odin"],
-    });
-  })();
-  return preloadPromise;
+async function preloadShiki(lightTheme, darkTheme) {
+  const { preloadHighlighter } = await import("@pierre/diffs");
+  await preloadHighlighter({
+    themes: [lightTheme, darkTheme],
+    langs: ["javascript", "typescript", "json", "html", "css", "markdown", "tsx", "jsx", "rescript", "odin"],
+  });
 }
 
 async function loadThemeColors(themeName) {
@@ -61,6 +56,7 @@ async function loadThemeColors(themeName) {
 
 async function loadBothThemes(lightTheme, darkTheme) {
   try {
+    await preloadShiki(lightTheme, darkTheme);
     const [lightColors, darkColors] = await Promise.all([
       loadThemeColors(lightTheme),
       loadThemeColors(darkTheme),

@@ -8,6 +8,7 @@ import * as React from "react";
 import * as Markdown from "./Markdown.res.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as ThemePreferences from "./ThemePreferences.res.mjs";
 import * as Client from "react-dom/client";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as RegisterLanguagesMjs from "./RegisterLanguages.mjs";
@@ -25,13 +26,14 @@ var store = Jotai.createStore();
 function start() {
   RegisterLanguagesMjs.registerRescript();
   RegisterLanguagesMjs.registerOdinExtension();
-  Shiki.preloadShiki();
-  Markdown.preloadMarkdown();
+  var themeNames = ThemePreferences.load();
+  store.set(State.themeAtom, themeNames);
+  Shiki.preloadShiki(themeNames.light, themeNames.dark);
+  Markdown.preloadMarkdown(themeNames.light, themeNames.dark);
   var domElement = document.querySelector("#root");
   if (domElement == null) {
     return ;
   }
-  var themeNames = store.get(State.themeAtom);
   var root = Client.createRoot(domElement);
   var render = function () {
     root.render(JsxRuntime.jsx(React.StrictMode, {

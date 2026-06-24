@@ -1,5 +1,5 @@
 @module("./Markdown.mjs")
-external preloadMarkdown: unit => Js.Promise.t<unit> = "preloadMarkdown"
+external preloadMarkdown: (string, string) => Js.Promise.t<unit> = "preloadMarkdown"
 
 @module("./Markdown.mjs")
 external renderMarkdown: (string, string) => string = "renderMarkdown"
