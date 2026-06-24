@@ -29,9 +29,12 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 WEBVIEW_LIBRARY := libwebview.dylib
 APP_RPATH := @executable_path/webview/core
+APP_LINKER_FLAGS := -Wl,-rpath,$(APP_RPATH)
 else ifeq ($(UNAME_S),Linux)
 WEBVIEW_LIBRARY := libwebview.so
-APP_RPATH := $$ORIGIN/webview/core
+# Odin invokes the linker through another shell, so preserve $ORIGIN for it.
+APP_RPATH := \$$ORIGIN/webview/core
+APP_LINKER_FLAGS := -L"$(WEBVIEW_LIB_DIR)" -Wl,-rpath,$(APP_RPATH)
 else
 $(error Unsupported operating system: $(UNAME_S))
 endif
@@ -74,13 +77,13 @@ $(WEBVIEW_BUILD_STAMP): $(WEBVIEW_SOURCES) Makefile
 
 app: $(APP_BIN)
 
-$(APP_BIN): $(APP_SOURCES) $(UI_BUILD_STAMP) $(WEBVIEW_BUILD_STAMP)
+$(APP_BIN): $(APP_SOURCES) $(UI_BUILD_STAMP) $(WEBVIEW_BUILD_STAMP) Makefile
 	cd "$(WEBVIEW_LIB_DIR)" && \
 		$(ODIN) build "$(ROOT)/APP" \
 			-define:SHARED=true \
 			-define:LOCAL=false \
 			-out:"$(APP_BIN)" \
-			-extra-linker-flags='-Wl,-rpath,$(APP_RPATH)' \
+			-extra-linker-flags='$(APP_LINKER_FLAGS)' \
 			$(ODIN_FLAGS)
 
 run: app
