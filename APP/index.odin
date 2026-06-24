@@ -343,6 +343,8 @@ main :: proc() {
 	webview.bind(w, "getWatcherEvents", handle_get_watcher_events, nil)
 	webview.bind(w, "askPi", handle_ask_pi, nil)
 	webview.bind(w, "askPiWithDiff", handle_ask_pi_with_diff, nil)
+	webview.bind(w, "startFullReview", handle_start_full_review, nil)
+	webview.bind(w, "applyReviewSuggestion", handle_apply_review_suggestion, nil)
 
 	html := strings.builder_make()
 	strings.write_string(&html, `<html>

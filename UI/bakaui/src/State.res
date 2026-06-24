@@ -5,6 +5,16 @@ type commentData = {
   aiReply: aiReplyState,
 }
 
+type reviewSuggestion = {
+  summary: string,
+  severity: string,
+  actionable: bool,
+  suggestion: string,
+  isApplying: bool,
+  applyResult: option<string>,
+  applyError: option<string>,
+}
+
 type themeType = {
   light: string,
   dark: string,
@@ -37,6 +47,8 @@ type uiColors = {
 let counter = Jotai.Atom.make(0)
 
 let commentsAtom: Jotai.Atom.t<Js.Dict.t<commentData>, _, _> = Jotai.Atom.make(Js.Dict.empty())
+
+let reviewSuggestionsAtom: Jotai.Atom.t<Js.Dict.t<reviewSuggestion>, _, _> = Jotai.Atom.make(Js.Dict.empty())
 
 let themeAtom: Jotai.Atom.t<themeType, _, _> = Jotai.Atom.make({
   light: "rose-pine-dawn",

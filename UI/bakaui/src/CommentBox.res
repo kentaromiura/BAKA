@@ -205,6 +205,52 @@ module Styles = {
     color: #ffffff;
     font-size: 13px;
   `
+
+  let reviewMeta = (colors: uiColors) =>
+    Html.css`
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: 1px solid ${colors.border};
+    background-color: ${colors.inputBg};
+    color: ${colors.fg};
+    font-size: 13px;
+    line-height: 1.45;
+  `
+
+  let suggestionPre = (colors: uiColors) =>
+    Html.css`
+    margin: 8px 0 0 0;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    background-color: ${colors.surfaceBg};
+    border: 1px solid ${colors.border};
+    font-family: monospace;
+    font-size: 12px;
+  `
+
+  let applyButton = (colors: uiColors) =>
+    Html.css`
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid ${colors.focusBorder};
+    background-color: ${colors.buttonBg};
+    color: ${colors.buttonFg};
+    font-size: 13px;
+    cursor: pointer;
+    &:hover { background-color: ${colors.buttonHoverBg}; }
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+  `
+
+  let applyResult = (colors: uiColors) =>
+    Html.css`
+    margin-top: 8px;
+    color: ${colors.descriptionFg};
+    font-size: 12px;
+  `
 }
 
 @react.component
@@ -217,8 +263,10 @@ let make = (
   ~uiColors: uiColors,
   ~themeType: string,
 ) => {
+  let (reviewSuggestions, setReviewSuggestions) = Jotai.Atom.useAtom(State.reviewSuggestionsAtom)
   let comment =
     Js.Dict.get(comments, commentKey)->Belt.Option.getWithDefault({text: "", aiReply: AiIdle})
+  let reviewSuggestion = Js.Dict.get(reviewSuggestions, commentKey)
   let initialText: string = comment.text
   let (localText, setLocalText) = React.useState(() => initialText)
 
@@ -245,6 +293,54 @@ let make = (
     })
   }
 
+  let updateReviewSuggestion = (next: State.reviewSuggestion): unit => {
+    setReviewSuggestions(prev => {
+      let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+      Js.Dict.set(newDict, commentKey, next)
+      newDict
+    })
+  }
+
+  let handleApplySuggestion = (item: State.reviewSuggestion, _event) => {
+    if !item.isApplying {
+      Js.log2("[BAKA UI] Apply suggestion clicked", commentKey)
+      Js.log2("[BAKA UI] Apply suggestion bytes", item.suggestion->String.length)
+      updateReviewSuggestion({...item, isApplying: true, applyResult: None, applyError: None})
+      let onSuccess = (message: string): Js.Promise.t<unit> => {
+        Js.log2("[BAKA UI] Apply suggestion success", message)
+        updateReviewSuggestion({
+          ...item,
+          isApplying: false,
+          applyResult: Some(message),
+          applyError: None,
+        })
+        let _ = %raw(`window.__bakaDiffReloadRequestCount = (window.__bakaDiffReloadRequestCount || 0) + 1`)
+        Js.Promise2.resolve()
+      }
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        Js.log2("[BAKA UI] Apply suggestion error", msg)
+        updateReviewSuggestion({
+          ...item,
+          isApplying: false,
+          applyResult: None,
+          applyError: Some(msg),
+        })
+        Js.Promise2.resolve()
+      }
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(
+          Ipc.callApplyReviewSuggestion({
+            commentKey: commentKey,
+            suggestion: item.suggestion,
+          }),
+          onSuccess,
+        ),
+        onError,
+      )
+    }
+  }
+
   let aiReplyContent = switch comment.aiReply {
   | AiIdle => <> </>
   | AiStreaming(partial) =>
@@ -257,6 +353,42 @@ let make = (
       Js.log(errMsg)
       <div className={Styles.aiError(uiColors)}> {React.string("Pi error: " ++ errMsg)} </div>
     }
+  }
+
+  let reviewSuggestionContent = switch reviewSuggestion {
+  | Some(item) if item.actionable =>
+    <div className={Styles.reviewMeta(uiColors)}>
+      <div>
+        {React.string("Severity: " ++ item.severity)}
+      </div>
+      <details>
+        <summary>{React.string("Suggested fix")}</summary>
+        <pre className={Styles.suggestionPre(uiColors)}>
+          {React.string(item.suggestion)}
+        </pre>
+      </details>
+      <button
+        onClick={ev => handleApplySuggestion(item, ev)}
+        disabled={item.isApplying}
+        className={Styles.applyButton(uiColors)}>
+        {React.string(if item.isApplying { "Applying..." } else { "Apply suggestion" })}
+      </button>
+      {switch item.applyResult {
+       | Some(message) =>
+         <div className={Styles.applyResult(uiColors)}>{React.string(message)}</div>
+       | None => React.null
+       }}
+      {switch item.applyError {
+       | Some(message) =>
+         <div className={Styles.aiError(uiColors)}>{React.string("Apply failed: " ++ message)}</div>
+       | None => React.null
+       }}
+    </div>
+  | Some(item) =>
+    <div className={Styles.reviewMeta(uiColors)}>
+      {React.string("Severity: " ++ item.severity)}
+    </div>
+  | None => React.null
   }
 
   <>
@@ -278,5 +410,6 @@ let make = (
       </button>
     </div>
     {aiReplyContent}
+    {reviewSuggestionContent}
   </>
 }

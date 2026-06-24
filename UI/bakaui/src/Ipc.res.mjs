@@ -4,6 +4,7 @@ import * as Js_promise from "rescript/lib/es6/js_promise.js";
 
 function callGetPatch() {
   var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})));
     return ((async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -14,7 +15,9 @@ function callGetPatch() {
 }
 
 function callGetFilePatch(path) {
+  console.log("[BAKA UI] getFilePatch called", path);
   var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})));
     return ((async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -25,8 +28,9 @@ function callGetFilePatch(path) {
 }
 
 function callAskPi(comments) {
+  console.log("[BAKA UI] askPi called with comment count", comments.length);
   var parseResponse = function (raw) {
-    console.log("response", raw);
+    ((console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})));
     return ((async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -34,12 +38,15 @@ function callAskPi(comments) {
     })(raw));
   };
   var promise = (askPi(...comments));
-  console.log(promise);
+  console.log("[BAKA UI] askPi promise", promise);
   return Js_promise.then_(parseResponse, promise);
 }
 
 function callAskPiWithDiff(diff, comments) {
+  console.log("[BAKA UI] askPiWithDiff diff bytes", diff.length);
+  console.log("[BAKA UI] askPiWithDiff comment count", comments.length);
   var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})));
     return ((async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -50,10 +57,39 @@ function callAskPiWithDiff(diff, comments) {
   return Js_promise.then_(parseResponse, promise);
 }
 
+function callStartFullReview() {
+  console.log("[BAKA UI] startFullReview called");
+  var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})));
+    return ((async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw));
+  };
+  return Js_promise.then_(parseResponse, startFullReview("{}"));
+}
+
+function callApplyReviewSuggestion(request) {
+  console.log("[BAKA UI] applyReviewSuggestion called", request);
+  var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
+    return ((async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw));
+  };
+  var promise = (applyReviewSuggestion(request));
+  return Js_promise.then_(parseResponse, promise);
+}
+
 export {
   callGetPatch ,
   callGetFilePatch ,
   callAskPi ,
   callAskPiWithDiff ,
+  callStartFullReview ,
+  callApplyReviewSuggestion ,
 }
 /* No side effect */

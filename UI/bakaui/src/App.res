@@ -138,6 +138,26 @@ module Styles = {
     max-width: 400px;
     white-space: pre-wrap;
   `
+
+  let reviewSummaryBar = (colors: uiColors) => Html.css`
+    padding: 8px 12px;
+    border-bottom: 1px solid ${colors.border};
+    background-color: ${colors.inputBg};
+    color: ${colors.fg};
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow: auto;
+  `
+
+  let reviewSummaryLabel = (colors: uiColors) => Html.css`
+    color: ${colors.descriptionFg};
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 8px;
+    text-transform: uppercase;
+  `
 }
 
 @react.component
@@ -145,6 +165,7 @@ let make = () => {
   let (isDark, setIsDark) = Jotai.Atom.useAtom(isDarkAtom)
   let (loadedThemes, _) = Jotai.Atom.useAtom(State.themeColorsAtom)
   let (comments, setComments) = Jotai.Atom.useAtom(State.commentsAtom)
+  let (reviewSuggestions, setReviewSuggestions) = Jotai.Atom.useAtom(State.reviewSuggestionsAtom)
   let currentColors: uiColors = switch loadedThemes {
   | Some(themes) => if isDark { themes.dark } else { themes.light }
   | None => if isDark { State.defaultUiColors } else { State.lightDefaultUiColors }
@@ -152,6 +173,8 @@ let make = () => {
 
   // Pi request loading state
   let (isAskingPi, setIsAskingPi) = React.useState(() => false)
+  let (isReviewing, setIsReviewing) = React.useState(() => false)
+  let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
@@ -171,13 +194,17 @@ let make = () => {
 
   // Fetch patch on mount and whenever the native watcher asks for a reload.
   React.useEffect1(() => {
+    Js.log2("[BAKA UI] fetching patch; reload version", diffReloadPollVersion)
     let onSuccess = (rawPatch: string): Js.Promise.t<unit> => {
       let patches = parsePatchFiles(rawPatch)
+      Js.log2("[BAKA UI] patch loaded bytes", rawPatch->String.length)
+      Js.log2("[BAKA UI] parsed patch groups", patches->Array.length)
       setPatchState(_ => PatchReady(patches))
       Js.Promise2.resolve()
     }
     let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
       let msg = %raw(`String(err).replace(/^Error: /, '')`)
+      Js.log2("[BAKA UI] patch load error", msg)
       setPatchState(_ => PatchError(msg))
       Js.Promise2.resolve()
     }
@@ -265,6 +292,7 @@ let make = () => {
   // Collect all comments with non-empty text, send to pi for review
   let handleAskPi = _event => {
     if !isAskingPi {
+      Js.log("[BAKA UI] Ask Pi button clicked")
       // Build payload: only comments that have text and no reply yet
       let payloadComments = Js.Dict.keys(comments)->Array.filterMap(key => {
         switch Js.Dict.get(comments, key) {
@@ -275,6 +303,7 @@ let make = () => {
       })
 
       if payloadComments->Array.length == 0 {
+        Js.log("[BAKA UI] Ask Pi has no pending comments")
         // Nothing to ask about — mark all non-empty comments as done with empty reply
         setComments(prev => {
           let newDict = InlineComment.copyDict(prev)
@@ -288,6 +317,7 @@ let make = () => {
           newDict
         })
       } else {
+        Js.log2("[BAKA UI] Ask Pi sending comment count", payloadComments->Array.length)
         // Set all pending comments to streaming state
         setComments(prev => {
           let newDict = InlineComment.copyDict(prev)
@@ -304,10 +334,12 @@ let make = () => {
         setIsAskingPi(_ => true)
 
         let onSuccess = (replies: array<Ipc.askPiReply>): Js.Promise.t<unit> => {
+          Js.log2("[BAKA UI] Ask Pi success replies", replies->Array.length)
           setComments(prev => {
             let newDict = InlineComment.copyDict(prev)
             replies->Array.forEach(reply => {
               let key = InlineComment.normalizeModelKey(reply.commentKey)
+              Js.log2("[BAKA UI] Ask Pi applying reply key", key)
               switch Js.Dict.get(newDict, key) {
               | Some(c) =>
                 Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiDone(reply.reply)})
@@ -322,6 +354,7 @@ let make = () => {
 
         let onError = (_err: Js.Promise2.error): Js.Promise.t<unit> => {
           let msg = %raw(`String(_err).replace(/^Error: /, '')`)
+          Js.log2("[BAKA UI] Ask Pi error", msg)
           // Mark all streaming comments as error
           setComments(prev => {
             let newDict = InlineComment.copyDict(prev)
@@ -343,6 +376,67 @@ let make = () => {
           onError,
         )
       }
+    }
+  }
+
+  let handleFullReview = _event => {
+    if !isReviewing {
+      Js.log("[BAKA UI] Code Review button clicked")
+      setIsReviewing(_ => true)
+      setReviewSummary(_ => "Pi is reviewing the current diff...")
+
+      let onSuccess = (review: Ipc.fullReviewResult): Js.Promise.t<unit> => {
+        Js.log2("[BAKA UI] Full review success summary", review.summary)
+        Js.log2("[BAKA UI] Full review finding count", review.findings->Array.length)
+        setReviewSummary(_ => review.summary)
+        setComments(prev => {
+          let newDict = InlineComment.copyDict(prev)
+          review.findings->Array.forEach(finding => {
+            let key = InlineComment.normalizeModelKey(finding.commentKey)
+            Js.log2("[BAKA UI] Full review inserting annotation", key)
+            let text = "Pi review: " ++ finding.summary
+            let body = if finding.body->String.trim->String.length > 0 {
+              finding.body
+            } else {
+              finding.summary
+            }
+            Js.Dict.set(newDict, key, {text: text, aiReply: State.AiDone(body)})
+          })
+          newDict
+        })
+        setReviewSuggestions(prev => {
+          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+          review.findings->Array.forEach(finding => {
+            let key = InlineComment.normalizeModelKey(finding.commentKey)
+            Js.log2("[BAKA UI] Full review storing suggestion metadata", key)
+            Js.Dict.set(newDict, key, {
+              summary: finding.summary,
+              severity: finding.severity,
+              actionable: finding.actionable,
+              suggestion: finding.suggestion,
+              isApplying: false,
+              applyResult: None,
+              applyError: None,
+            })
+          })
+          newDict
+        })
+        setIsReviewing(_ => false)
+        Js.Promise2.resolve()
+      }
+
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        Js.log2("[BAKA UI] Full review error", msg)
+        setReviewSummary(_ => "Review failed: " ++ msg)
+        setIsReviewing(_ => false)
+        Js.Promise2.resolve()
+      }
+
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callStartFullReview(), onSuccess),
+        onError,
+      )
     }
   }
 
@@ -376,6 +470,30 @@ let make = () => {
     light: "rose-pine-dawn",
     dark: "tokyo-night",
   }
+
+  let reviewCount = Js.Dict.keys(reviewSuggestions)->Array.length
+  let actionableReviewCount =
+    Js.Dict.keys(reviewSuggestions)->Array.reduce(0, (count, key) => {
+      switch Js.Dict.get(reviewSuggestions, key) {
+      | Some(item) if item.actionable => count + 1
+      | _ => count
+      }
+    })
+  let reviewButtonTitle =
+    reviewSummary ++
+    if reviewCount > 0 {
+      "\n\n" ++ Int.toString(reviewCount) ++ " finding(s), " ++ Int.toString(actionableReviewCount) ++ " actionable."
+    } else {
+      ""
+    }
+  let shouldShowReviewSummary = isReviewing || reviewSummary != "No full review has run yet."
+  let reviewSummaryText =
+    reviewSummary ++
+    if reviewCount > 0 {
+      "\n" ++ Int.toString(reviewCount) ++ " finding(s), " ++ Int.toString(actionableReviewCount) ++ " actionable."
+    } else {
+      ""
+    }
 
   let diffChildren = React.useMemo2((): array<React.element> => {
     switch patchState {
@@ -437,6 +555,15 @@ let make = () => {
       <div className={headerStyle}>
         <button
           type_="button"
+          onClick={handleFullReview}
+          disabled={isReviewing}
+          title={reviewButtonTitle}
+          className={Styles.askPiButton(currentColors, isReviewing)}
+        >
+          {str(if isReviewing { "Reviewing..." } else { "Code Review" })}
+        </button>
+        <button
+          type_="button"
           onClick={handleAskPi}
           disabled={isAskingPi}
           className={Styles.askPiButton(currentColors, isAskingPi)}
@@ -451,6 +578,14 @@ let make = () => {
           {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
         </button>
       </div>
+      {shouldShowReviewSummary
+        ? <div className={Styles.reviewSummaryBar(currentColors)}>
+            <span className={Styles.reviewSummaryLabel(currentColors)}>
+              {str("Review")}
+            </span>
+            {str(reviewSummaryText)}
+          </div>
+        : React.null}
       <div className={Styles.content}>
         <aside className={Styles.sidebar(currentColors)}>
           <Trees.make

@@ -6,6 +6,7 @@
 
 let callGetPatch = (): Js.Promise.t<string> => {
   let parseResponse = (raw: string): Js.Promise.t<string> => {
+    let _ = %raw(`console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})`)
     %raw(`(async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -18,7 +19,9 @@ let callGetPatch = (): Js.Promise.t<string> => {
 @val external getFilePatch_raw: string => Js.Promise.t<string> = "getFilePatch"
 
 let callGetFilePatch = (path: string): Js.Promise.t<string> => {
+  Js.log2("[BAKA UI] getFilePatch called", path)
   let parseResponse = (raw: string): Js.Promise.t<string> => {
+    let _ = %raw(`console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})`)
     %raw(`(async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -30,6 +33,22 @@ let callGetFilePatch = (path: string): Js.Promise.t<string> => {
 
 type askPiRequest = {commentKey: string, text: string}
 type askPiReply = {commentKey: string, reply: string}
+type fullReviewFinding = {
+  commentKey: string,
+  summary: string,
+  body: string,
+  severity: string,
+  actionable: bool,
+  suggestion: string,
+}
+type fullReviewResult = {
+  summary: string,
+  findings: array<fullReviewFinding>,
+}
+type applySuggestionRequest = {
+  commentKey: string,
+  suggestion: string,
+}
 
 // Ask Pi: send all comments as JSON, receive back {replies: [{commentKey, reply}]}
 // Odin spawns `pi --mode json @prompt.txt`, parses [REPLY:key] blocks from output.
@@ -38,8 +57,9 @@ type askPiReply = {commentKey: string, reply: string}
 @val external askPi_raw: string => Js.Promise.t<string> = "askPi"
 
 let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>> => {
+  Js.log2("[BAKA UI] askPi called with comment count", comments->Array.length)
   let parseResponse = (raw: string): Js.Promise.t<array<askPiReply>> => {
-    Js.log2("response", raw)
+    let _ = %raw(`console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})`)
     %raw(`(async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -47,7 +67,7 @@ let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>>
     })(raw)`)
   }
   let promise = %raw(`askPi(...comments)`)
-  Js.log(promise)
+  Js.log2("[BAKA UI] askPi promise", promise)
   Js.Promise.then_(parseResponse)(promise)
 }
 
@@ -63,7 +83,10 @@ let callAskPiWithDiff = (
   diff: string,
   comments: array<askPiRequest>,
 ): Js.Promise.t<array<askPiReply>> => {
+  Js.log2("[BAKA UI] askPiWithDiff diff bytes", diff->String.length)
+  Js.log2("[BAKA UI] askPiWithDiff comment count", comments->Array.length)
   let parseResponse = (raw: string): Js.Promise.t<array<askPiReply>> => {
+    let _ = %raw(`console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})`)
     %raw(`(async (raw) => {
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
@@ -71,5 +94,38 @@ let callAskPiWithDiff = (
     })(raw)`)
   }
   let promise = %raw(`askPiWithDiff({diff, comments})`)
+  Js.Promise.then_(parseResponse)(promise)
+}
+
+@val external startFullReview_raw: string => Js.Promise.t<string> = "startFullReview"
+
+let callStartFullReview = (): Js.Promise.t<fullReviewResult> => {
+  Js.log("[BAKA UI] startFullReview called")
+  let parseResponse = (raw: string): Js.Promise.t<fullReviewResult> => {
+    let _ = %raw(`console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw)`)
+  }
+  Js.Promise.then_(parseResponse)(startFullReview_raw("{}"))
+}
+
+@val external applyReviewSuggestion_raw: string => Js.Promise.t<string> = "applyReviewSuggestion"
+
+let callApplyReviewSuggestion = (
+  request: applySuggestionRequest,
+): Js.Promise.t<string> => {
+  Js.log2("[BAKA UI] applyReviewSuggestion called", request)
+  let parseResponse = (raw: string): Js.Promise.t<string> => {
+    let _ = %raw(`console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    })(raw)`)
+  }
+  let promise = %raw(`applyReviewSuggestion(request)`)
   Js.Promise.then_(parseResponse)(promise)
 }

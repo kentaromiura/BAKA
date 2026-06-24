@@ -6,6 +6,8 @@ var counter = Jotai.atom(0);
 
 var commentsAtom = Jotai.atom({});
 
+var reviewSuggestionsAtom = Jotai.atom({});
+
 var themeAtom = Jotai.atom({
       light: "rose-pine-dawn",
       dark: "tokyo-night"
@@ -66,6 +68,7 @@ var lightDefaultUiColors = {
 export {
   counter ,
   commentsAtom ,
+  reviewSuggestionsAtom ,
   themeAtom ,
   isDarkAtom ,
   defaultUiColors ,

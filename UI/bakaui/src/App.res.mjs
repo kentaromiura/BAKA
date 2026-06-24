@@ -119,6 +119,26 @@ function errorContainer(colors) {
 
 var errorMessage = Html.css(["\n    text-align: center;\n    max-width: 400px;\n    white-space: pre-wrap;\n  "], []);
 
+function reviewSummaryBar(colors) {
+  return Html.css([
+              "\n    padding: 8px 12px;\n    border-bottom: 1px solid ",
+              ";\n    background-color: ",
+              ";\n    color: ",
+              ";\n    font-size: 13px;\n    line-height: 1.45;\n    white-space: pre-wrap;\n    max-height: 120px;\n    overflow: auto;\n  "
+            ], [
+              colors.border,
+              colors.inputBg,
+              colors.fg
+            ]);
+}
+
+function reviewSummaryLabel(colors) {
+  return Html.css([
+              "\n    color: ",
+              ";\n    font-size: 12px;\n    font-weight: 600;\n    margin-right: 8px;\n    text-transform: uppercase;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var Styles = {
   header: header,
   button: button,
@@ -132,7 +152,9 @@ var Styles = {
   treeStyle: treeStyle,
   loadingContainer: loadingContainer,
   errorContainer: errorContainer,
-  errorMessage: errorMessage
+  errorMessage: errorMessage,
+  reviewSummaryBar: reviewSummaryBar,
+  reviewSummaryLabel: reviewSummaryLabel
 };
 
 function App(props) {
@@ -144,26 +166,40 @@ function App(props) {
   var match$2 = Jotai.useAtom(State.commentsAtom);
   var setComments = match$2[1];
   var comments = match$2[0];
+  var match$3 = Jotai.useAtom(State.reviewSuggestionsAtom);
+  var setReviewSuggestions = match$3[1];
+  var reviewSuggestions = match$3[0];
   var currentColors = loadedThemes !== undefined ? (
       isDark ? loadedThemes.dark : loadedThemes.light
     ) : (
       isDark ? State.defaultUiColors : State.lightDefaultUiColors
     );
-  var match$3 = React.useState(function () {
+  var match$4 = React.useState(function () {
         return false;
       });
-  var setIsAskingPi = match$3[1];
-  var isAskingPi = match$3[0];
-  var match$4 = React.useState(function () {
+  var setIsAskingPi = match$4[1];
+  var isAskingPi = match$4[0];
+  var match$5 = React.useState(function () {
+        return false;
+      });
+  var setIsReviewing = match$5[1];
+  var isReviewing = match$5[0];
+  var match$6 = React.useState(function () {
+        return "No full review has run yet.";
+      });
+  var setReviewSummary = match$6[1];
+  var reviewSummary = match$6[0];
+  var match$7 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$4[1];
-  var patchState = match$4[0];
+  var setPatchState = match$7[1];
+  var patchState = match$7[0];
   var diffReloadPollVersionRef = React.useRef(0);
-  var match$5 = React.useState(function () {
+  var match$8 = React.useState(function () {
         return 0;
       });
-  var setDiffReloadPollVersion = match$5[1];
+  var setDiffReloadPollVersion = match$8[1];
+  var diffReloadPollVersion = match$8[0];
   React.useEffect((function () {
           var interval = setInterval((function () {
                   var next = __bakaDiffReloadRequestCount;
@@ -180,8 +216,11 @@ function App(props) {
                   });
         }), []);
   React.useEffect((function () {
+          console.log("[BAKA UI] fetching patch; reload version", diffReloadPollVersion);
           var onSuccess = function (rawPatch) {
             var patches = Diffs$1.parsePatchFiles(rawPatch);
+            console.log("[BAKA UI] patch loaded bytes", rawPatch.length);
+            console.log("[BAKA UI] parsed patch groups", patches.length);
             setPatchState(function (param) {
                   return {
                           TAG: "PatchReady",
@@ -192,6 +231,7 @@ function App(props) {
           };
           var onError = function (err) {
             var msg = (String(err).replace(/^Error: /, ''));
+            console.log("[BAKA UI] patch load error", msg);
             setPatchState(function (param) {
                   return {
                           TAG: "PatchError",
@@ -201,7 +241,7 @@ function App(props) {
             return Promise.resolve();
           };
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetPatch(), onSuccess), onError);
-        }), [match$5[0]]);
+        }), [diffReloadPollVersion]);
   var headerStyle = header(currentColors);
   var buttonStyle = button(currentColors);
   var virtualizerWrapperRef = React.useRef(null);
@@ -271,6 +311,7 @@ function App(props) {
     if (isAskingPi) {
       return ;
     }
+    console.log("[BAKA UI] Ask Pi button clicked");
     var payloadComments = Core__Array.filterMap(Object.keys(comments), (function (key) {
             var c = Js_dict.get(comments, key);
             if (c !== undefined && c.text.trim().length > 0 && c.aiReply === "AiIdle") {
@@ -282,6 +323,7 @@ function App(props) {
             
           }));
     if (payloadComments.length === 0) {
+      console.log("[BAKA UI] Ask Pi has no pending comments");
       return setComments(function (prev) {
                   var newDict = InlineComment.copyDict(prev);
                   Object.keys(newDict).forEach(function (key) {
@@ -301,6 +343,7 @@ function App(props) {
                   return newDict;
                 });
     }
+    console.log("[BAKA UI] Ask Pi sending comment count", payloadComments.length);
     setComments(function (prev) {
           var newDict = InlineComment.copyDict(prev);
           payloadComments.forEach(function (pc) {
@@ -323,10 +366,12 @@ function App(props) {
           return true;
         });
     var onSuccess = function (replies) {
+      console.log("[BAKA UI] Ask Pi success replies", replies.length);
       setComments(function (prev) {
             var newDict = InlineComment.copyDict(prev);
             replies.forEach(function (reply) {
                   var key = InlineComment.normalizeModelKey(reply.commentKey);
+                  console.log("[BAKA UI] Ask Pi applying reply key", key);
                   var c = Js_dict.get(newDict, key);
                   if (c !== undefined) {
                     newDict[key] = {
@@ -349,6 +394,7 @@ function App(props) {
     };
     var onError = function (_err) {
       var msg = (String(_err).replace(/^Error: /, ''));
+      console.log("[BAKA UI] Ask Pi error", msg);
       setComments(function (prev) {
             var newDict = InlineComment.copyDict(prev);
             payloadComments.forEach(function (pc) {
@@ -373,6 +419,75 @@ function App(props) {
       return Promise.resolve();
     };
     Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPi(payloadComments), onSuccess), onError);
+  };
+  var handleFullReview = function (_event) {
+    if (isReviewing) {
+      return ;
+    }
+    console.log("[BAKA UI] Code Review button clicked");
+    setIsReviewing(function (param) {
+          return true;
+        });
+    setReviewSummary(function (param) {
+          return "Pi is reviewing the current diff...";
+        });
+    var onSuccess = function (review) {
+      console.log("[BAKA UI] Full review success summary", review.summary);
+      console.log("[BAKA UI] Full review finding count", review.findings.length);
+      setReviewSummary(function (param) {
+            return review.summary;
+          });
+      setComments(function (prev) {
+            var newDict = InlineComment.copyDict(prev);
+            review.findings.forEach(function (finding) {
+                  var key = InlineComment.normalizeModelKey(finding.commentKey);
+                  console.log("[BAKA UI] Full review inserting annotation", key);
+                  var text = "Pi review: " + finding.summary;
+                  var body = finding.body.trim().length > 0 ? finding.body : finding.summary;
+                  newDict[key] = {
+                    text: text,
+                    aiReply: {
+                      TAG: "AiDone",
+                      _0: body
+                    }
+                  };
+                });
+            return newDict;
+          });
+      setReviewSuggestions(function (prev) {
+            var newDict = (Object.assign({}, prev));
+            review.findings.forEach(function (finding) {
+                  var key = InlineComment.normalizeModelKey(finding.commentKey);
+                  console.log("[BAKA UI] Full review storing suggestion metadata", key);
+                  newDict[key] = {
+                    summary: finding.summary,
+                    severity: finding.severity,
+                    actionable: finding.actionable,
+                    suggestion: finding.suggestion,
+                    isApplying: false,
+                    applyResult: undefined,
+                    applyError: undefined
+                  };
+                });
+            return newDict;
+          });
+      setIsReviewing(function (param) {
+            return false;
+          });
+      return Promise.resolve();
+    };
+    var onError = function (err) {
+      var msg = (String(err).replace(/^Error: /, ''));
+      console.log("[BAKA UI] Full review error", msg);
+      setReviewSummary(function (param) {
+            return "Review failed: " + msg;
+          });
+      setIsReviewing(function (param) {
+            return false;
+          });
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callStartFullReview(), onSuccess), onError);
   };
   React.useEffect((function () {
           if (isInitialRender.current) {
@@ -399,6 +514,22 @@ function App(props) {
                     cancelAnimationFrame(handle);
                   });
         }), [isDark]);
+  var reviewCount = Object.keys(reviewSuggestions).length;
+  var actionableReviewCount = Core__Array.reduce(Object.keys(reviewSuggestions), 0, (function (count, key) {
+          var item = Js_dict.get(reviewSuggestions, key);
+          if (item !== undefined && item.actionable) {
+            return count + 1 | 0;
+          } else {
+            return count;
+          }
+        }));
+  var reviewButtonTitle = reviewSummary + (
+    reviewCount > 0 ? "\n\n" + reviewCount.toString() + " finding(s), " + actionableReviewCount.toString() + " actionable." : ""
+  );
+  var shouldShowReviewSummary = isReviewing || reviewSummary !== "No full review has run yet.";
+  var reviewSummaryText = reviewSummary + (
+    reviewCount > 0 ? "\n" + reviewCount.toString() + " finding(s), " + actionableReviewCount.toString() + " actionable." : ""
+  );
   var diffChildren = React.useMemo((function () {
           if (typeof patchState !== "object") {
             return [];
@@ -453,6 +584,14 @@ function App(props) {
                   JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("button", {
+                                children: isReviewing ? "Reviewing..." : "Code Review",
+                                className: askPiButton(currentColors, isReviewing),
+                                title: reviewButtonTitle,
+                                disabled: isReviewing,
+                                type: "button",
+                                onClick: handleFullReview
+                              }),
+                          JsxRuntime.jsx("button", {
                                 children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
                                 className: askPiButton(currentColors, isAskingPi),
                                 disabled: isAskingPi,
@@ -468,6 +607,16 @@ function App(props) {
                         ],
                         className: headerStyle
                       }),
+                  shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
+                          children: [
+                            JsxRuntime.jsx("span", {
+                                  children: "Review",
+                                  className: reviewSummaryLabel(currentColors)
+                                }),
+                            reviewSummaryText
+                          ],
+                          className: reviewSummaryBar(currentColors)
+                        }) : null,
                   JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("aside", {
