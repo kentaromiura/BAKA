@@ -5,7 +5,7 @@ let styled = Html.styled
 let str = React.string
 
 type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(string)
-type viewMode = Review | Commit | Feature
+type viewMode = Review | Project | Commit | Feature
 
 @val external document: {..} = "document"
 @val external getDiffReloadRequestCount: int = "__bakaDiffReloadRequestCount"
@@ -13,7 +13,7 @@ type viewMode = Review | Commit | Feature
 @val external cancelAnimationFrame: float => unit = "cancelAnimationFrame"
 
 module Styles = {
-  let appFont = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+  let appFont = `"Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
 
   let header = (colors: uiColors) => Html.css`
     display: flex;
@@ -114,7 +114,19 @@ module Styles = {
     }
   `
 
-  let container = Html.css`display: flex; flex-direction: column; height: 100vh;`
+  let container = Html.css`
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: ${appFont};
+
+    & button,
+    & input,
+    & textarea,
+    & select {
+      font-family: inherit;
+    }
+  `
 
   let content = Html.css`
     display: flex;
@@ -163,6 +175,7 @@ module Styles = {
       "--trees-border-color-override": colors.border,
       "--trees-selected-bg-override": colors.selectionBg,
       "--trees-selected-fg-override": colors.fg,
+      "--trees-font-family-override": appFont,
     })
 
   let loadingContainer = Html.css`
@@ -170,7 +183,7 @@ module Styles = {
     align-items: center;
     justify-content: center;
     flex: 1;
-    font-family: monospace;
+    font-family: ${appFont};
     font-size: 14px;
   `
 
@@ -181,7 +194,7 @@ module Styles = {
     justify-content: center;
     gap: 12px;
     flex: 1;
-    font-family: monospace;
+    font-family: ${appFont};
     color: ${colors.dangerBg};
     padding: 24px;
   `
@@ -670,6 +683,15 @@ let make = () => {
           <button
             type_="button"
             role="tab"
+            ariaSelected={viewMode == Project}
+            onClick={_ => setViewMode(_ => Project)}
+            className={Styles.tab(currentColors)}
+          >
+            {str("Project")}
+          </button>
+          <button
+            type_="button"
+            role="tab"
             ariaSelected={viewMode == Commit}
             onClick={_ => setViewMode(_ => Commit)}
             className={Styles.tab(currentColors)}
@@ -743,6 +765,12 @@ let make = () => {
             onCommitted={requestPatchReload}
           />
       | Feature => <NewFeatureView uiColors={currentColors} />
+      | Project =>
+        <ProjectView
+          theme={style}
+          themeType={if (isDark) { "dark" } else { "light" }}
+          uiColors={currentColors}
+        />
       | Review => <div className={Styles.content}>
             <aside className={Styles.sidebar(currentColors)}>
               <Trees.make

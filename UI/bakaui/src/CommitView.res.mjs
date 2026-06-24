@@ -368,7 +368,7 @@ function syncLineNumberSelection(root, fileName, enabled, setExcludedLines) {
   })(root, fileName, enabled, setExcludedLines));
 }
 
-var treeFont = "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif";
+var treeFont = "\"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 var excludedLineUnsafeCss = "\n    [data-selected-line] {\n      --diffs-line-bg: var(--diffs-computed-diff-line-bg);\n      color: inherit;\n    }\n\n    [data-selected-line][data-line] span {\n      background-color: transparent !important;\n    }\n\n    [data-baka-excluded-line] {\n      --baka-selection-bg: light-dark(#1f2937, #f3f4f6);\n      --baka-selection-fg: light-dark(#ffffff, #111827);\n      --diffs-computed-selected-line-bg: var(--baka-selection-bg);\n      --diffs-line-bg: var(--baka-selection-bg);\n      color: var(--baka-selection-fg);\n    }\n\n    [data-column-number][data-line-type=\"change-deletion\"],\n    [data-column-number][data-line-type=\"change-addition\"] {\n      cursor: pointer;\n      touch-action: none;\n    }\n  ";
 
@@ -811,7 +811,7 @@ function CommitView(props) {
                   themeType: themeType,
                   diffStyle: "unified",
                   lineHoverHighlight: true,
-                  unsafeCSS: excludedLineUnsafeCss
+                  unsafeCSS: Diffs.fontUnsafeCss + excludedLineUnsafeCss
                 };
         }), [
         theme,

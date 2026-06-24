@@ -5,6 +5,7 @@ package main
 import webview "./webview-odin"
 import "base:runtime"
 import "core:c"
+import "core:encoding/base64"
 import json "core:encoding/json"
 import "core:fmt"
 import "core:mem"
@@ -17,6 +18,7 @@ import "core:thread"
 // UI assets embedded at compile time via #load
 js_content := #load("../UI/bakaui/out.js", string) or_else ""
 css_content := #load("../UI/bakaui/out.css", string) or_else ""
+ioskeley_mono_font := #load("../UI/bakaui/assets/fonts/IoskeleyMono/IoskeleyMono-Regular.woff2")
 
 w: webview.webview
 baka_verbose: bool
@@ -232,6 +234,10 @@ parseFilePatchRequest :: proc(req_str: string) -> (string, string) {
 
 Ipc_Response :: struct {
 	result: string,
+}
+
+Project_Files_Response :: struct {
+	result: [dynamic]string,
 }
 
 CommitSelection_Request :: struct {
@@ -859,6 +865,86 @@ handle_get_file_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	webview.ret(w, seq, WebView_Return_Ok, c_result)
 }
 
+handle_get_project_files :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	repo_root := getRepoRoot()
+	if repo_root == "" {
+		repo_root = "."
+	}
+	defer delete(repo_root)
+
+	command: [dynamic]string = {
+		"git",
+		"ls-files",
+		"--cached",
+		"--others",
+		"--exclude-standard",
+	}
+	_, stdout, _, process_err := os.process_exec(
+		os.Process_Desc {
+			working_dir = repo_root,
+			command = command[:],
+		},
+		context.allocator,
+	)
+	defer delete(command)
+	defer delete(stdout)
+	if process_err != nil {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(`{"error": "Failed to list project files"}`),
+		)
+		return
+	}
+
+	files := [dynamic]string{}
+	defer deleteStringArray(files)
+	lines := strings.split(strings.trim(string(stdout), "\r\n"), "\n")
+	defer delete(lines)
+	for line in lines {
+		path := strings.trim(line, "\r\n")
+		if len(path) == 0 || !isPathSafe(path) {
+			continue
+		}
+		full_path := fmt.tprintf("%s/%s", repo_root, path)
+		exists := os.exists(full_path)
+		delete(full_path)
+		if !exists {
+			continue
+		}
+		owned, clone_err := strings.clone(path, context.allocator)
+		if clone_err != nil {
+			webview.ret(
+				w,
+				seq,
+				WebView_Return_Error,
+				strings.clone_to_cstring(`{"error": "Failed to collect project files"}`),
+			)
+			return
+		}
+		append(&files, owned)
+	}
+
+	resp := Project_Files_Response {
+		result = files,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			strings.clone_to_cstring(`{"error": "marshal failed"}`),
+		)
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
 handle_get_watcher_events :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 
@@ -912,6 +998,7 @@ main :: proc() {
 	webview.set_size(w, 960, 720, .None)
 	webview.bind(w, "getPatch", handle_get_patch, nil)
 	webview.bind(w, "getFilePatch", handle_get_file_patch, nil)
+	webview.bind(w, "getProjectFiles", handle_get_project_files, nil)
 	webview.bind(w, "getWatcherEvents", handle_get_watcher_events, nil)
 	webview.bind(w, "askPi", handle_ask_pi, nil)
 	webview.bind(w, "askPiWithDiff", handle_ask_pi_with_diff, nil)
@@ -922,6 +1009,9 @@ main :: proc() {
 	webview.bind(w, "applyFeaturePlan", handle_apply_feature_plan, nil)
 
 	html := strings.builder_make()
+	ioskeley_mono_base64 := base64.encode(ioskeley_mono_font)
+	defer delete(ioskeley_mono_base64)
+
 	strings.write_string(&html, `<html>
     <head>
         <script type="text/javascript">`)
@@ -940,6 +1030,17 @@ main :: proc() {
             }
         </style>
         <style>`,
+	)
+	strings.write_string(
+		&html,
+		`/* Ioskeley Mono v2.0.0 — SIL Open Font License 1.1 */
+@font-face{font-family:"Ioskeley Mono";src:url(data:font/woff2;base64,`,
+	)
+	strings.write_string(&html, ioskeley_mono_base64)
+	strings.write_string(
+		&html,
+		`) format("woff2");font-style:normal;font-weight:400;font-display:swap;}
+`,
 	)
 	strings.write_string(&html, css_content)
 
@@ -961,7 +1062,7 @@ main :: proc() {
   function ensureLogPanel() {
     if (logPanel) return;
     logPanel = document.createElement('div');
-    logPanel.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:2147483647;width:420px;max-height:180px;overflow:hidden;padding:10px 12px;border:1px solid #d0d7de;border-radius:8px;background:rgba(255,255,255,0.94);color:#24292f;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,0.18);';
+    logPanel.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:2147483647;width:420px;max-height:180px;overflow:hidden;padding:10px 12px;border:1px solid #d0d7de;border-radius:8px;background:rgba(255,255,255,0.94);color:#24292f;font-family:"Ioskeley Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,0.18);';
     document.body.appendChild(logPanel);
   }
 
@@ -1024,7 +1125,7 @@ main :: proc() {
       notice = document.createElement('button');
       notice.type = 'button';
       notice.textContent = 'See latest changes';
-      notice.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;padding:8px 12px;border:1px solid #0969da;border-radius:999px;background:#0969da;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.18);cursor:pointer;';
+      notice.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;padding:8px 12px;border:1px solid #0969da;border-radius:999px;background:#0969da;color:#ffffff;font-family:"Ioskeley Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.18);cursor:pointer;';
       notice.onclick = function() {
         reloadDiffFromWatcher();
       };

@@ -360,7 +360,7 @@ let syncLineNumberSelection = (
   })(root, fileName, enabled, setExcludedLines)`)
 
 module Styles = {
-  let treeFont = `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+  let treeFont = `"Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
 
   let excludedLineUnsafeCss = `
     [data-selected-line] {
@@ -769,7 +769,7 @@ let make = (
       "themeType": themeType,
       "diffStyle": "unified",
       "lineHoverHighlight": true,
-      "unsafeCSS": Styles.excludedLineUnsafeCss,
+      "unsafeCSS": Diffs.fontUnsafeCss ++ Styles.excludedLineUnsafeCss,
     })
   , (theme, themeType))
 

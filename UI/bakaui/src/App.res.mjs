@@ -14,6 +14,7 @@ import * as CommitView from "./CommitView.res.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as ProjectView from "./ProjectView.res.mjs";
 import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
 import * as NewFeatureView from "./NewFeatureView.res.mjs";
@@ -25,7 +26,7 @@ function str(prim) {
   return prim;
 }
 
-var appFont = "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif";
+var appFont = "\"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 function header(colors) {
   return Html.css([
@@ -110,7 +111,10 @@ function askPiButton(colors, disabled) {
             ]);
 }
 
-var container = Html.css(["display: flex; flex-direction: column; height: 100vh;"], []);
+var container = Html.css([
+      "\n    display: flex;\n    flex-direction: column;\n    height: 100vh;\n    font-family: ",
+      ";\n\n    & button,\n    & input,\n    & textarea,\n    & select {\n      font-family: inherit;\n    }\n  "
+    ], [appFont]);
 
 var content = Html.css(["\n    display: flex;\n    flex-direction: row;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
 
@@ -149,17 +153,25 @@ function treeStyle(colors) {
           "--trees-bg-override": colors.surfaceBg,
           "--trees-border-color-override": colors.border,
           "--trees-selected-bg-override": colors.selectionBg,
-          "--trees-selected-fg-override": colors.fg
+          "--trees-selected-fg-override": colors.fg,
+          "--trees-font-family-override": appFont
         };
 }
 
-var loadingContainer = Html.css(["\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    font-family: monospace;\n    font-size: 14px;\n  "], []);
+var loadingContainer = Html.css([
+      "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    font-family: ",
+      ";\n    font-size: 14px;\n  "
+    ], [appFont]);
 
 function errorContainer(colors) {
   return Html.css([
-              "\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    justify-content: center;\n    gap: 12px;\n    flex: 1;\n    font-family: monospace;\n    color: ",
+              "\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    justify-content: center;\n    gap: 12px;\n    flex: 1;\n    font-family: ",
+              ";\n    color: ",
               ";\n    padding: 24px;\n  "
-            ], [colors.dangerBg]);
+            ], [
+              appFont,
+              colors.dangerBg
+            ]);
 }
 
 var errorMessage = Html.css(["\n    text-align: center;\n    max-width: 400px;\n    white-space: pre-wrap;\n  "], []);
@@ -748,6 +760,13 @@ function App(props) {
               className: content
             });
         break;
+    case "Project" :
+        tmp = JsxRuntime.jsx(ProjectView.make, {
+              theme: style,
+              themeType: isDark ? "dark" : "light",
+              uiColors: currentColors
+            });
+        break;
     case "Commit" :
         tmp = JsxRuntime.jsx(CommitView.make, {
               patches: patchState._0,
@@ -779,6 +798,18 @@ function App(props) {
                                       onClick: (function (param) {
                                           setViewMode(function (param) {
                                                 return "Review";
+                                              });
+                                        })
+                                    }),
+                                JsxRuntime.jsx("button", {
+                                      children: "Project",
+                                      "aria-selected": viewMode === "Project",
+                                      className: tab(currentColors),
+                                      role: "tab",
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (param) {
+                                                return "Project";
                                               });
                                         })
                                     }),

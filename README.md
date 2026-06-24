@@ -39,3 +39,19 @@ make run ARGS='--verbose /path/to/repository'
 ```
 
 On Linux, install GTK and WebKitGTK development packages before building.
+
+## Third-party acknowledgements
+
+- [`@pierre/diffs`](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs)
+  and [`@pierre/trees`](https://github.com/pierrecomputer/pierre/tree/main/packages/trees)
+  provide the diff and file-tree interfaces. Both are licensed under the
+  [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+  `@pierre/trees` also includes ideas and code derived from
+  [`headless-tree`](https://github.com/lukasbach/headless-tree), as documented
+  in its bundled notice.
+- [`Ioskeley Mono`](https://github.com/ahatem/IoskeleyMono) by Ahmed Hatem is
+  embedded as BAKA's interface font. Ioskeley Mono is a custom configuration
+  of [`Iosevka`](https://github.com/be5invis/Iosevka), created by Belleve Invis
+  and the Iosevka contributors. Both fonts are licensed under the SIL Open Font
+  License 1.1. The redistributed font license is included at
+  [`UI/bakaui/assets/fonts/IoskeleyMono/LICENSE`](UI/bakaui/assets/fonts/IoskeleyMono/LICENSE).

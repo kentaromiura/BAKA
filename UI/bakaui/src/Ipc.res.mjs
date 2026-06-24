@@ -27,6 +27,18 @@ function callGetFilePatch(path) {
   return Js_promise.then_(parseResponse, getFilePatch(path));
 }
 
+function callGetProjectFiles() {
+  var parseResponse = function (raw) {
+    ((console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null})));
+    return ((async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (!Array.isArray(raw.result)) throw new Error("Missing project file list");
+      return raw.result;
+    })(raw));
+  };
+  return Js_promise.then_(parseResponse, getProjectFiles("{}"));
+}
+
 function callAskPi(comments) {
   console.log("[BAKA UI] askPi called with comment count", comments.length);
   var parseResponse = function (raw) {
@@ -141,6 +153,7 @@ function callCommitSelection(request) {
 export {
   callGetPatch ,
   callGetFilePatch ,
+  callGetProjectFiles ,
   callAskPi ,
   callAskPiWithDiff ,
   callStartFullReview ,

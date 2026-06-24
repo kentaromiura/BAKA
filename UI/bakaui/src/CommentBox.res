@@ -43,7 +43,7 @@ module Styles = {
       border: 1px solid ${colors.inputBorder};
       background-color: ${colors.inputBg};
       color: ${colors.inputFg};
-      font-family: monospace;
+      font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 14px;
       line-height: 1.5;
       resize: vertical;
@@ -163,7 +163,7 @@ module Styles = {
     }
 
     & code {
-      font-family: monospace;
+      font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12.5px;
       padding: 1px 4px;
       border-radius: 3px;
@@ -227,7 +227,7 @@ module Styles = {
     white-space: pre-wrap;
     background-color: ${colors.surfaceBg};
     border: 1px solid ${colors.border};
-    font-family: monospace;
+    font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
   `
 
@@ -279,15 +279,17 @@ let make = (
     None
   }, [initialText])
 
-  let saveComment = _event => {
+  let saveText = (text: string) => {
     onSave(prev => {
       let newDict = copyDict(prev)
       let existing =
         Js.Dict.get(prev, commentKey)->Belt.Option.getWithDefault({text: "", aiReply: AiIdle})
-      Js.Dict.set(newDict, commentKey, {text: localText, aiReply: existing.aiReply})
+      Js.Dict.set(newDict, commentKey, {text: text, aiReply: existing.aiReply})
       newDict
     })
   }
+
+  let saveComment = _event => saveText(localText)
 
   let removeComment = _event => {
     onRemove(prev => {
@@ -403,7 +405,9 @@ let make = (
         onChange={(ev: JsxEvent.Form.t) => {
           if !isReviewComment {
             let target = JsxEvent.Form.target(ev)
-            setLocalText(_ => target["value"])
+            let nextText: string = target["value"]
+            setLocalText(_ => nextText)
+            saveText(nextText)
           }
         }}
         onBlur={saveComment}

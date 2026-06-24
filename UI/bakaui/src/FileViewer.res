@@ -48,6 +48,16 @@ module Styles = {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   `
 
+  let embedded = (colors: uiColors) =>
+    Html.css`
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: ${colors.bg};
+    color: ${colors.fg};
+  `
+
   let header = (colors: uiColors) =>
     Html.css`
     display: flex;
@@ -62,7 +72,7 @@ module Styles = {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    font-family: monospace;
+    font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   `
 
   let headerActions = Html.css`
@@ -138,7 +148,8 @@ let make = (
   ~theme: Diffs.FileDiff.theme,
   ~themeType: string,
   ~uiColors: uiColors,
-  ~onClose: unit => unit,
+  ~onClose: option<unit => unit>=?,
+  ~embedded: bool=false,
 ) => {
   // Local comment state — discarded on close, does not touch Jotai
   let initialComments: Js.Dict.t<commentData> = Js.Dict.empty()
@@ -166,18 +177,22 @@ let make = (
   // handler closure can capture onClose and the cleanup can reference
   // the same handler instance. The IIFE returns a cleanup function
   // which we return from the effect so React calls it on unmount.
-  React.useEffect0(() => {
-    let cleanup = %raw(`
-      (function() {
-        var handler = function(ev) {
-          if (ev.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handler);
-        return function() { window.removeEventListener("keydown", handler); };
-      })()
-    `)
-    Some(cleanup)
-  })
+  React.useEffect0(() =>
+    switch onClose {
+    | Some(close) =>
+      let cleanup = %raw(`
+        (function() {
+          var handler = function(ev) {
+            if (ev.key === "Escape") close();
+          };
+          window.addEventListener("keydown", handler);
+          return function() { window.removeEventListener("keydown", handler); };
+        })()
+      `)
+      Some(cleanup)
+    | None => None
+    }
+  )
 
   // Parse the patch into a single fileDiff
   let fileDiff = React.useMemo1(() =>
@@ -232,6 +247,7 @@ let make = (
       "theme": {"light": theme.light, "dark": theme.dark},
       "themeType": themeType,
       "onLineClick": toggleComment,
+      "unsafeCSS": Diffs.fontUnsafeCss,
     })
   , (theme, themeType, toggleComment))
 
@@ -326,22 +342,26 @@ let make = (
     }
   })
 
-  <div className={Styles.backdrop} onClick={_ => onClose()}>
-    <div className={Styles.content(uiColors)} onClick={stopProp}>
+  let viewer =
+    <div className={embedded ? Styles.embedded(uiColors) : Styles.content(uiColors)} onClick={stopProp}>
       <div className={Styles.header(uiColors)}>
         <h3 className={Styles.headerTitle}>
-          {React.string(fileName ++ " (full file)" ++ if (Diffs.isEmptyFile(fileDiff)) { " (empty file)" } else { "" })}
+          {React.string(fileName ++ if (Diffs.isEmptyFile(fileDiff)) { " (empty file)" } else { "" })}
         </h3>
         <div className={Styles.headerActions}>
           <button
             onClick={handleAskPi}
             disabled={isAskingPi || !hasPending}
             className={Styles.askButton(uiColors)}>
-            {React.string(isAskingPi ? "Asking..." : "Ask AI")}
+            {React.string(isAskingPi ? "Asking Pi..." : "🤖 Ask Pi")}
           </button>
-          <button onClick={_ => onClose()} className={Styles.closeButton(uiColors)}>
-            {React.string("✕")}
-          </button>
+          {switch onClose {
+          | Some(close) =>
+            <button onClick={_ => close()} className={Styles.closeButton(uiColors)}>
+              {React.string("✕")}
+            </button>
+          | None => React.null
+          }}
         </div>
       </div>
       <div className={themeType === "dark" ? Styles.bodyDark : Styles.body}>
@@ -386,5 +406,18 @@ let make = (
          }}
       </div>
     </div>
-  </div>
+
+  if embedded {
+    viewer
+  } else {
+    <div
+      className={Styles.backdrop}
+      onClick={_ =>
+        switch onClose {
+        | Some(close) => close()
+        | None => ()
+        }}>
+      {viewer}
+    </div>
+  }
 }

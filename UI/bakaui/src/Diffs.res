@@ -32,6 +32,15 @@ type selectedLineRange = {
 
 type jsObj
 
+let fontFamily = `"Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
+
+let fontUnsafeCss = `
+  :host {
+    --diffs-font-family: ${fontFamily};
+    --diffs-header-font-family: ${fontFamily};
+  }
+`
+
 let fileDiffName = (fd: patchFile): string => %raw(`fd.name || ""`)
 let fileDiffType = (fd: patchFile): string => %raw(`fd.type || ""`)
 let fileDiffAdditionLines = (fd: patchFile): array<string> => %raw(`fd.additionLines || []`)

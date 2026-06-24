@@ -31,6 +31,20 @@ let callGetFilePatch = (path: string): Js.Promise.t<string> => {
   Js.Promise.then_(parseResponse)(getFilePatch_raw(path))
 }
 
+@val external getProjectFiles_raw: string => Js.Promise.t<string> = "getProjectFiles"
+
+let callGetProjectFiles = (): Js.Promise.t<array<string>> => {
+  let parseResponse = (raw: string): Js.Promise.t<array<string>> => {
+    let _ = %raw(`console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null})`)
+    %raw(`(async (raw) => {
+      if (raw.error) throw new Error(raw.error);
+      if (!Array.isArray(raw.result)) throw new Error("Missing project file list");
+      return raw.result;
+    })(raw)`)
+  }
+  Js.Promise.then_(parseResponse)(getProjectFiles_raw("{}"))
+}
+
 type askPiRequest = {commentKey: string, text: string}
 type askPiReply = {commentKey: string, reply: string}
 type fullReviewFinding = {

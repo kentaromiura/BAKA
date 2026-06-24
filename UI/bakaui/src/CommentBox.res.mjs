@@ -48,7 +48,7 @@ function textarea(colors) {
               "\n      flex: 1;\n      min-height: 80px;\n      max-height: 200px;\n      padding: 6px;\n      border-radius: 4px;\n      border: 1px solid ",
               ";\n      background-color: ",
               ";\n      color: ",
-              ";\n      font-family: monospace;\n      font-size: 14px;\n      line-height: 1.5;\n      resize: vertical;\n\n      &::placeholder {\n        color: ",
+              ";\n      font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n      font-size: 14px;\n      line-height: 1.5;\n      resize: vertical;\n\n      &::placeholder {\n        color: ",
               ";\n      }\n\n      &:hover {\n        border-color: ",
               ";\n      }\n\n      &:focus {\n        outline: none;\n        border-color: ",
               ";\n        box-shadow: 0 0 0 3px ",
@@ -92,7 +92,7 @@ function aiReply(colors) {
               ";\n      text-decoration: underline;\n    }\n\n    & strong {\n      font-weight: 600;\n    }\n\n    & em {\n      font-style: italic;\n    }\n\n    & blockquote {\n      margin: 6px 0;\n      padding: 4px 12px;\n      border-left: 2px solid ",
               ";\n      color: ",
               ";\n    }\n\n    & hr {\n      border: none;\n      border-top: 1px solid ",
-              ";\n      margin: 12px 0;\n    }\n\n    & code {\n      font-family: monospace;\n      font-size: 12.5px;\n      padding: 1px 4px;\n      border-radius: 3px;\n      background-color: ",
+              ";\n      margin: 12px 0;\n    }\n\n    & code {\n      font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n      font-size: 12.5px;\n      padding: 1px 4px;\n      border-radius: 3px;\n      background-color: ",
               ";\n      overflow-wrap: anywhere;\n    }\n\n    & pre {\n      margin: 8px 0;\n      padding: 10px 12px;\n      border-radius: 4px;\n      overflow-x: auto;\n      font-size: 12.5px;\n      line-height: 1.5;\n    }\n\n    & pre code {\n      padding: 0;\n      background-color: transparent;\n      font-size: inherit;\n      overflow-wrap: normal;\n    }\n  "
             ], [
               colors.surfaceBg,
@@ -133,7 +133,7 @@ function suggestionPre(colors) {
   return Html.css([
               "\n    margin: 8px 0 0 0;\n    padding: 8px;\n    border-radius: 4px;\n    overflow-x: auto;\n    white-space: pre-wrap;\n    background-color: ",
               ";\n    border: 1px solid ",
-              ";\n    font-family: monospace;\n    font-size: 12px;\n  "
+              ";\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 12px;\n  "
             ], [
               colors.surfaceBg,
               colors.border
@@ -200,7 +200,7 @@ function CommentBox(props) {
                 return initialText;
               });
         }), [initialText]);
-  var saveComment = function (_event) {
+  var saveText = function (text) {
     onSave(function (prev) {
           var newDict = copyDict(prev);
           var existing = Belt_Option.getWithDefault(Js_dict.get(prev, commentKey), {
@@ -208,11 +208,14 @@ function CommentBox(props) {
                 aiReply: "AiIdle"
               });
           newDict[commentKey] = {
-            text: localText,
+            text: text,
             aiReply: existing.aiReply
           };
           return newDict;
         });
+  };
+  var saveComment = function (_event) {
+    saveText(localText);
   };
   var removeComment = function (_event) {
     onRemove(function (prev) {
@@ -369,9 +372,11 @@ function CommentBox(props) {
                                     return ;
                                   }
                                   var target = ev.target;
+                                  var nextText = target.value;
                                   setLocalText(function (param) {
-                                        return target.value;
+                                        return nextText;
                                       });
+                                  saveText(nextText);
                                 })
                             }),
                         JsxRuntime.jsx("button", {

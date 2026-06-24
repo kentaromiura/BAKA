@@ -95,7 +95,7 @@ module Styles = {
     Html.css`
     margin: 0 0 6px 0;
     color: ${colors.descriptionFg};
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
     font-weight: 600;
   `
@@ -173,6 +173,7 @@ let make = (
       "theme": {"light": theme.light, "dark": theme.dark},
       "themeType": themeType,
       "onLineClick": toggleComment,
+      "unsafeCSS": Diffs.fontUnsafeCss,
     })
   , (theme, themeType, toggleComment))
 

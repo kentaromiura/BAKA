@@ -62,6 +62,17 @@ function content(colors) {
             ]);
 }
 
+function embedded(colors) {
+  return Html.css([
+              "\n    height: 100%;\n    display: flex;\n    flex-direction: column;\n    overflow: hidden;\n    background-color: ",
+              ";\n    color: ",
+              ";\n  "
+            ], [
+              colors.bg,
+              colors.fg
+            ]);
+}
+
 function header(colors) {
   return Html.css([
               "\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    padding: 12px 16px;\n    border-bottom: 1px solid ",
@@ -73,7 +84,7 @@ function header(colors) {
             ]);
 }
 
-var headerTitle = Html.css(["\n    margin: 0;\n    font-size: 14px;\n    font-weight: 600;\n    font-family: monospace;\n  "], []);
+var headerTitle = Html.css(["\n    margin: 0;\n    font-size: 14px;\n    font-weight: 600;\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  "], []);
 
 var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n  "], []);
 
@@ -122,6 +133,7 @@ function error(colors) {
 var Styles = {
   backdrop: backdrop,
   content: content,
+  embedded: embedded,
   header: header,
   headerTitle: headerTitle,
   headerActions: headerActions,
@@ -134,11 +146,13 @@ var Styles = {
 };
 
 function FileViewer(props) {
+  var __embedded = props.embedded;
   var onClose = props.onClose;
   var uiColors = props.uiColors;
   var themeType = props.themeType;
   var theme = props.theme;
   var fileName = props.fileName;
+  var embedded$1 = __embedded !== undefined ? __embedded : false;
   var initialComments = {};
   var match = React.useState(function () {
         return initialComments;
@@ -174,13 +188,16 @@ function FileViewer(props) {
                 }));
         }), []);
   React.useEffect((function () {
-          return ((function() {
-        var handler = function(ev) {
-          if (ev.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handler);
-        return function() { window.removeEventListener("keydown", handler); };
-      })());
+          if (onClose !== undefined) {
+            return ((function() {
+          var handler = function(ev) {
+            if (ev.key === "Escape") close();
+          };
+          window.addEventListener("keydown", handler);
+          return function() { window.removeEventListener("keydown", handler); };
+        })());
+          }
+          
         }), []);
   var fileDiff = React.useMemo((function () {
           if (patch === undefined) {
@@ -236,7 +253,8 @@ function FileViewer(props) {
                     dark: theme.dark
                   },
                   themeType: themeType,
-                  onLineClick: toggleComment
+                  onLineClick: toggleComment,
+                  unsafeCSS: Diffs.fontUnsafeCss
                 };
         }), [
         theme,
@@ -362,88 +380,96 @@ function FileViewer(props) {
           return false;
         }
       });
-  return JsxRuntime.jsx("div", {
-              children: JsxRuntime.jsxs("div", {
-                    children: [
-                      JsxRuntime.jsxs("div", {
-                            children: [
-                              JsxRuntime.jsx("h3", {
-                                    children: fileName + " (full file)" + (
-                                      Diffs.isEmptyFile(fileDiff) ? " (empty file)" : ""
-                                    ),
-                                    className: headerTitle
-                                  }),
-                              JsxRuntime.jsxs("div", {
-                                    children: [
-                                      JsxRuntime.jsx("button", {
-                                            children: isAskingPi ? "Asking..." : "Ask AI",
-                                            className: askButton(uiColors),
-                                            disabled: isAskingPi || !hasPending,
-                                            onClick: handleAskPi
-                                          }),
-                                      JsxRuntime.jsx("button", {
-                                            children: "✕",
-                                            className: closeButton(uiColors),
-                                            onClick: (function (param) {
-                                                onClose();
-                                              })
-                                          })
-                                    ],
-                                    className: headerActions
-                                  })
-                            ],
-                            className: header(uiColors)
-                          }),
-                      JsxRuntime.jsx("div", {
-                            children: patch !== undefined ? (
-                                error$1 !== undefined ? JsxRuntime.jsx("div", {
-                                        children: "Loaded",
-                                        className: status(uiColors)
-                                      }) : JsxRuntime.jsx(React$1.Virtualizer, {
-                                        children: JsxRuntime.jsx(React$1.FileDiff, {
-                                              fileDiff: fileDiff,
-                                              options: optionsObj,
-                                              lineAnnotations: annotations,
-                                              renderAnnotation: (function (annotation) {
-                                                  var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
-                                                  var match = Js_dict.get(comments, ckey);
-                                                  if (match !== undefined) {
-                                                    return JsxRuntime.jsx(CommentBox.make, {
-                                                                commentKey: ckey,
-                                                                lineNumber: annotation.lineNumber,
-                                                                comments: comments,
-                                                                onSave: setComments,
-                                                                onRemove: setComments,
-                                                                uiColors: uiColors,
-                                                                themeType: themeType
-                                                              });
-                                                  } else {
-                                                    return JsxRuntime.jsx("div", {});
-                                                  }
-                                                })
-                                            }),
-                                        style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                                      })
-                              ) : (
-                                error$1 !== undefined ? JsxRuntime.jsx("div", {
-                                        children: "Failed to load file: " + error$1,
-                                        className: error(uiColors)
-                                      }) : JsxRuntime.jsx("div", {
-                                        children: "Loading...",
-                                        className: status(uiColors)
-                                      })
-                              ),
-                            className: themeType === "dark" ? bodyDark : body
+  var viewer = JsxRuntime.jsxs("div", {
+        children: [
+          JsxRuntime.jsxs("div", {
+                children: [
+                  JsxRuntime.jsx("h3", {
+                        children: fileName + (
+                          Diffs.isEmptyFile(fileDiff) ? " (empty file)" : ""
+                        ),
+                        className: headerTitle
+                      }),
+                  JsxRuntime.jsxs("div", {
+                        children: [
+                          JsxRuntime.jsx("button", {
+                                children: isAskingPi ? "Asking Pi..." : "🤖 Ask Pi",
+                                className: askButton(uiColors),
+                                disabled: isAskingPi || !hasPending,
+                                onClick: handleAskPi
+                              }),
+                          onClose !== undefined ? JsxRuntime.jsx("button", {
+                                  children: "✕",
+                                  className: closeButton(uiColors),
+                                  onClick: (function (param) {
+                                      onClose();
+                                    })
+                                }) : null
+                        ],
+                        className: headerActions
+                      })
+                ],
+                className: header(uiColors)
+              }),
+          JsxRuntime.jsx("div", {
+                children: patch !== undefined ? (
+                    error$1 !== undefined ? JsxRuntime.jsx("div", {
+                            children: "Loaded",
+                            className: status(uiColors)
+                          }) : JsxRuntime.jsx(React$1.Virtualizer, {
+                            children: JsxRuntime.jsx(React$1.FileDiff, {
+                                  fileDiff: fileDiff,
+                                  options: optionsObj,
+                                  lineAnnotations: annotations,
+                                  renderAnnotation: (function (annotation) {
+                                      var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
+                                      var match = Js_dict.get(comments, ckey);
+                                      if (match !== undefined) {
+                                        return JsxRuntime.jsx(CommentBox.make, {
+                                                    commentKey: ckey,
+                                                    lineNumber: annotation.lineNumber,
+                                                    comments: comments,
+                                                    onSave: setComments,
+                                                    onRemove: setComments,
+                                                    uiColors: uiColors,
+                                                    themeType: themeType
+                                                  });
+                                      } else {
+                                        return JsxRuntime.jsx("div", {});
+                                      }
+                                    })
+                                }),
+                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
                           })
-                    ],
-                    className: content(uiColors),
-                    onClick: stopProp
-                  }),
-              className: backdrop,
-              onClick: (function (param) {
-                  onClose();
-                })
-            });
+                  ) : (
+                    error$1 !== undefined ? JsxRuntime.jsx("div", {
+                            children: "Failed to load file: " + error$1,
+                            className: error(uiColors)
+                          }) : JsxRuntime.jsx("div", {
+                            children: "Loading...",
+                            className: status(uiColors)
+                          })
+                  ),
+                className: themeType === "dark" ? bodyDark : body
+              })
+        ],
+        className: embedded$1 ? embedded(uiColors) : content(uiColors),
+        onClick: stopProp
+      });
+  if (embedded$1) {
+    return viewer;
+  } else {
+    return JsxRuntime.jsx("div", {
+                children: viewer,
+                className: backdrop,
+                onClick: (function (param) {
+                    if (onClose !== undefined) {
+                      return onClose();
+                    }
+                    
+                  })
+              });
+  }
 }
 
 var make = FileViewer;

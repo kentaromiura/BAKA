@@ -119,7 +119,7 @@ function fileReviewList(colors) {
 function fileReviewHeader(colors) {
   return Html.css([
               "\n    margin: 0 0 6px 0;\n    color: ",
-              ";\n    font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif;\n    font-size: 12px;\n    font-weight: 600;\n  "
+              ";\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 12px;\n    font-weight: 600;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -221,7 +221,8 @@ function InlineComment(props) {
                     dark: theme.dark
                   },
                   themeType: themeType,
-                  onLineClick: toggleComment
+                  onLineClick: toggleComment,
+                  unsafeCSS: Diffs.fontUnsafeCss
                 };
         }), [
         theme,

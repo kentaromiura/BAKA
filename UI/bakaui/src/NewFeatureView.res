@@ -25,7 +25,6 @@ module Styles = {
     color: ${colors.fg};
     font-size: 18px;
     font-weight: 600;
-    font-family: monospace;
   `
 
   let description = (colors: uiColors) => Html.css`
@@ -42,7 +41,7 @@ module Styles = {
     border-radius: 6px;
     background-color: ${colors.inputBg};
     color: ${colors.inputFg};
-    font-family: monospace;
+    font: inherit;
     font-size: 14px;
     line-height: 1.5;
     padding: 12px;
@@ -113,7 +112,6 @@ module Styles = {
     border-radius: 6px;
     background-color: ${colors.inputBg};
     color: ${colors.fg};
-    font-family: monospace;
     font-size: 13px;
     line-height: 1.5;
     padding: 16px;
@@ -132,7 +130,6 @@ module Styles = {
     background-color: ${colors.inputBg};
     color: ${colors.descriptionFg};
     font-size: 12px;
-    font-family: monospace;
   `
 
   let spinner = Html.css`
