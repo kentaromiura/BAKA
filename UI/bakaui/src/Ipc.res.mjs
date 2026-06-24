@@ -57,8 +57,13 @@ function callAskPiWithDiff(diff, comments) {
   return Js_promise.then_(parseResponse, promise);
 }
 
-function callStartFullReview() {
-  console.log("[BAKA UI] startFullReview called");
+function callStartFullReview(kind) {
+  var tmp;
+  tmp = kind === "CodeReview" ? "code" : "vulnerability";
+  var request = {
+    kind: tmp
+  };
+  console.log("[BAKA UI] startFullReview called", request.kind);
   var parseResponse = function (raw) {
     ((console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})));
     return ((async (raw) => {
@@ -67,7 +72,7 @@ function callStartFullReview() {
       return raw.result;
     })(raw));
   };
-  return Js_promise.then_(parseResponse, startFullReview("{}"));
+  return Js_promise.then_(parseResponse, startFullReview(request));
 }
 
 function callApplyReviewSuggestion(request) {

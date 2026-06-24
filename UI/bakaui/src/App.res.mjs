@@ -8,6 +8,7 @@ import * as Trees from "./Trees.res.mjs";
 import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
+import * as Caml_obj from "rescript/lib/es6/caml_obj.js";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as CommitView from "./CommitView.res.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
@@ -28,7 +29,7 @@ var appFont = "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-
 
 function header(colors) {
   return Html.css([
-              "\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    padding: 12px;\n    background-color: ",
+              "\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 16px;\n    padding: 12px;\n    background-color: ",
               ";\n    border-bottom: 1px solid ",
               ";\n    transition: all 0.2s ease;\n  "
             ], [
@@ -37,7 +38,43 @@ function header(colors) {
             ]);
 }
 
-var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n  "], []);
+function tabs(colors) {
+  return Html.css([
+              "\n    display: inline-flex;\n    align-items: center;\n    flex-shrink: 0;\n    padding: 3px;\n    border: 1px solid ",
+              ";\n    border-radius: 7px;\n    background-color: ",
+              ";\n  "
+            ], [
+              colors.border,
+              colors.inputBg
+            ]);
+}
+
+function tab(colors) {
+  return Html.css([
+              "\n    padding: 6px 12px;\n    border: 1px solid transparent;\n    border-radius: 4px;\n    background-color: transparent;\n    color: ",
+              ";\n    font-family: ",
+              ";\n    font-weight: 500;\n    cursor: pointer;\n    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;\n\n    &:hover {\n      background-color: ",
+              ";\n      color: ",
+              ";\n    }\n\n    &[aria-selected=\"true\"] {\n      border-color: ",
+              ";\n      background-color: ",
+              ";\n      color: ",
+              ";\n      font-weight: 600;\n      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);\n    }\n\n    &[aria-selected=\"true\"]:hover {\n      background-color: ",
+              ";\n    }\n\n    &:focus-visible {\n      outline: 2px solid ",
+              ";\n      outline-offset: 1px;\n    }\n  "
+            ], [
+              colors.descriptionFg,
+              appFont,
+              colors.hoverBg,
+              colors.fg,
+              colors.focusBorder,
+              colors.selectionBg,
+              colors.fg,
+              colors.selectionBg,
+              colors.focusBorder
+            ]);
+}
+
+var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n    margin-left: auto;\n  "], []);
 
 function button(colors) {
   return Html.css([
@@ -156,6 +193,8 @@ function reviewSummaryLabel(colors) {
 var Styles = {
   appFont: appFont,
   header: header,
+  tabs: tabs,
+  tab: tab,
   headerActions: headerActions,
   button: button,
   askPiButton: askPiButton,
@@ -196,10 +235,10 @@ function App(props) {
   var setIsAskingPi = match$4[1];
   var isAskingPi = match$4[0];
   var match$5 = React.useState(function () {
-        return false;
+        
       });
-  var setIsReviewing = match$5[1];
-  var isReviewing = match$5[0];
+  var setActiveReview = match$5[1];
+  var activeReview = match$5[0];
   var match$6 = React.useState(function () {
         return "No full review has run yet.";
       });
@@ -208,19 +247,23 @@ function App(props) {
   var match$7 = React.useState(function () {
         return "Review";
       });
-  var setViewMode = match$7[1];
-  var viewMode = match$7[0];
+  var setReviewSummaryLabel = match$7[1];
   var match$8 = React.useState(function () {
+        return "Review";
+      });
+  var setViewMode = match$8[1];
+  var viewMode = match$8[0];
+  var match$9 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$8[1];
-  var patchState = match$8[0];
+  var setPatchState = match$9[1];
+  var patchState = match$9[0];
   var diffReloadPollVersionRef = React.useRef(0);
-  var match$9 = React.useState(function () {
+  var match$10 = React.useState(function () {
         return 0;
       });
-  var setDiffReloadPollVersion = match$9[1];
-  var diffReloadPollVersion = match$9[0];
+  var setDiffReloadPollVersion = match$10[1];
+  var diffReloadPollVersion = match$10[0];
   var requestPatchReload = function () {
     setDiffReloadPollVersion(function (prev) {
           return prev + 1 | 0;
@@ -460,16 +503,32 @@ function App(props) {
     };
     Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPi(payloadComments), onSuccess), onError);
   };
-  var handleFullReview = function (_event) {
-    if (isReviewing) {
+  var handleFullReview = function (kind, _event) {
+    if (activeReview !== undefined) {
       return ;
     }
-    console.log("[BAKA UI] Code Review button clicked");
-    setIsReviewing(function (param) {
-          return true;
+    var match;
+    match = kind === "CodeReview" ? [
+        "Review",
+        "Pi is reviewing the current diff...",
+        "Pi review: "
+      ] : [
+        "Vulnerability Check",
+        "Pi is checking the current diff for vulnerabilities...",
+        "Pi vulnerability check: "
+      ];
+    var commentPrefix = match[2];
+    var progress = match[1];
+    var label = match[0];
+    console.log("[BAKA UI] Full review button clicked", label);
+    setActiveReview(function (param) {
+          return kind;
+        });
+    setReviewSummaryLabel(function (param) {
+          return label;
         });
     setReviewSummary(function (param) {
-          return "Pi is reviewing the current diff...";
+          return progress;
         });
     var onSuccess = function (review) {
       console.log("[BAKA UI] Full review success summary", review.summary);
@@ -489,7 +548,7 @@ function App(props) {
                     } else {
                       console.log("[BAKA UI] Full review inserting file-level finding", key);
                     }
-                    var text = "Pi review: " + finding.summary;
+                    var text = commentPrefix + finding.summary;
                     var body = finding.body.trim().length > 0 ? finding.body : finding.summary;
                     newDict[key] = {
                       text: text,
@@ -526,8 +585,8 @@ function App(props) {
                 });
             return newDict;
           });
-      setIsReviewing(function (param) {
-            return false;
+      setActiveReview(function (param) {
+            
           });
       return Promise.resolve();
     };
@@ -535,14 +594,14 @@ function App(props) {
       var msg = (String(err).replace(/^Error: /, ''));
       console.log("[BAKA UI] Full review error", msg);
       setReviewSummary(function (param) {
-            return "Review failed: " + msg;
+            return label + " failed: " + msg;
           });
-      setIsReviewing(function (param) {
-            return false;
+      setActiveReview(function (param) {
+            
           });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callStartFullReview(), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callStartFullReview(kind), onSuccess), onError);
   };
   React.useEffect((function () {
           if (isInitialRender.current) {
@@ -585,6 +644,9 @@ function App(props) {
   var reviewButtonTitle = reviewSummary + (
     reviewCount > 0 ? "\n\n" + reviewCount.toString() + " finding(s), " + actionableReviewCount.toString() + " actionable." : ""
   );
+  var isReviewing = activeReview !== undefined;
+  var isCodeReviewing = Caml_obj.equal(activeReview, "CodeReview");
+  var isCheckingVulnerabilities = Caml_obj.equal(activeReview, "VulnerabilityCheck");
   var shouldShowReviewSummary = isReviewing || reviewSummary !== "No full review has run yet.";
   var reviewSummaryText = reviewSummary + (
     reviewCount > 0 ? "\n" + reviewCount.toString() + " finding(s), " + actionableReviewCount.toString() + " actionable." : ""
@@ -660,30 +722,8 @@ function App(props) {
   }
   var tmp;
   switch (viewMode) {
-    case "Commit" :
-        tmp = "Review View";
-        break;
     case "Review" :
-    case "Feature" :
-        tmp = "Commit View";
-        break;
-    
-  }
-  var tmp$1;
-  switch (viewMode) {
-    case "Review" :
-    case "Commit" :
-        tmp$1 = "New Feature";
-        break;
-    case "Feature" :
-        tmp$1 = "Review View";
-        break;
-    
-  }
-  var tmp$2;
-  switch (viewMode) {
-    case "Review" :
-        tmp$2 = JsxRuntime.jsxs("div", {
+        tmp = JsxRuntime.jsxs("div", {
               children: [
                 JsxRuntime.jsx("aside", {
                       children: JsxRuntime.jsx(React$2.FileTree, {
@@ -709,7 +749,7 @@ function App(props) {
             });
         break;
     case "Commit" :
-        tmp$2 = JsxRuntime.jsx(CommitView.make, {
+        tmp = JsxRuntime.jsx(CommitView.make, {
               patches: patchState._0,
               theme: style,
               themeType: isDark ? "dark" : "light",
@@ -718,7 +758,7 @@ function App(props) {
             });
         break;
     case "Feature" :
-        tmp$2 = JsxRuntime.jsx(NewFeatureView.make, {
+        tmp = JsxRuntime.jsx(NewFeatureView.make, {
               uiColors: currentColors
             });
         break;
@@ -731,48 +771,69 @@ function App(props) {
                         JsxRuntime.jsxs("div", {
                               children: [
                                 JsxRuntime.jsx("button", {
-                                      children: tmp,
-                                      className: buttonStyle,
+                                      children: "Review",
+                                      "aria-selected": viewMode === "Review",
+                                      className: tab(currentColors),
+                                      role: "tab",
                                       type: "button",
                                       onClick: (function (param) {
-                                          setViewMode(function (prev) {
-                                                switch (prev) {
-                                                  case "Commit" :
-                                                      return "Review";
-                                                  case "Review" :
-                                                  case "Feature" :
-                                                      return "Commit";
-                                                  
-                                                }
+                                          setViewMode(function (param) {
+                                                return "Review";
                                               });
                                         })
                                     }),
                                 JsxRuntime.jsx("button", {
-                                      children: tmp$1,
-                                      className: buttonStyle,
+                                      children: "Commit",
+                                      "aria-selected": viewMode === "Commit",
+                                      className: tab(currentColors),
+                                      role: "tab",
                                       type: "button",
                                       onClick: (function (param) {
-                                          setViewMode(function (prev) {
-                                                switch (prev) {
-                                                  case "Review" :
-                                                  case "Commit" :
-                                                      return "Feature";
-                                                  case "Feature" :
-                                                      return "Review";
-                                                  
-                                                }
+                                          setViewMode(function (param) {
+                                                return "Commit";
                                               });
                                         })
                                     }),
+                                JsxRuntime.jsx("button", {
+                                      children: "New Feature",
+                                      "aria-selected": viewMode === "Feature",
+                                      className: tab(currentColors),
+                                      role: "tab",
+                                      type: "button",
+                                      onClick: (function (param) {
+                                          setViewMode(function (param) {
+                                                return "Feature";
+                                              });
+                                        })
+                                    })
+                              ],
+                              "aria-label": "Main views",
+                              className: tabs(currentColors),
+                              role: "tablist"
+                            }),
+                        JsxRuntime.jsxs("div", {
+                              children: [
                                 viewMode === "Review" ? JsxRuntime.jsxs(JsxRuntime.Fragment, {
                                         children: [
                                           JsxRuntime.jsx("button", {
-                                                children: isReviewing ? "Reviewing..." : "Code Review",
+                                                children: isCodeReviewing ? "Reviewing..." : "Code Review",
                                                 className: askPiButton(currentColors, isReviewing),
                                                 title: reviewButtonTitle,
                                                 disabled: isReviewing,
                                                 type: "button",
-                                                onClick: handleFullReview
+                                                onClick: (function ($$event) {
+                                                    handleFullReview("CodeReview", $$event);
+                                                  })
+                                              }),
+                                          JsxRuntime.jsx("button", {
+                                                children: isCheckingVulnerabilities ? "Checking..." : "Vulnerability Check",
+                                                className: askPiButton(currentColors, isReviewing),
+                                                title: reviewButtonTitle,
+                                                disabled: isReviewing,
+                                                type: "button",
+                                                onClick: (function ($$event) {
+                                                    handleFullReview("VulnerabilityCheck", $$event);
+                                                  })
                                               }),
                                           JsxRuntime.jsx("button", {
                                                 children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
@@ -782,15 +843,15 @@ function App(props) {
                                                 onClick: handleAskPi
                                               })
                                         ]
-                                      }) : null
+                                      }) : null,
+                                JsxRuntime.jsx("button", {
+                                      children: isDark ? "Light Mode" : "Dark Mode",
+                                      className: buttonStyle,
+                                      type: "button",
+                                      onClick: handleThemeToggle
+                                    })
                               ],
                               className: headerActions
-                            }),
-                        JsxRuntime.jsx("button", {
-                              children: isDark ? "Light Mode" : "Dark Mode",
-                              className: buttonStyle,
-                              type: "button",
-                              onClick: handleThemeToggle
                             })
                       ],
                       className: headerStyle
@@ -798,14 +859,14 @@ function App(props) {
                 viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("span", {
-                                children: "Review",
+                                children: match$7[0],
                                 className: reviewSummaryLabel(currentColors)
                               }),
                           reviewSummaryText
                         ],
                         className: reviewSummaryBar(currentColors)
                       }) : null,
-                tmp$2
+                tmp
               ],
               className: container
             });

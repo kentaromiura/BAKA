@@ -19,16 +19,62 @@ module Styles = {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
     padding: 12px;
     background-color: ${colors.surfaceBg};
     border-bottom: 1px solid ${colors.border};
     transition: all 0.2s ease;
   `
 
+  let tabs = (colors: uiColors) => Html.css`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 3px;
+    border: 1px solid ${colors.border};
+    border-radius: 7px;
+    background-color: ${colors.inputBg};
+  `
+
+  let tab = (colors: uiColors) => Html.css`
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: transparent;
+    color: ${colors.descriptionFg};
+    font-family: ${appFont};
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      background-color: ${colors.hoverBg};
+      color: ${colors.fg};
+    }
+
+    &[aria-selected="true"] {
+      border-color: ${colors.focusBorder};
+      background-color: ${colors.selectionBg};
+      color: ${colors.fg};
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+
+    &[aria-selected="true"]:hover {
+      background-color: ${colors.selectionBg};
+    }
+
+    &:focus-visible {
+      outline: 2px solid ${colors.focusBorder};
+      outline-offset: 1px;
+    }
+  `
+
   let headerActions = Html.css`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-left: auto;
   `
 
   let button = (colors: uiColors) => Html.css`
@@ -181,8 +227,9 @@ let make = () => {
 
   // Pi request loading state
   let (isAskingPi, setIsAskingPi) = React.useState(() => false)
-  let (isReviewing, setIsReviewing) = React.useState(() => false)
+  let (activeReview, setActiveReview) = React.useState((): option<Ipc.fullReviewKind> => None)
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
+  let (reviewSummaryLabel, setReviewSummaryLabel) = React.useState(() => "Review")
   let (viewMode, setViewMode) = React.useState(() => Review)
 
   // Async patch loading state
@@ -413,73 +460,82 @@ let make = () => {
     }
   }
 
-  let handleFullReview = _event => {
-    if !isReviewing {
-      Js.log("[BAKA UI] Code Review button clicked")
-      setIsReviewing(_ => true)
-      setReviewSummary(_ => "Pi is reviewing the current diff...")
+  let handleFullReview = (kind: Ipc.fullReviewKind, _event) => {
+    if activeReview == None {
+      let (label, progress, commentPrefix) = switch kind {
+      | CodeReview => ("Review", "Pi is reviewing the current diff...", "Pi review: ")
+      | VulnerabilityCheck => (
+          "Vulnerability Check",
+          "Pi is checking the current diff for vulnerabilities...",
+          "Pi vulnerability check: ",
+        )
+      }
+      Js.log2("[BAKA UI] Full review button clicked", label)
+      setActiveReview(_ => Some(kind))
+      setReviewSummaryLabel(_ => label)
+      setReviewSummary(_ => progress)
 
       let onSuccess = (review: Ipc.fullReviewResult): Js.Promise.t<unit> => {
         Js.log2("[BAKA UI] Full review success summary", review.summary)
         Js.log2("[BAKA UI] Full review finding count", review.findings->Array.length)
         setReviewSummary(_ => review.summary)
-	        setComments(prev => {
-	          let newDict = InlineComment.copyDict(prev)
-	          review.findings->Array.forEach(finding => {
-	            let key = InlineComment.normalizeModelKey(finding.commentKey)
-	            switch InlineComment.parseKey(key) {
-	            | Some(_) =>
-	              switch Js.Dict.get(validReviewKeys, key) {
-	              | Some(true) => Js.log2("[BAKA UI] Full review inserting annotation", key)
-	              | _ => Js.log2("[BAKA UI] Full review inserting file-level finding", key)
-	              }
-	              let text = "Pi review: " ++ finding.summary
-	              let body = if finding.body->String.trim->String.length > 0 {
-	                finding.body
-	              } else {
-	                finding.summary
-	              }
-	              Js.Dict.set(newDict, key, {text: text, aiReply: State.AiDone(body)})
-	            | None => Js.log2("[BAKA UI] Full review skipping malformed finding", key)
-	            }
-	          })
-	          newDict
-	        })
-	        setReviewSuggestions(prev => {
-	          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
-	          review.findings->Array.forEach(finding => {
-	            let key = InlineComment.normalizeModelKey(finding.commentKey)
-	            switch InlineComment.parseKey(key) {
-	            | Some(_) =>
-	              Js.log2("[BAKA UI] Full review storing suggestion metadata", key)
-	              Js.Dict.set(newDict, key, {
-	                summary: finding.summary,
-	                severity: finding.severity,
-	                actionable: finding.actionable,
-	                suggestion: finding.suggestion,
-	                isApplying: false,
-	                applyResult: None,
-	                applyError: None,
-	              })
-	            | None => ()
-	            }
-	          })
-	          newDict
-	        })
-        setIsReviewing(_ => false)
+        setComments(prev => {
+          let newDict = InlineComment.copyDict(prev)
+          review.findings->Array.forEach(finding => {
+            let key = InlineComment.normalizeModelKey(finding.commentKey)
+            switch InlineComment.parseKey(key) {
+            | Some(_) =>
+              switch Js.Dict.get(validReviewKeys, key) {
+              | Some(true) => Js.log2("[BAKA UI] Full review inserting annotation", key)
+              | _ => Js.log2("[BAKA UI] Full review inserting file-level finding", key)
+              }
+              let text = commentPrefix ++ finding.summary
+              let body = if finding.body->String.trim->String.length > 0 {
+                finding.body
+              } else {
+                finding.summary
+              }
+              Js.Dict.set(newDict, key, {text: text, aiReply: State.AiDone(body)})
+            | None => Js.log2("[BAKA UI] Full review skipping malformed finding", key)
+            }
+          })
+          newDict
+        })
+        setReviewSuggestions(prev => {
+          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+          review.findings->Array.forEach(finding => {
+            let key = InlineComment.normalizeModelKey(finding.commentKey)
+            switch InlineComment.parseKey(key) {
+            | Some(_) =>
+              Js.log2("[BAKA UI] Full review storing suggestion metadata", key)
+              Js.Dict.set(newDict, key, {
+                summary: finding.summary,
+                severity: finding.severity,
+                actionable: finding.actionable,
+                suggestion: finding.suggestion,
+                isApplying: false,
+                applyResult: None,
+                applyError: None,
+              })
+            | None => ()
+            }
+          })
+          newDict
+        })
+        setActiveReview(_ => None)
         Js.Promise2.resolve()
       }
 
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
         let msg = %raw(`String(err).replace(/^Error: /, '')`)
         Js.log2("[BAKA UI] Full review error", msg)
-        setReviewSummary(_ => "Review failed: " ++ msg)
-        setIsReviewing(_ => false)
+        setReviewSummary(_ => label ++ " failed: " ++ msg)
+        setActiveReview(_ => None)
         Js.Promise2.resolve()
       }
 
       let _ = Js.Promise2.catch(
-        Js.Promise2.then(Ipc.callStartFullReview(), onSuccess),
+        Js.Promise2.then(Ipc.callStartFullReview(kind), onSuccess),
         onError,
       )
     }
@@ -531,6 +587,9 @@ let make = () => {
     } else {
       ""
     }
+  let isReviewing = activeReview != None
+  let isCodeReviewing = activeReview == Some(CodeReview)
+  let isCheckingVulnerabilities = activeReview == Some(VulnerabilityCheck)
   let shouldShowReviewSummary = isReviewing || reviewSummary != "No full review has run yet."
   let reviewSummaryText =
     reviewSummary ++
@@ -598,31 +657,55 @@ let make = () => {
   | PatchReady(patches) =>
     <div className={Styles.container}>
       <div className={headerStyle}>
+        <div className={Styles.tabs(currentColors)} role="tablist" ariaLabel="Main views">
+          <button
+            type_="button"
+            role="tab"
+            ariaSelected={viewMode == Review}
+            onClick={_ => setViewMode(_ => Review)}
+            className={Styles.tab(currentColors)}
+          >
+            {str("Review")}
+          </button>
+          <button
+            type_="button"
+            role="tab"
+            ariaSelected={viewMode == Commit}
+            onClick={_ => setViewMode(_ => Commit)}
+            className={Styles.tab(currentColors)}
+          >
+            {str("Commit")}
+          </button>
+          <button
+            type_="button"
+            role="tab"
+            ariaSelected={viewMode == Feature}
+            onClick={_ => setViewMode(_ => Feature)}
+            className={Styles.tab(currentColors)}
+          >
+            {str("New Feature")}
+          </button>
+        </div>
         <div className={Styles.headerActions}>
-          <button
-            type_="button"
-            onClick={_ => setViewMode(prev => switch prev { | Commit => Review | _ => Commit })}
-            className={buttonStyle}
-          >
-            {str(switch viewMode { | Commit => "Review View" | _ => "Commit View" })}
-          </button>
-          <button
-            type_="button"
-            onClick={_ => setViewMode(prev => switch prev { | Feature => Review | _ => Feature })}
-            className={buttonStyle}
-          >
-            {str(switch viewMode { | Feature => "Review View" | _ => "New Feature" })}
-          </button>
           {viewMode == Review
             ? <>
                 <button
                   type_="button"
-                  onClick={handleFullReview}
+                  onClick={event => handleFullReview(CodeReview, event)}
                   disabled={isReviewing}
                   title={reviewButtonTitle}
                   className={Styles.askPiButton(currentColors, isReviewing)}
                 >
-                  {str(if isReviewing { "Reviewing..." } else { "Code Review" })}
+                  {str(if isCodeReviewing { "Reviewing..." } else { "Code Review" })}
+                </button>
+                <button
+                  type_="button"
+                  onClick={event => handleFullReview(VulnerabilityCheck, event)}
+                  disabled={isReviewing}
+                  title={reviewButtonTitle}
+                  className={Styles.askPiButton(currentColors, isReviewing)}
+                >
+                  {str(if isCheckingVulnerabilities { "Checking..." } else { "Vulnerability Check" })}
                 </button>
                 <button
                   type_="button"
@@ -634,19 +717,19 @@ let make = () => {
                 </button>
               </>
             : React.null}
+          <button
+            type_="button"
+            onClick={handleThemeToggle}
+            className={buttonStyle}
+          >
+            {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
+          </button>
         </div>
-        <button
-          type_="button"
-          onClick={handleThemeToggle}
-          className={buttonStyle}
-        >
-          {str(if (isDark) { "Light Mode" } else { "Dark Mode" })}
-        </button>
       </div>
       {viewMode != Commit && shouldShowReviewSummary
         ? <div className={Styles.reviewSummaryBar(currentColors)}>
             <span className={Styles.reviewSummaryLabel(currentColors)}>
-              {str("Review")}
+              {str(reviewSummaryLabel)}
             </span>
             {str(reviewSummaryText)}
           </div>

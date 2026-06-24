@@ -47,6 +47,10 @@ FullReview_Result :: struct {
 	result: FullReview_Result_Data `json:"result"`,
 }
 
+FullReview_Request :: struct {
+	kind: string `json:"kind"`,
+}
+
 ApplySuggestion_Request :: struct {
 	comment_key: string `json:"commentKey"`,
 	suggestion:  string `json:"suggestion"`,
@@ -402,15 +406,39 @@ buildDiffFileList :: proc(diff: string) -> string {
 	return strings.clone(file_list, context.allocator) or_else "- (failed to list files)\n"
 }
 
-buildFullReviewPrompt :: proc(diff: string, batch_index, batch_count: int) -> (string, mem.Allocator_Error) {
+buildFullReviewPrompt :: proc(
+	diff: string,
+	batch_index, batch_count: int,
+	review_kind: string,
+) -> (string, mem.Allocator_Error) {
 	prompt := strings.builder_make()
 	defer strings.builder_destroy(&prompt)
 	file_list := buildDiffFileList(diff)
 	defer delete(file_list)
 
+	reviewer_role := "expert code reviewer"
+	review_focus :=
+		`Focus on real issues only: correctness bugs, missed edge cases, security issues,
+data loss risks, broken UX, performance problems, or maintainability problems
+that would matter in this patch. Ignore tiny style preferences.`
+	if review_kind == "vulnerability" {
+		reviewer_role = "application security reviewer"
+		review_focus =
+			`Focus only on credible vulnerabilities introduced or exposed by the changed lines.
+Consider authentication and authorization flaws, injection, cross-site scripting,
+CSRF, SSRF, path traversal, unsafe deserialization, command execution, secret or
+sensitive-data exposure, cryptographic misuse, insecure defaults, race conditions,
+resource exhaustion, and trust-boundary violations.
+
+Do not report general correctness, style, performance, or maintainability issues
+unless they have a concrete security impact. Trace attacker-controlled input to a
+sensitive operation and explain the exploit path. If exploitability depends on
+context absent from the diff, omit the finding rather than speculate.`
+	}
+
 	fmt.sbprintf(
 		&prompt,
-		`You are an expert code reviewer. Review batch %d of %d from the current git working tree.
+		`You are an %s. Review batch %d of %d from the current git working tree.
 
 You are running in a non-interactive review pipeline. Do not inspect files, use
 tools, ask questions, or describe a plan. The git diff below is the complete
@@ -428,9 +456,7 @@ references, and related files can exist outside this batch. Do not report a file
 symbol, import, or dependency as missing merely because it is not shown in this
 batch. Review only the changed lines present in this batch.
 
-Focus on real issues only: correctness bugs, missed edge cases, security issues,
-data loss risks, broken UX, performance problems, or maintainability problems
-that would matter in this patch. Ignore tiny style preferences.
+%s
 
 Return only findings that can be attached to changed lines in this diff. Use
 the new-line side "additions" only for added lines and "deletions" only for
@@ -469,8 +495,10 @@ Details:
 Markdown explanation.
 [END_FINDING]
 `,
+			reviewer_role,
 			batch_index,
 			batch_count,
+			review_focus,
 			file_list,
 			diff,
 		)
@@ -1261,8 +1289,19 @@ rollbackAppliedPatches :: proc(repo_root, primary_patch_path, repair_patch_path:
 	return strings.clone(message, context.allocator) or_else ""
 }
 
-process_full_review :: proc() -> (cstring, bool) {
-	debug_log("process_full_review started")
+process_full_review :: proc(req_str: string) -> (cstring, bool) {
+	debug_log(fmt.tprintf("process_full_review started; req=%s", preview(req_str)))
+	requests: [dynamic]FullReview_Request
+	defer delete(requests)
+	if err := json.unmarshal(transmute([]byte)req_str, &requests); err != nil {
+		return make_error_cstring("Failed to parse full review request JSON"), true
+	}
+	review_kind := "code"
+	if len(requests) > 0 && requests[0].kind == "vulnerability" {
+		review_kind = "vulnerability"
+	}
+	is_vulnerability_review := review_kind == "vulnerability"
+
 	file_names, ok := getReviewFileNames()
 	defer deleteStringArray(file_names)
 	if !ok {
@@ -1271,9 +1310,13 @@ process_full_review :: proc() -> (cstring, bool) {
 
 	if len(file_names) == 0 {
 		debug_log("process_full_review found no changed files")
+		empty_summary := "There are no changed files to review."
+		if is_vulnerability_review {
+			empty_summary = "There are no changed files to check for vulnerabilities."
+		}
 		empty := FullReview_Result {
 			result = FullReview_Result_Data {
-				summary  = "There are no changed files to review.",
+				summary  = empty_summary,
 				findings = [dynamic]Review_Finding{},
 			},
 		}
@@ -1342,9 +1385,13 @@ process_full_review :: proc() -> (cstring, bool) {
 
 	if len(batches) == 0 {
 		debug_log("process_full_review found no diff hunks")
+		empty_summary := "There are no diff hunks to review."
+		if is_vulnerability_review {
+			empty_summary = "There are no diff hunks to check for vulnerabilities."
+		}
 		empty := FullReview_Result {
 			result = FullReview_Result_Data {
-				summary  = "There are no diff hunks to review.",
+				summary  = empty_summary,
 				findings = [dynamic]Review_Finding{},
 			},
 		}
@@ -1365,7 +1412,7 @@ process_full_review :: proc() -> (cstring, bool) {
 
 	for batch, idx in batches {
 		debug_log(fmt.tprintf("review batch %d/%d has %d byte(s)", idx + 1, len(batches), len(batch)))
-		prompt, perr := buildFullReviewPrompt(batch, idx + 1, len(batches))
+		prompt, perr := buildFullReviewPrompt(batch, idx + 1, len(batches), review_kind)
 		if perr != nil {
 			return make_error_cstring("Failed to build review prompt"), true
 		}
@@ -1396,13 +1443,21 @@ process_full_review :: proc() -> (cstring, bool) {
 		merged_summary_raw := strings.to_string(summary_builder)
 		merged.summary = cloneTrimmed(merged_summary_raw)
 		if len(merged.summary) == 0 {
-			merged.summary = strings.clone("Pi did not find review issues in the current diff.", context.allocator) or_else "Pi did not find review issues in the current diff."
+			fallback_summary := "Pi did not find review issues in the current diff."
+			if is_vulnerability_review {
+				fallback_summary = "Pi did not find vulnerabilities in the current diff."
+			}
+			merged.summary = strings.clone(fallback_summary, context.allocator) or_else fallback_summary
 		}
 	} else {
 		merged_summary_raw := strings.to_string(summary_builder)
 		merged.summary = cloneTrimmed(merged_summary_raw)
 		if len(merged.summary) == 0 {
-			merged.summary = strings.clone(fmt.tprintf("Pi found %d review item(s).", len(merged.findings)), context.allocator) or_else "Pi found review items."
+			fallback_summary := fmt.tprintf("Pi found %d review item(s).", len(merged.findings))
+			if is_vulnerability_review {
+				fallback_summary = fmt.tprintf("Pi found %d potential vulnerability finding(s).", len(merged.findings))
+			}
+			merged.summary = strings.clone(fallback_summary, context.allocator) or_else fallback_summary
 		}
 	}
 
@@ -1808,7 +1863,7 @@ full_review_worker :: proc(data: rawptr) {
 	context = runtime.default_context()
 	job := cast(^AskPi_Job)data
 	debug_log("full_review_worker started")
-	job.result, job.is_error = process_full_review()
+	job.result, job.is_error = process_full_review(string(job.req))
 	debug_log(fmt.tprintf("full_review_worker finished; is_error=%v", job.is_error))
 	webview.dispatch(w, ask_pi_return_main, job)
 }

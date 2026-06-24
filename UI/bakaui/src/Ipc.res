@@ -45,6 +45,10 @@ type fullReviewResult = {
   summary: string,
   findings: array<fullReviewFinding>,
 }
+type fullReviewKind =
+  | CodeReview
+  | VulnerabilityCheck
+type fullReviewRequest = {kind: string}
 type applySuggestionRequest = {
   commentKey: string,
   suggestion: string,
@@ -102,10 +106,16 @@ let callAskPiWithDiff = (
   Js.Promise.then_(parseResponse)(promise)
 }
 
-@val external startFullReview_raw: string => Js.Promise.t<string> = "startFullReview"
+@val external startFullReview_raw: fullReviewRequest => Js.Promise.t<string> = "startFullReview"
 
-let callStartFullReview = (): Js.Promise.t<fullReviewResult> => {
-  Js.log("[BAKA UI] startFullReview called")
+let callStartFullReview = (kind: fullReviewKind): Js.Promise.t<fullReviewResult> => {
+  let request = {
+    kind: switch kind {
+    | CodeReview => "code"
+    | VulnerabilityCheck => "vulnerability"
+    },
+  }
+  Js.log2("[BAKA UI] startFullReview called", request.kind)
   let parseResponse = (raw: string): Js.Promise.t<fullReviewResult> => {
     let _ = %raw(`console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})`)
     %raw(`(async (raw) => {
@@ -114,7 +124,7 @@ let callStartFullReview = (): Js.Promise.t<fullReviewResult> => {
       return raw.result;
     })(raw)`)
   }
-  Js.Promise.then_(parseResponse)(startFullReview_raw("{}"))
+  Js.Promise.then_(parseResponse)(startFullReview_raw(request))
 }
 
 @val external applyReviewSuggestion_raw: string => Js.Promise.t<string> = "applyReviewSuggestion"

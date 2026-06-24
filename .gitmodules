@@ -1,3 +1,6 @@
 [submodule "APP/webview-odin"]
 	path = APP/webview-odin
 	url = https://github.com/thechampagne/webview-odin.git
+[submodule "webview"]
+	path = webview
+	url = https://github.com/webview/webview.git
