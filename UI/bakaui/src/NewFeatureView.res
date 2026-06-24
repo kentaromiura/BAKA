@@ -205,10 +205,6 @@ let make = (~uiColors: uiColors) => {
   | Applying => true
   | _ => false
   }
-  let planReady = switch featurePlan {
-  | PlanReady(_) => true
-  | _ => false
-  }
   let planText = switch featurePlan {
   | PlanReady(t) => t
   | _ => ""
@@ -223,7 +219,7 @@ let make = (~uiColors: uiColors) => {
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        let msg = Raw.errorMessage(err)
         setFeaturePlan(_ => State.Error(msg))
         Js.Promise2.resolve()
       }
@@ -249,7 +245,7 @@ let make = (~uiColors: uiColors) => {
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        let msg = Raw.errorMessage(err)
         setFeaturePlan(_ => State.Error(msg))
         Js.Promise2.resolve()
       }
@@ -267,11 +263,11 @@ let make = (~uiColors: uiColors) => {
   | PlanReady(_) => "Plan ready. You can refine or apply it."
   | Applying => "Applying the plan to your codebase..."
   | ApplyDone(msg) => msg
-  | Error(msg) => msg
+  | State.Error(msg) => msg
   }
 
   let statusIsError = switch featurePlan {
-  | Error(_) => true
+  | State.Error(_) => true
   | _ => false
   }
   let placeholder = `Describe the new feature or bug fix in detail...
@@ -288,7 +284,7 @@ Or: 'Fix the issue where undo sometimes crashes when the file has unsaved change
         )}
       </div>
       {switch featurePlan {
-      | Idle | GeneratingPlan | Applying | Error(_) | ApplyDone(_) =>
+      | Idle | GeneratingPlan | Applying | State.Error(_) | ApplyDone(_) =>
         <>
           <textarea
             className={Styles.textarea(uiColors)}

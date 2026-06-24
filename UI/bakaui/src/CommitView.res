@@ -6,16 +6,15 @@ let str = React.string
 let lineKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
-let copyBoolDict = (dict: Js.Dict.t<bool>): Js.Dict.t<bool> =>
-  %raw(`Object.assign({}, dict)`)
+let copyBoolDict: Js.Dict.t<bool> => Js.Dict.t<bool> = Raw.copyDict
 
-let clearFileLineKeys = (dict: Js.Dict.t<bool>, fileName: string): unit =>
-  %raw(`((dict, fileName) => {
+let clearFileLineKeys: (Js.Dict.t<bool>, string) => unit =
+  %raw(`(dict, fileName) => {
     const prefix = fileName + "|";
     for (const key of Object.keys(dict)) {
       if (key.startsWith(prefix)) delete dict[key];
     }
-  })(dict, fileName)`)
+  }`)
 
 let isTruthy = value =>
   switch value {
@@ -23,12 +22,12 @@ let isTruthy = value =>
   | _ => false
   }
 
-let buildSelectedPatch = (
-  fileDiffs: array<patchFile>,
-  selectedFiles: Js.Dict.t<bool>,
-  excludedLines: Js.Dict.t<bool>,
-): string =>
-  %raw(`((fileDiffs, selectedFiles, excludedLines) => {
+let buildSelectedPatch: (
+  array<patchFile>,
+  Js.Dict.t<bool>,
+  Js.Dict.t<bool>,
+) => string =
+  %raw(`(fileDiffs, selectedFiles, excludedLines) => {
     const isFileSelected = (name) => selectedFiles[name] !== false;
     const isExcluded = (fileName, side, lineNumber) =>
       excludedLines[fileName + "|" + side + "|" + lineNumber] === true;
@@ -141,13 +140,13 @@ let buildSelectedPatch = (
     }
 
     return out.length === 0 ? "" : out.join(newline) + newline;
-  })(fileDiffs, selectedFiles, excludedLines)`)
+  }`)
 
-let syncExcludedLineHighlights = (
-  root: Js.Nullable.t<Dom.element>,
-  excludedLines: array<lineAnnotation>,
-): (unit => unit) =>
-  %raw(`((root, excludedLines) => {
+let syncExcludedLineHighlights: (
+  Js.Nullable.t<Dom.element>,
+  array<lineAnnotation>,
+) => (unit => unit) =
+  %raw(`(root, excludedLines) => {
     if (root == null) return () => {};
 
     const observed = new WeakSet();
@@ -210,15 +209,15 @@ let syncExcludedLineHighlights = (
       if (frame !== 0) cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  })(root, excludedLines)`)
+  }`)
 
-let syncLineNumberSelection = (
-  root: Js.Nullable.t<Dom.element>,
-  fileName: string,
-  enabled: bool,
-  setExcludedLines: ((Js.Dict.t<bool> => Js.Dict.t<bool>) => unit),
-): (unit => unit) =>
-  %raw(`((root, fileName, enabled, setExcludedLines) => {
+let syncLineNumberSelection: (
+  Js.Nullable.t<Dom.element>,
+  string,
+  bool,
+  ((Js.Dict.t<bool> => Js.Dict.t<bool>) => unit),
+) => (unit => unit) =
+  %raw(`(root, fileName, enabled, setExcludedLines) => {
     if (root == null || !enabled) return () => {};
 
     const observed = new WeakSet();
@@ -357,7 +356,7 @@ let syncLineNumberSelection = (
       endSession();
       for (const cleanup of cleanups.splice(0)) cleanup();
     };
-  })(root, fileName, enabled, setExcludedLines)`)
+  }`)
 
 module Styles = {
   let treeFont = `"Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
@@ -749,7 +748,7 @@ let make = (
           Js.Promise2.resolve()
         }
         let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-          let msg = %raw(`String(err).replace(/^Error: /, '')`)
+          let msg = Raw.errorMessage(err)
           setIsCommitting(_ => false)
           setCommitStatus(_ => msg)
           setCommitStatusIsError(_ => true)

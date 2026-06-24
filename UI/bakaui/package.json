@@ -6,16 +6,15 @@
   "author": "Cristian Carlesso <@kentaromiura>",
   "license": "MIT",
   "devDependencies": {
-    "@babel/core": "^7.26.0",
+    "@babel/core": "^7.29.7",
     "@emotion/css": "^11.13.5",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "esbuild-plugin-babel": "^0.2.3",
-    "livereload": "^0.9.3",
     "nodemon": "^3.1.9"
   },
   "dependencies": {
     "@fattafatta/rescript-jotai": "^0.4.2",
-    "@pierre/diffs": "^1.2.7",
+    "@pierre/diffs": "^1.2.11",
     "@pierre/trees": "^1.0.0-beta.4",
     "@rescript/core": "1.6.1",
     "@rescript/react": "^0.12.1",
@@ -32,7 +31,6 @@
     "res:clean": "rescript clean",
     "res:dev": "rescript -w",
     "serve": "npx serve .",
-    "liverel": "livereload 'out.js,out.css,index.html'",
-    "dev": "yarn liverel&yarn serve&nodemon --ext res --watch ./src --exec \"yarn build\""
+    "dev": "yarn serve & nodemon --ext res --watch ./src --exec \"yarn build\""
   }
 }

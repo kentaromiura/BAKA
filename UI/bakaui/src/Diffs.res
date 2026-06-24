@@ -31,6 +31,10 @@ type selectedLineRange = {
 }
 
 type jsObj
+type lineClickProps = {
+  lineNumber: float,
+  annotationSide: string,
+}
 
 let fontFamily = `"Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`
 
@@ -41,12 +45,12 @@ let fontUnsafeCss = `
   }
 `
 
-let fileDiffName = (fd: patchFile): string => %raw(`fd.name || ""`)
-let fileDiffType = (fd: patchFile): string => %raw(`fd.type || ""`)
-let fileDiffAdditionLines = (fd: patchFile): array<string> => %raw(`fd.additionLines || []`)
-let fileDiffNewObjectId = (fd: patchFile): string => %raw(`fd.newObjectId || ""`)
-let changedLineAnnotations = (fd: patchFile): array<lineAnnotation> =>
-  %raw(`((fd) => {
+let fileDiffName: patchFile => string = %raw(`fd => fd.name || ""`)
+let fileDiffType: patchFile => string = %raw(`fd => fd.type || ""`)
+let fileDiffAdditionLines: patchFile => array<string> = %raw(`fd => fd.additionLines || []`)
+let fileDiffNewObjectId: patchFile => string = %raw(`fd => fd.newObjectId || ""`)
+let changedLineAnnotations: patchFile => array<lineAnnotation> =
+  %raw(`fd => {
     if (!fd || !Array.isArray(fd.hunks)) return [];
     const annotations = [];
     for (const hunk of fd.hunks) {
@@ -73,9 +77,9 @@ let changedLineAnnotations = (fd: patchFile): array<lineAnnotation> =>
       }
     }
     return annotations;
-  })(fd)`)
-let isEmptyFile = (fd: patchFile): bool =>
-  %raw(`!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n"`)
+  }`)
+let isEmptyFile: patchFile => bool =
+  %raw(`fd => !!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n"`)
 
 module FileDiff = {
   type theme = {light: string, dark: string}

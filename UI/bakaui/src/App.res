@@ -413,7 +413,7 @@ let make = () => {
       Js.Promise2.resolve()
     }
     let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-      let msg = %raw(`String(err).replace(/^Error: /, '')`)
+      let msg = Raw.errorMessage(err)
       Js.log2("[BAKA UI] patch load error", msg)
       setPatchState(_ => PatchError(msg))
       Js.Promise2.resolve()
@@ -521,14 +521,16 @@ let make = () => {
     setIsDark(prev => !prev)
   }
 
-  let handleLightThemeChange = event => {
-    let themeName: string = %raw(`event.target.value`)
+  let handleLightThemeChange = (event: JsxEvent.Form.t) => {
+    let target = JsxEvent.Form.target(event)
+    let themeName: string = target["value"]
     captureScrollTop()
     setThemeNames(previous => {...previous, light: themeName})
   }
 
-  let handleDarkThemeChange = event => {
-    let themeName: string = %raw(`event.target.value`)
+  let handleDarkThemeChange = (event: JsxEvent.Form.t) => {
+    let target = JsxEvent.Form.target(event)
+    let themeName: string = target["value"]
     captureScrollTop()
     setThemeNames(previous => {...previous, dark: themeName})
   }
@@ -597,7 +599,7 @@ let make = () => {
         }
 
         let onError = (_err: Js.Promise2.error): Js.Promise.t<unit> => {
-          let msg = %raw(`String(_err).replace(/^Error: /, '')`)
+          let msg = Raw.errorMessage(_err)
           Js.log2("[BAKA UI] Ask Pi error", msg)
           // Mark all streaming comments as error
           setComments(prev => {
@@ -665,7 +667,7 @@ let make = () => {
           newDict
         })
         setReviewSuggestions(prev => {
-          let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+          let newDict: Js.Dict.t<State.reviewSuggestion> = Raw.copyDict(prev)
           review.findings->Array.forEach(finding => {
             let key = InlineComment.normalizeModelKey(finding.commentKey)
             switch InlineComment.parseKey(key) {
@@ -690,7 +692,7 @@ let make = () => {
       }
 
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        let msg = Raw.errorMessage(err)
         Js.log2("[BAKA UI] Full review error", msg)
         setReviewSummary(_ => label ++ " failed: " ++ msg)
         setActiveReview(_ => None)

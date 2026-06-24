@@ -5,24 +5,15 @@ var fontFamily = "\"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consol
 
 var fontUnsafeCss = "\n  :host {\n    --diffs-font-family: " + fontFamily + ";\n    --diffs-header-font-family: " + fontFamily + ";\n  }\n";
 
-function fileDiffName(fd) {
-  return (fd.name || "");
-}
+var fileDiffName = (fd => fd.name || "");
 
-function fileDiffType(fd) {
-  return (fd.type || "");
-}
+var fileDiffType = (fd => fd.type || "");
 
-function fileDiffAdditionLines(fd) {
-  return (fd.additionLines || []);
-}
+var fileDiffAdditionLines = (fd => fd.additionLines || []);
 
-function fileDiffNewObjectId(fd) {
-  return (fd.newObjectId || "");
-}
+var fileDiffNewObjectId = (fd => fd.newObjectId || "");
 
-function changedLineAnnotations(fd) {
-  return (((fd) => {
+var changedLineAnnotations = (fd => {
     if (!fd || !Array.isArray(fd.hunks)) return [];
     const annotations = [];
     for (const hunk of fd.hunks) {
@@ -49,12 +40,9 @@ function changedLineAnnotations(fd) {
       }
     }
     return annotations;
-  })(fd));
-}
+  });
 
-function isEmptyFile(fd) {
-  return (!!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n");
-}
+var isEmptyFile = (fd => !!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n");
 
 var FileDiff = {};
 

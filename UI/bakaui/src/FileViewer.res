@@ -1,11 +1,17 @@
 open State
 
-let copyDict = (dict: Js.Dict.t<commentData>): Js.Dict.t<commentData> =>
-  %raw(`Object.assign({}, dict)`)
+let copyDict = Raw.copyDict
 
-let deleteProp = (dict, key) => {
-  let _ = %raw(`delete dict[key]`)
-}
+let deleteProp = Raw.deleteProp
+
+let listenForEscape: (unit => unit) => (unit => unit) =
+  %raw(`close => {
+    const handler = event => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }`)
 
 let makeKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
@@ -173,23 +179,11 @@ let make = (
     None
   })
 
-  // Close on Escape. The whole effect lives in one %raw block so the
-  // handler closure can capture onClose and the cleanup can reference
-  // the same handler instance. The IIFE returns a cleanup function
-  // which we return from the effect so React calls it on unmount.
+  // Close on Escape. The typed raw helper captures onClose and returns
+  // the cleanup function React calls on unmount.
   React.useEffect0(() =>
     switch onClose {
-    | Some(close) =>
-      let cleanup = %raw(`
-        (function() {
-          var handler = function(ev) {
-            if (ev.key === "Escape") close();
-          };
-          window.addEventListener("keydown", handler);
-          return function() { window.removeEventListener("keydown", handler); };
-        })()
-      `)
-      Some(cleanup)
+    | Some(close) => Some(listenForEscape(close))
     | None => None
     }
   )
@@ -222,9 +216,9 @@ let make = (
     })
   }, [comments])
 
-  let toggleComment = React.useCallback0(props => {
-    let lineNumber = int_of_float(%raw(`props["lineNumber"]`))
-    let sideStr: string = %raw(`props["annotationSide"]`)
+  let toggleComment = React.useCallback0((props: Diffs.lineClickProps) => {
+    let lineNumber = int_of_float(props.lineNumber)
+    let sideStr = props.annotationSide
     let key = makeKey(fileName, sideStr, lineNumber)
     setComments(prev => {
       switch Js.Dict.get(prev, key) {
@@ -314,7 +308,7 @@ let make = (
           Js.Promise2.resolve()
         }
         let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-          let msg = %raw(`String(err).replace(/^Error: /, '')`)
+          let msg = Raw.errorMessage(err)
           setComments(prev => {
             let newDict = copyDict(prev)
             payloadComments->Array.forEach(pc => {

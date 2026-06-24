@@ -1,17 +1,14 @@
 open State
 
-let copyDict = (dict: Js.Dict.t<commentData>): Js.Dict.t<commentData> =>
-  %raw(`Object.assign({}, dict)`)
+let copyDict = Raw.copyDict
 
-let deleteProp = (dict, key) => {
-  let _ = %raw(`delete dict[key]`)
-}
+let deleteProp = Raw.deleteProp
 
 let makeKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
-let cleanModelLine = (line: string): string =>
-  %raw(`String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, "")`)
+let cleanModelLine: string => string =
+  %raw(`line => String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, "")`)
 
 let parseKey = (key: string): option<(string, string, int)> => {
   let parts = key->String.split("|")
@@ -113,9 +110,9 @@ let make = (
   let isEmptyFile = Diffs.isEmptyFile(fileDiff)
   let (showFullFile, setShowFullFile) = React.useState(_ => false)
 
-  let toggleComment = React.useCallback0(props => {
-    let lineNumber = int_of_float(%raw(`props["lineNumber"]`))
-    let sideStr: string = %raw(`props["annotationSide"]`)
+  let toggleComment = React.useCallback0((props: Diffs.lineClickProps) => {
+    let lineNumber = int_of_float(props.lineNumber)
+    let sideStr = props.annotationSide
     let key = makeKey(fileName, sideStr, lineNumber)
 
     setComments(prev => {

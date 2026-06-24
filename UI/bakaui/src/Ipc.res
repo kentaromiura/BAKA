@@ -5,14 +5,13 @@
 @val external getPatch_raw: string => Js.Promise.t<string> = "getPatch"
 
 let callGetPatch = (): Js.Promise.t<string> => {
-  let parseResponse = (raw: string): Js.Promise.t<string> => {
-    let _ = %raw(`console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   Js.Promise.then_(parseResponse)(getPatch_raw("{}"))
 }
 
@@ -20,28 +19,26 @@ let callGetPatch = (): Js.Promise.t<string> => {
 
 let callGetFilePatch = (path: string): Js.Promise.t<string> => {
   Js.log2("[BAKA UI] getFilePatch called", path)
-  let parseResponse = (raw: string): Js.Promise.t<string> => {
-    let _ = %raw(`console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   Js.Promise.then_(parseResponse)(getFilePatch_raw(path))
 }
 
 @val external getProjectFiles_raw: string => Js.Promise.t<string> = "getProjectFiles"
 
 let callGetProjectFiles = (): Js.Promise.t<array<string>> => {
-  let parseResponse = (raw: string): Js.Promise.t<array<string>> => {
-    let _ = %raw(`console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<array<string>> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (!Array.isArray(raw.result)) throw new Error("Missing project file list");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   Js.Promise.then_(parseResponse)(getProjectFiles_raw("{}"))
 }
 
@@ -81,14 +78,13 @@ type commitSelectionRequest = {
 
 let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>> => {
   Js.log2("[BAKA UI] askPi called with comment count", comments->Array.length)
-  let parseResponse = (raw: string): Js.Promise.t<array<askPiReply>> => {
-    let _ = %raw(`console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<array<askPiReply>> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = %raw(`askPi(...comments)`)
   Js.log2("[BAKA UI] askPi promise", promise)
   Js.Promise.then_(parseResponse)(promise)
@@ -108,14 +104,13 @@ let callAskPiWithDiff = (
 ): Js.Promise.t<array<askPiReply>> => {
   Js.log2("[BAKA UI] askPiWithDiff diff bytes", diff->String.length)
   Js.log2("[BAKA UI] askPiWithDiff comment count", comments->Array.length)
-  let parseResponse = (raw: string): Js.Promise.t<array<askPiReply>> => {
-    let _ = %raw(`console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<array<askPiReply>> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = %raw(`askPiWithDiff({diff, comments})`)
   Js.Promise.then_(parseResponse)(promise)
 }
@@ -130,14 +125,13 @@ let callStartFullReview = (kind: fullReviewKind): Js.Promise.t<fullReviewResult>
     },
   }
   Js.log2("[BAKA UI] startFullReview called", request.kind)
-  let parseResponse = (raw: string): Js.Promise.t<fullReviewResult> => {
-    let _ = %raw(`console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<fullReviewResult> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   Js.Promise.then_(parseResponse)(startFullReview_raw(request))
 }
 
@@ -147,14 +141,13 @@ let callApplyReviewSuggestion = (
   request: applySuggestionRequest,
 ): Js.Promise.t<string> => {
   Js.log2("[BAKA UI] applyReviewSuggestion called", request)
-  let parseResponse = (raw: string): Js.Promise.t<string> => {
-    let _ = %raw(`console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = %raw(`applyReviewSuggestion(request)`)
   Js.Promise.then_(parseResponse)(promise)
 }
@@ -167,14 +160,13 @@ type applyFeaturePlanRequest = {description: string, plan: string}
 
 let callCreateFeaturePlan = (description: string): Js.Promise.t<createFeaturePlanResult> => {
   Js.log2("[BAKA UI] createFeaturePlan called", description)
-  let parseResponse = (raw: string): Js.Promise.t<createFeaturePlanResult> => {
-    let _ = %raw(`console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<createFeaturePlanResult> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = createFeaturePlan_raw(description)
   Js.Promise.then_(parseResponse)(promise)
 }
@@ -186,14 +178,13 @@ let callApplyFeaturePlan = (request: applyFeaturePlanRequest): Js.Promise.t<stri
     "descriptionBytes": request.description->String.length,
     "planBytes": request.plan->String.length,
   })
-  let parseResponse = (raw: string): Js.Promise.t<string> => {
-    let _ = %raw(`console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = applyFeaturePlan_raw(request)
   Js.Promise.then_(parseResponse)(promise)
 }
@@ -206,14 +197,13 @@ let callCommitSelection = (request: commitSelectionRequest): Js.Promise.t<string
     "bodyBytes": request.body->String.length,
     "patchBytes": request.patch->String.length,
   })
-  let parseResponse = (raw: string): Js.Promise.t<string> => {
-    let _ = %raw(`console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})`)
-    %raw(`(async (raw) => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw)`)
-  }
+    }`)
   let promise = %raw(`commitSelection(request)`)
   Js.Promise.then_(parseResponse)(promise)
 }

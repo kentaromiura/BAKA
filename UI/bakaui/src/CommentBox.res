@@ -1,14 +1,11 @@
 open State
 
-let copyDict = (dict: Js.Dict.t<commentData>): Js.Dict.t<commentData> =>
-  %raw(`Object.assign({}, dict)`)
+let copyDict = Raw.copyDict
 
-let deleteProp = (dict, key) => {
-  let _ = %raw(`delete dict[key]`)
-}
+let deleteProp = Raw.deleteProp
 
-let hexToRgba = (hex: string, alpha: float): string => {
-  %raw(`((hex, alpha) => {
+let hexToRgba: (string, float) => string =
+  %raw(`(hex, alpha) => {
       const cleaned = hex.startsWith('#') ? hex.slice(1) : hex;
       if (cleaned.length < 6) return hex;
       const r = parseInt(cleaned.slice(0, 2), 16);
@@ -16,8 +13,7 @@ let hexToRgba = (hex: string, alpha: float): string => {
       const b = parseInt(cleaned.slice(4, 6), 16);
       if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
       return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
-    })(hex, alpha)`)
-}
+    }`)
 
 module Styles = {
   let box = (colors: uiColors) =>
@@ -301,7 +297,7 @@ let make = (
 
   let updateReviewSuggestion = (next: State.reviewSuggestion): unit => {
     setReviewSuggestions(prev => {
-      let newDict: Js.Dict.t<State.reviewSuggestion> = %raw(`Object.assign({}, prev)`)
+      let newDict: Js.Dict.t<State.reviewSuggestion> = Raw.copyDict(prev)
       Js.Dict.set(newDict, commentKey, next)
       newDict
     })
@@ -324,7 +320,7 @@ let make = (
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
-        let msg = %raw(`String(err).replace(/^Error: /, '')`)
+        let msg = Raw.errorMessage(err)
         Js.log2("[BAKA UI] Apply suggestion error", msg)
         updateReviewSuggestion({
           ...item,

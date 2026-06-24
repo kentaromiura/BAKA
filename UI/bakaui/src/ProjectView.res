@@ -96,7 +96,7 @@ let make = (~theme: Diffs.FileDiff.theme, ~themeType: string, ~uiColors: uiColor
       Js.Promise2.resolve()
     })
     ->Js.Promise2.catch(err => {
-      let message = %raw(`String(err).replace(/^Error: /, '')`)
+      let message = Raw.errorMessage(err)
       setState(_ => Failed(message))
       Js.Promise2.resolve()
     })

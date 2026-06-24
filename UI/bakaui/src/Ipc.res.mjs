@@ -3,52 +3,44 @@
 import * as Js_promise from "rescript/lib/es6/js_promise.js";
 
 function callGetPatch() {
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   return Js_promise.then_(parseResponse, getPatch("{}"));
 }
 
 function callGetFilePatch(path) {
   console.log("[BAKA UI] getFilePatch called", path);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getFilePatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   return Js_promise.then_(parseResponse, getFilePatch(path));
 }
 
 function callGetProjectFiles() {
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getProjectFiles raw response meta", raw && raw.error ? {error: raw.error} : {fileCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (!Array.isArray(raw.result)) throw new Error("Missing project file list");
       return raw.result;
-    })(raw));
-  };
+    });
   return Js_promise.then_(parseResponse, getProjectFiles("{}"));
 }
 
 function callAskPi(comments) {
   console.log("[BAKA UI] askPi called with comment count", comments.length);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = (askPi(...comments));
   console.log("[BAKA UI] askPi promise", promise);
   return Js_promise.then_(parseResponse, promise);
@@ -57,14 +49,12 @@ function callAskPi(comments) {
 function callAskPiWithDiff(diff, comments) {
   console.log("[BAKA UI] askPiWithDiff diff bytes", diff.length);
   console.log("[BAKA UI] askPiWithDiff comment count", comments.length);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] askPiWithDiff raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = (askPiWithDiff({diff, comments}));
   return Js_promise.then_(parseResponse, promise);
 }
@@ -76,41 +66,35 @@ function callStartFullReview(kind) {
     kind: tmp
   };
   console.log("[BAKA UI] startFullReview called", request.kind);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   return Js_promise.then_(parseResponse, startFullReview(request));
 }
 
 function callApplyReviewSuggestion(request) {
   console.log("[BAKA UI] applyReviewSuggestion called", request);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] applyReviewSuggestion raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = (applyReviewSuggestion(request));
   return Js_promise.then_(parseResponse, promise);
 }
 
 function callCreateFeaturePlan(description) {
   console.log("[BAKA UI] createFeaturePlan called", description);
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = createFeaturePlan(description);
   return Js_promise.then_(parseResponse, promise);
 }
@@ -120,14 +104,12 @@ function callApplyFeaturePlan(request) {
         descriptionBytes: request.description.length,
         planBytes: request.plan.length
       });
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = applyFeaturePlan(request);
   return Js_promise.then_(parseResponse, promise);
 }
@@ -138,14 +120,12 @@ function callCommitSelection(request) {
         bodyBytes: request.body.length,
         patchBytes: request.patch.length
       });
-  var parseResponse = function (raw) {
-    ((console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null})));
-    return ((async (raw) => {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] commitSelection raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
-    })(raw));
-  };
+    });
   var promise = (commitSelection(request));
   return Js_promise.then_(parseResponse, promise);
 }
