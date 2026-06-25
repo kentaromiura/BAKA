@@ -20,6 +20,7 @@ import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as ProjectView from "./ProjectView.res.mjs";
 import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as SpecCheckView from "./SpecCheckView.res.mjs";
 import * as NewFeatureView from "./NewFeatureView.res.mjs";
 import * as ThemePreferences from "./ThemePreferences.res.mjs";
@@ -321,6 +322,28 @@ function settingsHint(colors) {
             ], [colors.descriptionFg]);
 }
 
+var settingsSectionTitle = Html.css(["\n    margin: 28px 0 12px;\n    font-size: 1.23rem;\n  "], []);
+
+function settingsCardHint(colors) {
+  return Html.css([
+              "\n    color: ",
+              ";\n    font-size: 0.846rem;\n    line-height: 1.4;\n  "
+            ], [colors.descriptionFg]);
+}
+
+function statusBar(colors) {
+  return Html.css([
+              "\n    min-height: 26px;\n    display: flex;\n    align-items: center;\n    justify-content: flex-end;\n    padding: 3px 10px;\n    border-top: 1px solid ",
+              ";\n    background: ",
+              ";\n    color: ",
+              ";\n    font-size: 0.846rem;\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg,
+              colors.descriptionFg
+            ]);
+}
+
 var Styles = {
   appFont: appFont,
   header: header,
@@ -354,7 +377,10 @@ var Styles = {
   settingsCard: settingsCard,
   settingsLabel: settingsLabel,
   settingsSelect: settingsSelect,
-  settingsHint: settingsHint
+  settingsHint: settingsHint,
+  settingsSectionTitle: settingsSectionTitle,
+  settingsCardHint: settingsCardHint,
+  statusBar: statusBar
 };
 
 function App(props) {
@@ -373,48 +399,66 @@ function App(props) {
   var match$4 = Jotai.useAtom(State.reviewSuggestionsAtom);
   var setReviewSuggestions = match$4[1];
   var reviewSuggestions = match$4[0];
+  var match$5 = Jotai.useAtom(State.piPreferencesAtom);
+  var setPiPreferences = match$5[1];
+  var piPreferences = match$5[0];
+  var match$6 = Jotai.useAtom(State.piModelsAtom);
+  var setPiModels = match$6[1];
+  var piModels = match$6[0];
+  var match$7 = Jotai.useAtom(State.piResolvedDefaultAtom);
+  var setPiResolvedDefault = match$7[1];
+  var piResolvedDefault = match$7[0];
+  var match$8 = Jotai.useAtom(State.activePiRunAtom);
+  var setActivePiRun = match$8[1];
+  var activePiRun = match$8[0];
+  var match$9 = Jotai.useAtom(State.featurePlanAtom);
   var currentColors = loadedThemes !== undefined ? (
       isDark ? loadedThemes.dark : loadedThemes.light
     ) : (
       isDark ? State.defaultUiColors : State.lightDefaultUiColors
     );
-  var match$5 = React.useState(function () {
+  var match$10 = React.useState(function () {
         return false;
       });
-  var setIsAskingPi = match$5[1];
-  var isAskingPi = match$5[0];
-  var match$6 = React.useState(function () {
-        
+  var setIsAskingPi = match$10[1];
+  var isAskingPi = match$10[0];
+  var match$11 = React.useState(function () {
+
       });
-  var setActiveReview = match$6[1];
-  var activeReview = match$6[0];
-  var match$7 = React.useState(function () {
+  var setActiveReview = match$11[1];
+  var activeReview = match$11[0];
+  var match$12 = React.useState(function () {
         return "No full review has run yet.";
       });
-  var setReviewSummary = match$7[1];
-  var reviewSummary = match$7[0];
-  var match$8 = React.useState(function () {
+  var setReviewSummary = match$12[1];
+  var reviewSummary = match$12[0];
+  var match$13 = React.useState(function () {
         return "Review";
       });
-  var setReviewSummaryLabel = match$8[1];
-  var match$9 = React.useState(function () {
+  var setReviewSummaryLabel = match$13[1];
+  var match$14 = React.useState(function () {
         return "Review";
       });
-  var setViewMode = match$9[1];
-  var viewMode = match$9[0];
-  var match$10 = React.useState(function () {
+  var setViewMode = match$14[1];
+  var viewMode = match$14[0];
+  var match$15 = React.useState(function () {
         return "";
       });
-  var setRepoRoot = match$10[1];
-  var match$11 = React.useState(function () {
+  var setRepoRoot = match$15[1];
+  var match$16 = React.useState(function () {
         return false;
       });
-  var setIsThemeLoading = match$11[1];
-  var isThemeLoading = match$11[0];
-  var match$12 = React.useState(function () {
+  var setIsThemeLoading = match$16[1];
+  var isThemeLoading = match$16[0];
+  var match$17 = React.useState(function () {
         return false;
       });
-  var setIsSpecCheckOpen = match$12[1];
+  var setIsSpecCheckOpen = match$17[1];
+  var match$18 = React.useState(function () {
+        return "";
+      });
+  var setPiModelsError = match$18[1];
+  var piModelsError = match$18[0];
   var themeLoadVersionRef = React.useRef(0);
   var lightThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("light");
@@ -434,6 +478,33 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError);
         }), []);
+  var loadPiModels = function () {
+    var onSuccess = function (result) {
+      setPiModels(function (param) {
+            return result.models;
+          });
+      setPiResolvedDefault(function (param) {
+            return result.resolvedDefault;
+          });
+      setPiModelsError(function (param) {
+            return "";
+          });
+      return Promise.resolve();
+    };
+    var onError = function (error) {
+      setPiModelsError(function (param) {
+            return Raw.errorMessage(error);
+          });
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callGetPiModels(), onSuccess), onError);
+  };
+  React.useEffect((function () {
+          loadPiModels();
+        }), []);
+  React.useEffect((function () {
+          PiPreferences.save(piPreferences);
+        }), [piPreferences]);
   React.useEffect((function () {
           themeLoadVersionRef.current = themeLoadVersionRef.current + 1 | 0;
           var loadVersion = themeLoadVersionRef.current;
@@ -467,17 +538,17 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Shiki.loadBothThemes(themeNames.light, themeNames.dark), onThemesReady), onThemeError);
         }), [themeNames]);
-  var match$13 = React.useState(function () {
+  var match$19 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$13[1];
-  var patchState = match$13[0];
+  var setPatchState = match$19[1];
+  var patchState = match$19[0];
   var watcherReloadCountRef = React.useRef(__bakaDiffReloadRequestCount);
-  var match$14 = React.useState(function () {
+  var match$20 = React.useState(function () {
         return 0;
       });
-  var setPatchReloadVersion = match$14[1];
-  var patchReloadVersion = match$14[0];
+  var setPatchReloadVersion = match$20[1];
+  var patchReloadVersion = match$20[0];
   var requestPatchReload = function () {
     setPatchReloadVersion(function (prev) {
           return prev + 1 | 0;
@@ -492,7 +563,7 @@ function App(props) {
                                 return prev + 1 | 0;
                               });
                   }
-                  
+
                 }), 250);
           return (function () {
                     clearInterval(interval);
@@ -541,7 +612,7 @@ function App(props) {
       savedScrollTop.current = firstChild.scrollTop;
       return ;
     }
-    
+
   };
   var diffFilePaths = React.useMemo((function () {
           if (typeof patchState !== "object") {
@@ -579,7 +650,7 @@ function App(props) {
                 return ;
               }
             }
-            
+
           })
       });
   React.useEffect((function () {
@@ -640,7 +711,7 @@ function App(props) {
                       text: c.text
                     };
             }
-            
+
           }));
     if (payloadComments.length === 0) {
       console.log("[BAKA UI] Ask Pi has no pending comments");
@@ -658,11 +729,12 @@ function App(props) {
                           };
                           return ;
                         }
-                        
+
                       });
                   return newDict;
                 });
     }
+    var model = PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel);
     console.log("[BAKA UI] Ask Pi sending comment count", payloadComments.length);
     setComments(function (prev) {
           var newDict = InlineComment.copyDict(prev);
@@ -678,12 +750,18 @@ function App(props) {
                   };
                   return ;
                 }
-                
+
               });
           return newDict;
         });
     setIsAskingPi(function (param) {
           return true;
+        });
+    setActivePiRun(function (param) {
+          return {
+                  action: "Inline Q&A",
+                  model: model
+                };
         });
     var onSuccess = function (replies) {
       console.log("[BAKA UI] Ask Pi success replies", replies.length);
@@ -703,12 +781,15 @@ function App(props) {
                     };
                     return ;
                   }
-                  
+
                 });
             return newDict;
           });
       setIsAskingPi(function (param) {
             return false;
+          });
+      setActivePiRun(function (param) {
+
           });
       return Promise.resolve();
     };
@@ -729,16 +810,19 @@ function App(props) {
                     };
                     return ;
                   }
-                  
+
                 });
             return newDict;
           });
       setIsAskingPi(function (param) {
             return false;
           });
+      setActivePiRun(function (param) {
+
+          });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPi(payloadComments), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPi(payloadComments, model), onSuccess), onError);
   };
   var handleFullReview = function (kind, _event) {
     if (activeReview !== undefined) {
@@ -758,8 +842,17 @@ function App(props) {
     var progress = match[1];
     var label = match[0];
     console.log("[BAKA UI] Full review button clicked", label);
+    var tmp;
+    tmp = kind === "CodeReview" ? piPreferences.codeReviewModel : piPreferences.securityReviewModel;
+    var model = PiPreferences.resolve(piPreferences, tmp);
     setActiveReview(function (param) {
           return kind;
+        });
+    setActivePiRun(function (param) {
+          return {
+                  action: label,
+                  model: model
+                };
         });
     setReviewSummaryLabel(function (param) {
           return label;
@@ -818,12 +911,15 @@ function App(props) {
                     };
                     return ;
                   }
-                  
+
                 });
             return newDict;
           });
       setActiveReview(function (param) {
-            
+
+          });
+      setActivePiRun(function (param) {
+
           });
       return Promise.resolve();
     };
@@ -834,11 +930,14 @@ function App(props) {
             return label + " failed: " + msg;
           });
       setActiveReview(function (param) {
-            
+
+          });
+      setActivePiRun(function (param) {
+
           });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callStartFullReview(kind), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callStartFullReview(kind, model), onSuccess), onError);
   };
   React.useEffect((function () {
           if (isInitialRender.current) {
@@ -859,7 +958,7 @@ function App(props) {
                       });
                   return ;
                 }
-                
+
               });
           return (function () {
                     cancelAnimationFrame(handle);
@@ -918,6 +1017,50 @@ function App(props) {
         themeNames,
         currentColors
       ]);
+  var renderModelSelect = function (label, hint, value, inherit, onChange) {
+    return JsxRuntime.jsxs("label", {
+                children: [
+                  JsxRuntime.jsx("span", {
+                        children: label,
+                        className: settingsLabel
+                      }),
+                  JsxRuntime.jsx("span", {
+                        children: hint,
+                        className: settingsCardHint(currentColors)
+                      }),
+                  JsxRuntime.jsxs("select", {
+                        children: [
+                          inherit ? JsxRuntime.jsx("option", {
+                                  children: "Use default" + (
+                                    piPreferences.defaultModel !== "" ? " (" + piPreferences.defaultModel + ")" : (
+                                        piResolvedDefault !== "" ? " (" + piResolvedDefault + ")" : ""
+                                      )
+                                  ),
+                                  value: ""
+                                }) : JsxRuntime.jsx("option", {
+                                  children: "Pi default" + (
+                                    piResolvedDefault !== "" ? " (" + piResolvedDefault + ")" : ""
+                                  ),
+                                  value: ""
+                                }),
+                          piModels.map(function (model) {
+                                var id = model.provider + "/" + model.id;
+                                return JsxRuntime.jsx("option", {
+                                            children: model.provider + " / " + (
+                                              model.name !== "" ? model.name : model.id
+                                            ),
+                                            value: id
+                                          }, id);
+                              })
+                        ],
+                        className: settingsSelect(currentColors),
+                        value: value,
+                        onChange: onChange
+                      })
+                ],
+                className: settingsCard(currentColors)
+              });
+  };
   var renderSettings = function () {
     return JsxRuntime.jsx("main", {
                 children: JsxRuntime.jsxs("div", {
@@ -975,8 +1118,158 @@ function App(props) {
                               ],
                               className: settingsGrid
                             }),
+                        JsxRuntime.jsx("h2", {
+                              children: "Pi models",
+                              className: settingsSectionTitle
+                            }),
                         JsxRuntime.jsx("p", {
-                              children: isThemeLoading ? "Applying themes…" : "Theme preferences saved locally.",
+                              children: "Choose a default model, then override individual actions where a specialized or lower-cost model is more appropriate.",
+                              className: settingsDescription(currentColors)
+                            }),
+                        JsxRuntime.jsxs("div", {
+                              children: [
+                                renderModelSelect("Default model", "Used by every action that does not have an explicit override.", piPreferences.defaultModel, false, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: $$event.target.value,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Inline Q&A", "Replies to comments in the diff and full-file viewer.", piPreferences.inlineReviewModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: $$event.target.value,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Code review", "General correctness and maintainability review.", piPreferences.codeReviewModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: $$event.target.value,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Security review", "Vulnerability-focused analysis.", piPreferences.securityReviewModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: $$event.target.value,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Specification check", "Compares the current changes against a supplied specification.", piPreferences.specReviewModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: $$event.target.value,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Suggestion implementation", "Generates patches for accepted review findings.", piPreferences.suggestionModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: $$event.target.value,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Suggestion validation", "Validates generated patches and creates a repair patch when needed.", piPreferences.validationModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: $$event.target.value,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Plan creation", "Inspects the repository and creates feature or bug-fix plans.", piPreferences.planModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: $$event.target.value,
+                                                      implementationModel: previous.implementationModel
+                                                    };
+                                            });
+                                      })),
+                                renderModelSelect("Plan implementation", "Turns an accepted plan into an applicable patch.", piPreferences.implementationModel, true, (function ($$event) {
+                                        setPiPreferences(function (previous) {
+                                              return {
+                                                      defaultModel: previous.defaultModel,
+                                                      inlineReviewModel: previous.inlineReviewModel,
+                                                      codeReviewModel: previous.codeReviewModel,
+                                                      securityReviewModel: previous.securityReviewModel,
+                                                      specReviewModel: previous.specReviewModel,
+                                                      suggestionModel: previous.suggestionModel,
+                                                      validationModel: previous.validationModel,
+                                                      planModel: previous.planModel,
+                                                      implementationModel: $$event.target.value
+                                                    };
+                                            });
+                                      }))
+                              ],
+                              className: settingsGrid
+                            }),
+                        JsxRuntime.jsx("p", {
+                              children: piModelsError !== "" ? "Could not load Pi models: " + piModelsError : (
+                                  isThemeLoading ? "Applying themes…" : "Preferences saved locally."
+                                ),
                               className: settingsHint(currentColors)
                             })
                       ],
@@ -985,6 +1278,48 @@ function App(props) {
                 className: settingsPage(currentColors)
               });
   };
+  var idlePiStatus;
+  switch (viewMode) {
+    case "Review" :
+        idlePiStatus = activeReview !== undefined ? (
+            activeReview === "CodeReview" ? "Code review · " + PiPreferences.resolve(piPreferences, piPreferences.codeReviewModel) : "Security review · " + PiPreferences.resolve(piPreferences, piPreferences.securityReviewModel)
+          ) : "Inline Q&A · " + PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel);
+        break;
+    case "Feature" :
+        var exit = 0;
+        var tmp = match$9[0];
+        if (typeof tmp !== "object" || tmp.TAG !== "Applying") {
+          exit = 1;
+        } else {
+          idlePiStatus = "Plan implementation · " + PiPreferences.resolve(piPreferences, piPreferences.implementationModel);
+        }
+        if (exit === 1) {
+          idlePiStatus = "Plan creation · " + PiPreferences.resolve(piPreferences, piPreferences.planModel);
+        }
+        break;
+    default:
+      idlePiStatus = "Default · " + (
+        piPreferences.defaultModel === "" ? piResolvedDefault : piPreferences.defaultModel
+      );
+  }
+  var displayPiModel = function (model) {
+    if (model !== "") {
+      return model;
+    } else if (piResolvedDefault !== "") {
+      return piResolvedDefault;
+    } else {
+      return "Pi default";
+    }
+  };
+  var piStatus;
+  if (activePiRun !== undefined) {
+    piStatus = activePiRun.action + " · " + displayPiModel(activePiRun.model);
+  } else {
+    var parts = idlePiStatus.split(" · ");
+    var match$21 = parts[0];
+    var match$22 = parts[1];
+    piStatus = match$21 !== undefined && match$22 !== undefined ? match$21 + " · " + displayPiModel(match$22) : idlePiStatus;
+  }
   if (typeof patchState !== "object") {
     return JsxRuntime.jsxs("div", {
                 children: [
@@ -1064,10 +1399,10 @@ function App(props) {
                 className: container
               });
   }
-  var tmp;
+  var tmp$1;
   switch (viewMode) {
     case "Review" :
-        tmp = JsxRuntime.jsxs("div", {
+        tmp$1 = JsxRuntime.jsxs("div", {
               children: [
                 JsxRuntime.jsx("aside", {
                       children: JsxRuntime.jsx(React$2.FileTree, {
@@ -1093,25 +1428,25 @@ function App(props) {
             });
         break;
     case "Project" :
-        tmp = JsxRuntime.jsx(ProjectView.make, {
+        tmp$1 = JsxRuntime.jsx(ProjectView.make, {
               theme: style,
               themeType: isDark ? "dark" : "light",
               uiColors: currentColors
             });
         break;
     case "Commit" :
-        tmp = null;
+        tmp$1 = null;
         break;
     case "Feature" :
-        tmp = JsxRuntime.jsx(NewFeatureView.make, {
+        tmp$1 = JsxRuntime.jsx(NewFeatureView.make, {
               uiColors: currentColors,
               onApplied: requestPatchReload
             });
         break;
     case "Settings" :
-        tmp = renderSettings();
+        tmp$1 = renderSettings();
         break;
-    
+
   }
   return JsxRuntime.jsxs("div", {
               children: [
@@ -1260,14 +1595,14 @@ function App(props) {
                 viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("span", {
-                                children: match$8[0],
+                                children: match$13[0],
                                 className: reviewSummaryLabel(currentColors)
                               }),
                           reviewSummaryText
                         ],
                         className: reviewSummaryBar(currentColors)
                       }) : null,
-                match$12[0] ? JsxRuntime.jsx(SpecCheckView.make, {
+                match$17[0] ? JsxRuntime.jsx(SpecCheckView.make, {
                         uiColors: currentColors,
                         themeType: isDark ? "dark" : "light",
                         onClose: (function () {
@@ -1280,7 +1615,7 @@ function App(props) {
                 JsxRuntime.jsx("div", {
                       children: JsxRuntime.jsx(CommitView.make, {
                             patches: patchState._0,
-                            repoRoot: match$10[0],
+                            repoRoot: match$15[0],
                             theme: style,
                             themeType: isDark ? "dark" : "light",
                             uiColors: currentColors,
@@ -1288,7 +1623,11 @@ function App(props) {
                           }),
                       className: commitViewHost(viewMode !== "Commit")
                     }),
-                tmp
+                tmp$1,
+                JsxRuntime.jsx("div", {
+                      children: "Pi · " + piStatus,
+                      className: statusBar(currentColors)
+                    })
               ],
               className: container
             });

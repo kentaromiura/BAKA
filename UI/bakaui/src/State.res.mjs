@@ -15,6 +15,24 @@ var themeAtom = Jotai.atom({
 
 var isDarkAtom = Jotai.atom(true);
 
+var piPreferencesAtom = Jotai.atom({
+      defaultModel: "",
+      inlineReviewModel: "",
+      codeReviewModel: "",
+      securityReviewModel: "",
+      specReviewModel: "",
+      suggestionModel: "",
+      validationModel: "",
+      planModel: "",
+      implementationModel: ""
+    });
+
+var piModelsAtom = Jotai.atom([]);
+
+var piResolvedDefaultAtom = Jotai.atom("");
+
+var activePiRunAtom = Jotai.atom(undefined);
+
 var themeColorsAtom = Jotai.atom(undefined);
 
 var featurePlanAtom = Jotai.atom("Idle");
@@ -75,6 +93,10 @@ export {
   reviewSuggestionsAtom ,
   themeAtom ,
   isDarkAtom ,
+  piPreferencesAtom ,
+  piModelsAtom ,
+  piResolvedDefaultAtom ,
+  activePiRunAtom ,
   defaultUiColors ,
   lightDefaultUiColors ,
   themeColorsAtom ,

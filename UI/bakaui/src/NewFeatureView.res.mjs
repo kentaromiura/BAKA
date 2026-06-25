@@ -6,6 +6,7 @@ import * as Html from "./Html.res.mjs";
 import * as State from "./State.res.mjs";
 import * as Jotai from "jotai";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 
 function str(prim) {
@@ -175,6 +176,10 @@ function NewFeatureView(props) {
   var match$1 = Jotai.useAtom(State.featurePlanAtom);
   var setFeaturePlan = match$1[1];
   var featurePlan = match$1[0];
+  var match$2 = Jotai.useAtom(State.piPreferencesAtom);
+  var piPreferences = match$2[0];
+  var match$3 = Jotai.useAtom(State.activePiRunAtom);
+  var setActivePiRun = match$3[1];
   var isGenerating;
   isGenerating = typeof featurePlan !== "object" && featurePlan === "GeneratingPlan" ? true : false;
   var isApplying;
@@ -186,8 +191,15 @@ function NewFeatureView(props) {
     if (trimmed === "") {
       return ;
     }
+    var model = PiPreferences.resolve(piPreferences, piPreferences.planModel);
     setFeaturePlan(function (param) {
           return "GeneratingPlan";
+        });
+    setActivePiRun(function (param) {
+          return {
+                  action: "Plan creation",
+                  model: model
+                };
         });
     var onSuccess = function (result) {
       setFeaturePlan(function (param) {
@@ -195,6 +207,9 @@ function NewFeatureView(props) {
                     TAG: "PlanReady",
                     _0: result.plan
                   };
+          });
+      setActivePiRun(function (param) {
+
           });
       return Promise.resolve();
     };
@@ -206,9 +221,12 @@ function NewFeatureView(props) {
                     _0: msg
                   };
           });
+      setActivePiRun(function (param) {
+
+          });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callCreateFeaturePlan(trimmed), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callCreateFeaturePlan(trimmed, model), onSuccess), onError);
   };
   var handleRefine = function (_event) {
     setFeaturePlan(function (param) {
@@ -224,10 +242,17 @@ function NewFeatureView(props) {
     if (!(description !== "" && plan !== "")) {
       return ;
     }
+    var model = PiPreferences.resolve(piPreferences, piPreferences.implementationModel);
     setFeaturePlan(function (param) {
           return {
                   TAG: "Applying",
                   _0: plan
+                };
+        });
+    setActivePiRun(function (param) {
+          return {
+                  action: "Plan implementation",
+                  model: model
                 };
         });
     var onSuccess = function (result) {
@@ -237,6 +262,9 @@ function NewFeatureView(props) {
                     _0: plan,
                     _1: result
                   };
+          });
+      setActivePiRun(function (param) {
+
           });
       onApplied();
       return Promise.resolve();
@@ -249,11 +277,15 @@ function NewFeatureView(props) {
                     _0: msg
                   };
           });
+      setActivePiRun(function (param) {
+
+          });
       return Promise.resolve();
     };
     Js_promise2.$$catch(Js_promise2.then(Ipc.callApplyFeaturePlan({
                   description: description,
-                  plan: plan
+                  plan: plan,
+                  model: model
                 }), onSuccess), onError);
   };
   var canGenerate = !isGenerating && !isApplying && featureDescription.trim() !== "";
@@ -274,7 +306,7 @@ function NewFeatureView(props) {
       case "Error" :
           statusMessage = featurePlan._0;
           break;
-      
+
     }
   }
   var statusIsError;

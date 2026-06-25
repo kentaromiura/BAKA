@@ -20,6 +20,11 @@ Comment_Entry :: struct {
 	text:        string `json:"text"`,
 }
 
+AskPi_Request :: struct {
+	comments: [dynamic]Comment_Entry `json:"comments"`,
+	model:    string                  `json:"model"`,
+}
+
 Reply_Entry :: struct {
 	comment_key: string `json:"commentKey"`,
 	reply:       string `json:"reply"`,
@@ -50,11 +55,14 @@ FullReview_Result :: struct {
 FullReview_Request :: struct {
 	kind: string `json:"kind"`,
 	spec: string `json:"spec"`,
+	model: string `json:"model"`,
 }
 
 ApplySuggestion_Request :: struct {
-	comment_key: string `json:"commentKey"`,
-	suggestion:  string `json:"suggestion"`,
+	comment_key:      string `json:"commentKey"`,
+	suggestion:       string `json:"suggestion"`,
+	model:            string `json:"model"`,
+	validation_model: string `json:"validationModel"`,
 }
 
 ApplySuggestion_Result :: struct {
@@ -71,6 +79,47 @@ Ipc_Error_Response :: struct {
 AskPiWithDiff_Request :: struct {
 	diff:     string `json:"diff"`,
 	comments: [dynamic]Comment_Entry `json:"comments"`,
+	model:    string `json:"model"`,
+}
+
+Pi_Model :: struct {
+	id:        string `json:"id"`,
+	name:      string `json:"name"`,
+	provider:  string `json:"provider"`,
+	reasoning: bool   `json:"reasoning"`,
+}
+
+Pi_Models_Data :: struct {
+	models: [dynamic]Pi_Model `json:"models"`,
+}
+
+Pi_Models_Rpc_Response :: struct {
+	id:      string         `json:"id"`,
+	command: string         `json:"command"`,
+	success: bool           `json:"success"`,
+	error:   string         `json:"error"`,
+	data:    Pi_Models_Data `json:"data"`,
+}
+
+Pi_State_Data :: struct {
+	model: Pi_Model `json:"model"`,
+}
+
+Pi_State_Rpc_Response :: struct {
+	id:      string        `json:"id"`,
+	command: string        `json:"command"`,
+	success: bool          `json:"success"`,
+	error:   string        `json:"error"`,
+	data:    Pi_State_Data `json:"data"`,
+}
+
+Pi_Model_Result :: struct {
+	models:           [dynamic]Pi_Model `json:"models"`,
+	resolved_default: string             `json:"resolvedDefault"`,
+}
+
+Pi_Model_Response :: struct {
+	result: Pi_Model_Result `json:"result"`,
 }
 
 // Carries state from the main-thread callback into the worker thread and
@@ -777,7 +826,7 @@ flushPiStreamLine :: proc(
 	}
 }
 
-runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, bool) {
+runPiPrompt :: proc(prompt: string, disable_tools := false, model := "") -> (string, string, bool) {
 	prompt_path, ok := writeTempFile(prompt)
 	if !ok {
 		return "", "Failed to write prompt to temp file", false
@@ -801,6 +850,9 @@ runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, 
 	}
 	if disable_tools {
 		append(&pi_command, "--no-tools")
+	}
+	if strings.trim_space(model) != "" {
+		append(&pi_command, "--model", strings.trim_space(model))
 	}
 	append(&pi_command, pi_arg)
 	defer delete(pi_command)
@@ -908,6 +960,133 @@ runPiPrompt :: proc(prompt: string, disable_tools := false) -> (string, string, 
 	delete(final_text)
 
 	return strings.clone(text, context.allocator), "", true
+}
+
+loadPiModels :: proc() -> (Pi_Model_Result, string, bool) {
+	result := Pi_Model_Result {
+		models = [dynamic]Pi_Model{},
+	}
+
+	stdin_read, stdin_write, stdin_err := os.pipe()
+	if stdin_err != nil {
+		return result, "Failed to create Pi RPC stdin pipe", false
+	}
+
+	stdout_read, stdout_write, stdout_err := os.pipe()
+	if stdout_err != nil {
+		os.close(stdin_read)
+		os.close(stdin_write)
+		return result, "Failed to create Pi RPC stdout pipe", false
+	}
+	defer os.close(stdout_read)
+
+	command: [dynamic]string = {
+		"pi",
+		"--mode",
+		"rpc",
+		"--no-session",
+		"--no-context-files",
+	}
+	defer delete(command)
+
+	process, start_err := os.process_start(os.Process_Desc {
+		command = command[:],
+		stdin   = stdin_read,
+		stdout  = stdout_write,
+		stderr  = stdout_write,
+	})
+	os.close(stdin_read)
+	os.close(stdout_write)
+	if start_err != nil {
+		os.close(stdin_write)
+		return result, "Pi RPC process failed to start", false
+	}
+
+	requests := "{\"id\":\"baka-models\",\"type\":\"get_available_models\"}\n{\"id\":\"baka-state\",\"type\":\"get_state\"}\n"
+	_, write_err := os.write(stdin_write, transmute([]byte)requests)
+	os.close(stdin_write)
+	if write_err != nil {
+		_, _ = os.process_wait(process)
+		return result, "Failed to request Pi models", false
+	}
+
+	output := strings.builder_make()
+	defer strings.builder_destroy(&output)
+	read_buf: [4096]byte
+	for {
+		n, read_err := os.read(stdout_read, read_buf[:])
+		if n > 0 {
+			strings.write_string(&output, string(read_buf[:n]))
+		}
+		if n == 0 || read_err != nil {
+			break
+		}
+	}
+
+	state, wait_err := os.process_wait(process)
+	if wait_err != nil || !state.success {
+		return result, "Pi RPC model discovery failed", false
+	}
+
+	lines := strings.split_lines(strings.to_string(output))
+	defer delete(lines)
+	rpc_error := ""
+	for line in lines {
+		trimmed := strings.trim_space(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.contains(trimmed, `"id":"baka-models"`) {
+			response: Pi_Models_Rpc_Response
+			if json.unmarshal(transmute([]byte)trimmed, &response) == nil {
+				if !response.success {
+					rpc_error = response.error
+					continue
+				}
+				for model in response.data.models {
+					append(&result.models, model)
+				}
+			}
+		} else if strings.contains(trimmed, `"id":"baka-state"`) {
+			response: Pi_State_Rpc_Response
+			if json.unmarshal(transmute([]byte)trimmed, &response) == nil {
+				if !response.success {
+					rpc_error = response.error
+					continue
+				}
+				if response.data.model.provider != "" &&
+				   response.data.model.id != "" &&
+				   response.data.model.provider != "unknown" &&
+				   response.data.model.id != "unknown" {
+					result.resolved_default = fmt.tprintf(
+						"%s/%s",
+						response.data.model.provider,
+						response.data.model.id,
+					)
+				}
+			}
+		}
+	}
+
+	if len(result.models) == 0 && rpc_error != "" {
+		return result, rpc_error, false
+	}
+	return result, "", true
+}
+
+process_get_pi_models :: proc() -> (cstring, bool) {
+	result, err, ok := loadPiModels()
+	defer delete(result.models)
+	if !ok {
+		return make_error_cstring(err), true
+	}
+	response := Pi_Model_Response{result = result}
+	data, marshal_err := json.marshal(response)
+	if marshal_err != nil {
+		return make_error_cstring("Failed to marshal Pi models"), true
+	}
+	defer delete(data)
+	return strings.clone_to_cstring(string(data)), false
 }
 
 parsePiOutput :: proc(output: string) -> [dynamic]Reply_Entry {
@@ -1237,7 +1416,11 @@ getWorkingTreeDiff :: proc(repo_root: string) -> string {
 	return strings.clone(string(stdout), context.allocator) or_else ""
 }
 
-runPiApplyValidation :: proc(repo_root, file_name, suggestion: string, attempt: int) -> (bool, string, string, bool) {
+runPiApplyValidation :: proc(
+	repo_root, file_name, suggestion: string,
+	attempt: int,
+	model := "",
+) -> (bool, string, string, bool) {
 	diff := getWorkingTreeDiff(repo_root)
 	defer delete(diff)
 
@@ -1246,7 +1429,7 @@ runPiApplyValidation :: proc(repo_root, file_name, suggestion: string, attempt: 
 		return false, "", "Failed to build validation prompt", false
 	}
 
-	validation_text, pi_err, pi_ok := runPiPrompt(prompt)
+	validation_text, pi_err, pi_ok := runPiPrompt(prompt, model = model)
 	delete(prompt)
 	if !pi_ok {
 		return false, "", pi_err, false
@@ -1316,7 +1499,9 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 	}
 	review_kind := "code"
 	spec := ""
+	model := ""
 	if len(requests) > 0 {
+		model = requests[0].model
 		if requests[0].kind == "vulnerability" {
 			review_kind = "vulnerability"
 		} else if requests[0].kind == "spec" {
@@ -1445,7 +1630,7 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 		if perr != nil {
 			return make_error_cstring("Failed to build review prompt"), true
 		}
-		pi_text, pi_err, pi_ok := runPiPrompt(prompt, disable_tools = true)
+		pi_text, pi_err, pi_ok := runPiPrompt(prompt, disable_tools = true, model = model)
 		delete(prompt)
 		if !pi_ok {
 			return make_error_cstring(pi_err), true
@@ -1550,7 +1735,7 @@ process_apply_suggestion :: proc(req_str: string) -> (cstring, bool) {
 	if perr != nil {
 		return make_error_cstring("Failed to build apply prompt"), true
 	}
-	pi_text, pi_err, pi_ok := runPiPrompt(prompt)
+	pi_text, pi_err, pi_ok := runPiPrompt(prompt, model = request.model)
 	delete(prompt)
 	if !pi_ok {
 		return make_error_cstring(pi_err), true
@@ -1576,7 +1761,13 @@ process_apply_suggestion :: proc(req_str: string) -> (cstring, bool) {
 	}
 	debug_log(fmt.tprintf("git apply succeeded for %s", file_name))
 
-	validation_ok, validation_message, validation_err, validation_call_ok := runPiApplyValidation(repo_root, file_name, request.suggestion, 1)
+	validation_ok, validation_message, validation_err, validation_call_ok := runPiApplyValidation(
+		repo_root,
+		file_name,
+		request.suggestion,
+		1,
+		model = request.validation_model,
+	)
 	defer delete(validation_message)
 	if !validation_call_ok {
 		rollback_msg := rollbackAppliedPatches(repo_root, patch_path, "", false)
@@ -1612,7 +1803,13 @@ process_apply_suggestion :: proc(req_str: string) -> (cstring, bool) {
 			repair_applied = true
 		}
 
-		second_validation_ok, second_validation_message, second_validation_err, second_validation_call_ok := runPiApplyValidation(repo_root, file_name, request.suggestion, 2)
+		second_validation_ok, second_validation_message, second_validation_err, second_validation_call_ok := runPiApplyValidation(
+			repo_root,
+			file_name,
+			request.suggestion,
+			2,
+			model = request.validation_model,
+		)
 		defer delete(second_validation_message)
 		if !second_validation_call_ok {
 			rollback_msg := rollbackAppliedPatches(repo_root, patch_path, repair_patch_path, repair_applied)
@@ -1660,12 +1857,16 @@ log_to_webview :: proc(msg: string) {
 // to send back. Caller owns the returned cstring.
 process_ask_pi :: proc(req_str: string) -> (cstring, bool) {
 	debug_log(fmt.tprintf("process_ask_pi started; req=%s", preview(req_str)))
-	entries := [dynamic]Comment_Entry{}
-	defer delete(entries)
+	requests := [dynamic]AskPi_Request{}
+	defer delete(requests)
 
-	if err := json.unmarshal(transmute([]byte)req_str, &entries); err != nil {
+	if err := json.unmarshal(transmute([]byte)req_str, &requests); err != nil {
 		return strings.clone_to_cstring(`{"error": "Failed to parse comments JSON"}`), true
 	}
+	if len(requests) == 0 {
+		return strings.clone_to_cstring(`{"error": "Missing Ask Pi request"}`), true
+	}
+	entries := requests[0].comments
 
 	if len(entries) == 0 {
 		debug_log("process_ask_pi received zero entries")
@@ -1696,7 +1897,7 @@ process_ask_pi :: proc(req_str: string) -> (cstring, bool) {
 	}
 	defer delete(prompt)
 
-	pi_text, pi_err, pi_ok := runPiPrompt(prompt)
+	pi_text, pi_err, pi_ok := runPiPrompt(prompt, model = requests[0].model)
 	if !pi_ok {
 		return make_error_cstring(pi_err), true
 	}
@@ -1781,6 +1982,40 @@ handle_ask_pi :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	}
 }
 
+@(private = "file")
+pi_models_worker :: proc(data: rawptr) {
+	context = runtime.default_context()
+	job := cast(^AskPi_Job)data
+	job.result, job.is_error = process_get_pi_models()
+	webview.dispatch(w, ask_pi_return_main, job)
+}
+
+handle_get_pi_models :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+	seq_owned, seq_err := strings.clone_to_cstring(string(seq))
+	if seq_err != nil {
+		webview.ret(w, seq, WebView_Return_Error, `{"error": "Failed to clone seq"}`)
+		return
+	}
+	req_owned, req_err := strings.clone_to_cstring(string(req))
+	if req_err != nil {
+		delete(seq_owned)
+		webview.ret(w, seq, WebView_Return_Error, `{"error": "Failed to clone req"}`)
+		return
+	}
+
+	job := new(AskPi_Job)
+	job.seq = seq_owned
+	job.req = req_owned
+	t := thread.create_and_start_with_data(job, pi_models_worker, self_cleanup = true)
+	if t == nil {
+		delete(seq_owned)
+		delete(req_owned)
+		free(job)
+		webview.ret(w, seq, WebView_Return_Error, `{"error": "Failed to create thread"}`)
+	}
+}
+
 // Variant of process_ask_pi that uses a caller-provided diff instead of
 // running `git diff` itself. Used by the "view full file" modal so the AI
 // gets the whole file as context.
@@ -1825,7 +2060,7 @@ process_ask_pi_with_diff :: proc(req_str: string) -> (cstring, bool) {
 	}
 	defer delete(prompt)
 
-	pi_text, pi_err, pi_ok := runPiPrompt(prompt)
+	pi_text, pi_err, pi_ok := runPiPrompt(prompt, model = arr[0].model)
 	if !pi_ok {
 		return make_error_cstring(pi_err), true
 	}

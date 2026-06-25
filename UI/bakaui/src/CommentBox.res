@@ -260,6 +260,8 @@ let make = (
   ~themeType: string,
 ) => {
   let (reviewSuggestions, setReviewSuggestions) = Jotai.Atom.useAtom(State.reviewSuggestionsAtom)
+  let (piPreferences, _setPiPreferences) = Jotai.Atom.useAtom(State.piPreferencesAtom)
+  let (_activePiRun, setActivePiRun) = Jotai.Atom.useAtom(State.activePiRunAtom)
   let comment =
     Js.Dict.get(comments, commentKey)->Belt.Option.getWithDefault({text: "", aiReply: AiIdle})
   let reviewSuggestion = Js.Dict.get(reviewSuggestions, commentKey)
@@ -305,9 +307,17 @@ let make = (
 
   let handleApplySuggestion = (item: State.reviewSuggestion, _event) => {
     if !item.isApplying {
+      let model = PiPreferences.resolve(piPreferences, piPreferences.suggestionModel)
+      let validationModel = PiPreferences.resolve(piPreferences, piPreferences.validationModel)
       Js.log2("[BAKA UI] Apply suggestion clicked", commentKey)
       Js.log2("[BAKA UI] Apply suggestion bytes", item.suggestion->String.length)
       updateReviewSuggestion({...item, isApplying: true, applyResult: None, applyError: None})
+      setActivePiRun(_ =>
+        Some({
+          action: "Suggestion implementation; validation: " ++ validationModel,
+          model,
+        })
+      )
       let onSuccess = (message: string): Js.Promise.t<unit> => {
         Js.log2("[BAKA UI] Apply suggestion success", message)
         updateReviewSuggestion({
@@ -317,6 +327,7 @@ let make = (
           applyError: None,
         })
         let _ = %raw(`window.__bakaDiffReloadRequestCount = (window.__bakaDiffReloadRequestCount || 0) + 1`)
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
@@ -328,6 +339,7 @@ let make = (
           applyResult: None,
           applyError: Some(msg),
         })
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let _ = Js.Promise2.catch(
@@ -335,6 +347,8 @@ let make = (
           Ipc.callApplyReviewSuggestion({
             commentKey: commentKey,
             suggestion: item.suggestion,
+            model,
+            validationModel,
           }),
           onSuccess,
         ),

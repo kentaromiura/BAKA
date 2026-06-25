@@ -262,6 +262,11 @@ CreateFeaturePlan_Result :: struct {
 	plan: string `json:"plan"`,
 }
 
+CreateFeaturePlan_Request :: struct {
+	description: string `json:"description"`,
+	model:       string `json:"model"`,
+}
+
 CreateFeaturePlan_Response :: struct {
 	result: CreateFeaturePlan_Result `json:"result"`,
 }
@@ -269,6 +274,7 @@ CreateFeaturePlan_Response :: struct {
 ApplyFeaturePlan_Request :: struct {
 	description: string `json:"description"`,
 	plan:        string `json:"plan"`,
+	model:       string `json:"model"`,
 }
 
 CreateFeaturePlan_Job :: struct {
@@ -290,7 +296,7 @@ feature_error_response :: proc(message: string) -> cstring {
 	return strings.clone_to_cstring(string(data))
 }
 
-create_feature_plan :: proc(description: string) -> (string, string) {
+create_feature_plan :: proc(description, model: string) -> (string, string) {
 	prompt := fmt.tprintf(
 		`You are an expert software architect. The user wants to implement the following in the current codebase:
 
@@ -310,7 +316,7 @@ Focus on concrete, actionable steps. Keep it practical.
 		description,
 	)
 
-	plan_text, pi_err, pi_ok := runPiPrompt(prompt)
+	plan_text, pi_err, pi_ok := runPiPrompt(prompt, model = model)
 	if !pi_ok {
 		return "", pi_err
 	}
@@ -380,7 +386,7 @@ diff --git ...
 	return strings.clone(strings.to_string(prompt))
 }
 
-apply_feature_plan :: proc(description, plan: string) -> (string, string) {
+apply_feature_plan :: proc(description, plan, model: string) -> (string, string) {
 	if strings.trim_space(description) == "" {
 		return "", "Feature description is required"
 	}
@@ -400,7 +406,7 @@ apply_feature_plan :: proc(description, plan: string) -> (string, string) {
 	if perr != nil {
 		return "", "Failed to build apply plan prompt"
 	}
-	pi_text, pi_err, pi_ok := runPiPrompt(prompt)
+	pi_text, pi_err, pi_ok := runPiPrompt(prompt, model = model)
 	delete(prompt)
 	if !pi_ok {
 		return "", pi_err
@@ -501,18 +507,21 @@ strip_json_hostile_controls :: proc(text: string) -> string {
 }
 
 process_create_feature_plan :: proc(req_str: string) -> (cstring, bool) {
-	description, parse_err := parseFilePatchRequest(req_str)
-	if parse_err != "" {
-		return feature_error_response(parse_err), true
+	arr: [dynamic]CreateFeaturePlan_Request
+	defer delete(arr)
+	if err := json.unmarshal(transmute([]byte)req_str, &arr); err != nil {
+		return feature_error_response("Failed to parse create feature plan request"), true
 	}
-	defer delete(description)
+	if len(arr) == 0 {
+		return feature_error_response("Missing create feature plan request"), true
+	}
 
-	cleaned := strings.trim_space(description)
+	cleaned := strings.trim_space(arr[0].description)
 	if cleaned == "" {
 		return feature_error_response("Feature description is required"), true
 	}
 
-	plan, err := create_feature_plan(cleaned)
+	plan, err := create_feature_plan(cleaned, arr[0].model)
 	if err != "" {
 		return feature_error_response(fmt.tprintf("Failed: %s", err)), true
 	}
@@ -550,7 +559,7 @@ process_apply_feature_plan :: proc(req_str: string) -> (cstring, bool) {
 		return feature_error_response("Missing apply feature plan request"), true
 	}
 
-	result, err := apply_feature_plan(arr[0].description, arr[0].plan)
+	result, err := apply_feature_plan(arr[0].description, arr[0].plan, arr[0].model)
 	if err != "" {
 		return feature_error_response(fmt.tprintf("Failed: %s", err)), true
 	}
@@ -1032,6 +1041,7 @@ main :: proc() {
 	webview.bind(w, "getFilePatch", handle_get_file_patch, nil)
 	webview.bind(w, "getProjectFiles", handle_get_project_files, nil)
 	webview.bind(w, "getWatcherEvents", handle_get_watcher_events, nil)
+	webview.bind(w, "getPiModels", handle_get_pi_models, nil)
 	webview.bind(w, "askPi", handle_ask_pi, nil)
 	webview.bind(w, "askPiWithDiff", handle_ask_pi_with_diff, nil)
 	webview.bind(w, "startFullReview", handle_start_full_review, nil)

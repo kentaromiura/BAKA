@@ -4,6 +4,8 @@ import * as Ipc from "./Ipc.res.mjs";
 import * as Raw from "./Raw.res.mjs";
 import * as Html from "./Html.res.mjs";
 import * as Diffs from "./Diffs.res.mjs";
+import * as State from "./State.res.mjs";
+import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Belt_Int from "rescript/lib/es6/belt_Int.js";
@@ -14,6 +16,7 @@ import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as Diffs$1 from "@pierre/diffs";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
 
@@ -45,7 +48,7 @@ function parseKey(key) {
             lineNumber
           ];
   }
-  
+
 }
 
 var backdrop = Html.css(["\n    position: fixed;\n    inset: 0;\n    background-color: rgba(0, 0, 0, 0.5);\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    z-index: 1000;\n  "], []);
@@ -168,12 +171,12 @@ function FileViewer(props) {
   var setComments = match[1];
   var comments = match[0];
   var match$1 = React.useState(function () {
-        
+
       });
   var setPatch = match$1[1];
   var patch = match$1[0];
   var match$2 = React.useState(function () {
-        
+
       });
   var setError = match$2[1];
   var error$1 = match$2[0];
@@ -182,6 +185,10 @@ function FileViewer(props) {
       });
   var setIsAskingPi = match$3[1];
   var isAskingPi = match$3[0];
+  var match$4 = Jotai.useAtom(State.piPreferencesAtom);
+  var piPreferences = match$4[0];
+  var match$5 = Jotai.useAtom(State.activePiRunAtom);
+  var setActivePiRun = match$5[1];
   React.useEffect((function () {
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetFilePatch(fileName), (function (p) {
                       setPatch(function (param) {
@@ -199,7 +206,7 @@ function FileViewer(props) {
           if (onClose !== undefined) {
             return listenForEscape(onClose);
           }
-          
+
         }), []);
   var fileDiff = React.useMemo((function () {
           if (patch === undefined) {
@@ -226,7 +233,7 @@ function FileViewer(props) {
                                   lineNumber: match[2]
                                 };
                         }
-                        
+
                       }));
         }), [comments]);
   var toggleComment = React.useCallback((function (props) {
@@ -275,7 +282,7 @@ function FileViewer(props) {
                       text: c.text
                     };
             }
-            
+
           }));
     if (payloadComments.length === 0) {
       return setComments(function (prev) {
@@ -292,11 +299,12 @@ function FileViewer(props) {
                           };
                           return ;
                         }
-                        
+
                       });
                   return newDict;
                 });
     }
+    var model = PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel);
     setComments(function (prev) {
           var newDict = Raw.copyDict(prev);
           payloadComments.forEach(function (pc) {
@@ -311,12 +319,18 @@ function FileViewer(props) {
                   };
                   return ;
                 }
-                
+
               });
           return newDict;
         });
     setIsAskingPi(function (param) {
           return true;
+        });
+    setActivePiRun(function (param) {
+          return {
+                  action: "Inline Q&A",
+                  model: model
+                };
         });
     var diffText = Belt_Option.getWithDefault(patch, "");
     var onSuccess = function (replies) {
@@ -335,12 +349,15 @@ function FileViewer(props) {
                     };
                     return ;
                   }
-                  
+
                 });
             return newDict;
           });
       setIsAskingPi(function (param) {
             return false;
+          });
+      setActivePiRun(function (param) {
+
           });
       return Promise.resolve();
     };
@@ -360,16 +377,19 @@ function FileViewer(props) {
                     };
                     return ;
                   }
-                  
+
                 });
             return newDict;
           });
       setIsAskingPi(function (param) {
             return false;
           });
+      setActivePiRun(function (param) {
+
+          });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPiWithDiff(diffText, payloadComments), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPiWithDiff(diffText, payloadComments, model), onSuccess), onError);
   };
   var stopProp = function (ev) {
     ev.stopPropagation();
@@ -475,7 +495,7 @@ function FileViewer(props) {
                     if (onClose !== undefined) {
                       return onClose();
                     }
-                    
+
                   })
               });
   }

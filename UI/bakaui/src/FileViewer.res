@@ -178,6 +178,8 @@ let make = (
   let (patch, setPatch) = React.useState(() => None)
   let (error, setError) = React.useState(() => None)
   let (isAskingPi, setIsAskingPi) = React.useState(() => false)
+  let (piPreferences, _setPiPreferences) = Jotai.Atom.useAtom(State.piPreferencesAtom)
+  let (_activePiRun, setActivePiRun) = Jotai.Atom.useAtom(State.activePiRunAtom)
 
   // Fetch the full-context patch on mount
   React.useEffect0(() => {
@@ -292,6 +294,7 @@ let make = (
           newDict
         })
       } else {
+        let model = PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel)
         setComments(prev => {
           let newDict = copyDict(prev)
           payloadComments->Array.forEach(pc => {
@@ -304,6 +307,7 @@ let make = (
           newDict
         })
         setIsAskingPi(_ => true)
+        setActivePiRun(_ => Some({action: "Inline Q&A", model}))
 
         let diffText = Belt.Option.getWithDefault(patch, "")
         let onSuccess = (replies: array<Ipc.askPiReply>): Js.Promise.t<unit> => {
@@ -320,6 +324,7 @@ let make = (
             newDict
           })
           setIsAskingPi(_ => false)
+          setActivePiRun(_ => None)
           Js.Promise2.resolve()
         }
         let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
@@ -336,11 +341,12 @@ let make = (
             newDict
           })
           setIsAskingPi(_ => false)
+          setActivePiRun(_ => None)
           Js.Promise2.resolve()
         }
 
         let _ = Js.Promise2.catch(
-          Js.Promise2.then(Ipc.callAskPiWithDiff(diffText, payloadComments), onSuccess),
+          Js.Promise2.then(Ipc.callAskPiWithDiff(diffText, payloadComments, model), onSuccess),
           onError,
         )
       }

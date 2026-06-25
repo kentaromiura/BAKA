@@ -10,6 +10,7 @@ import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Markdown from "./Markdown.res.mjs";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 
 var hexToRgba = ((hex, alpha) => {
@@ -174,6 +175,10 @@ function CommentBox(props) {
   var commentKey = props.commentKey;
   var match = Jotai.useAtom(State.reviewSuggestionsAtom);
   var setReviewSuggestions = match[1];
+  var match$1 = Jotai.useAtom(State.piPreferencesAtom);
+  var piPreferences = match$1[0];
+  var match$2 = Jotai.useAtom(State.activePiRunAtom);
+  var setActivePiRun = match$2[1];
   var comment = Belt_Option.getWithDefault(Js_dict.get(props.comments, commentKey), {
         text: "",
         aiReply: "AiIdle"
@@ -181,11 +186,11 @@ function CommentBox(props) {
   var reviewSuggestion = Js_dict.get(match[0], commentKey);
   var isReviewComment = reviewSuggestion !== undefined;
   var initialText = comment.text;
-  var match$1 = React.useState(function () {
+  var match$3 = React.useState(function () {
         return initialText;
       });
-  var setLocalText = match$1[1];
-  var localText = match$1[0];
+  var setLocalText = match$3[1];
+  var localText = match$3[0];
   React.useEffect((function () {
           setLocalText(function (param) {
                 return initialText;
@@ -251,7 +256,7 @@ function CommentBox(props) {
                 className: aiError(uiColors)
               });
           break;
-      
+
     }
   }
   var reviewSuggestionContent;
@@ -283,6 +288,8 @@ function CommentBox(props) {
                         if (reviewSuggestion.isApplying) {
                           return ;
                         }
+                        var model = PiPreferences.resolve(piPreferences, piPreferences.suggestionModel);
+                        var validationModel = PiPreferences.resolve(piPreferences, piPreferences.validationModel);
                         console.log("[BAKA UI] Apply suggestion clicked", commentKey);
                         console.log("[BAKA UI] Apply suggestion bytes", reviewSuggestion.suggestion.length);
                         updateReviewSuggestion({
@@ -293,6 +300,12 @@ function CommentBox(props) {
                               isApplying: true,
                               applyResult: undefined,
                               applyError: undefined
+                            });
+                        setActivePiRun(function (param) {
+                              return {
+                                      action: "Suggestion implementation; validation: " + validationModel,
+                                      model: model
+                                    };
                             });
                         var onSuccess = function (message) {
                           console.log("[BAKA UI] Apply suggestion success", message);
@@ -306,6 +319,9 @@ function CommentBox(props) {
                                 applyError: undefined
                               });
                           ((window.__bakaDiffReloadRequestCount = (window.__bakaDiffReloadRequestCount || 0) + 1));
+                          setActivePiRun(function (param) {
+
+                              });
                           return Promise.resolve();
                         };
                         var onError = function (err) {
@@ -320,11 +336,16 @@ function CommentBox(props) {
                                 applyResult: undefined,
                                 applyError: msg
                               });
+                          setActivePiRun(function (param) {
+
+                              });
                           return Promise.resolve();
                         };
                         Js_promise2.$$catch(Js_promise2.then(Ipc.callApplyReviewSuggestion({
                                       commentKey: commentKey,
-                                      suggestion: reviewSuggestion.suggestion
+                                      suggestion: reviewSuggestion.suggestion,
+                                      model: model,
+                                      validationModel: validationModel
                                     }), onSuccess), onError);
                       })
                   }),

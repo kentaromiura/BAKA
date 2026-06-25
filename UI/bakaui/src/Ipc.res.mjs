@@ -42,7 +42,16 @@ function callGetProjectFiles() {
   return Js_promise.then_(parseResponse, getProjectFiles("{}"));
 }
 
-function callAskPi(comments) {
+function callGetPiModels() {
+  var parseResponse = (async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result || !Array.isArray(raw.result.models)) throw new Error("Invalid Pi model response");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getPiModels("{}"));
+}
+
+function callAskPi(comments, model) {
   console.log("[BAKA UI] askPi called with comment count", comments.length);
   var parseResponse = (async raw => {
       console.log("[BAKA UI] askPi raw response meta", raw && raw.error ? {error: raw.error} : {replyCount: raw && raw.result ? raw.result.length : null});
@@ -50,12 +59,15 @@ function callAskPi(comments) {
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     });
-  var promise = (askPi(...comments));
+  var promise = askPi({
+        comments: comments,
+        model: model
+      });
   console.log("[BAKA UI] askPi promise", promise);
   return Js_promise.then_(parseResponse, promise);
 }
 
-function callAskPiWithDiff(diff, comments) {
+function callAskPiWithDiff(diff, comments, model) {
   console.log("[BAKA UI] askPiWithDiff diff bytes", diff.length);
   console.log("[BAKA UI] askPiWithDiff comment count", comments.length);
   var parseResponse = (async raw => {
@@ -64,16 +76,21 @@ function callAskPiWithDiff(diff, comments) {
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     });
-  var promise = (askPiWithDiff({diff, comments}));
+  var promise = askPiWithDiff({
+        diff: diff,
+        comments: comments,
+        model: model
+      });
   return Js_promise.then_(parseResponse, promise);
 }
 
-function callStartFullReview(kind) {
+function callStartFullReview(kind, model) {
   var tmp;
   tmp = kind === "CodeReview" ? "code" : "vulnerability";
   var request = {
     kind: tmp,
-    spec: undefined
+    spec: undefined,
+    model: model
   };
   console.log("[BAKA UI] startFullReview called", tmp);
   var parseResponse = (async raw => {
@@ -85,11 +102,12 @@ function callStartFullReview(kind) {
   return Js_promise.then_(parseResponse, startFullReview(request));
 }
 
-function callCheckAgainstSpec(spec) {
+function callCheckAgainstSpec(spec, model) {
   var request_spec = spec;
   var request = {
     kind: "spec",
-    spec: request_spec
+    spec: request_spec,
+    model: model
   };
   console.log("[BAKA UI] checkAgainstSpec called; spec bytes", spec.length);
   var parseResponse = (async raw => {
@@ -113,7 +131,7 @@ function callApplyReviewSuggestion(request) {
   return Js_promise.then_(parseResponse, promise);
 }
 
-function callCreateFeaturePlan(description) {
+function callCreateFeaturePlan(description, model) {
   console.log("[BAKA UI] createFeaturePlan called", description);
   var parseResponse = (async raw => {
       console.log("[BAKA UI] createFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {planBytes: raw && raw.result && raw.result.plan ? raw.result.plan.length : null});
@@ -121,7 +139,10 @@ function callCreateFeaturePlan(description) {
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     });
-  var promise = createFeaturePlan(description);
+  var promise = createFeaturePlan({
+        description: description,
+        model: model
+      });
   return Js_promise.then_(parseResponse, promise);
 }
 
@@ -164,6 +185,7 @@ export {
   callGetRepoRoot ,
   callGetFilePatch ,
   callGetProjectFiles ,
+  callGetPiModels ,
   callAskPi ,
   callAskPiWithDiff ,
   callStartFullReview ,

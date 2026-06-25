@@ -741,9 +741,9 @@ function CommitView(props) {
                     return false;
                   });
             }
-
+            
           }
-
+          
         }), [
         storageKey,
         fingerprintVersion
@@ -764,7 +764,7 @@ function CommitView(props) {
               CommitDraftMjs.saveDraft(storageKey, latestDraftRef.current);
             }
           }
-
+          
         }), [
         draftReady,
         storageKey,
@@ -781,7 +781,7 @@ function CommitView(props) {
                       CommitDraftMjs.saveDraft(storageKey, latestDraftRef.current);
                       return ;
                     }
-
+                    
                   });
         }), [storageKey]);
   var activeFile = fileDiffs.find(function (fd) {
@@ -874,7 +874,7 @@ function CommitView(props) {
                   return next;
                 });
     }
-
+    
   };
   var excludeActiveLines = function (_event) {
     if (isFileSelected(activeFileName)) {
@@ -886,7 +886,7 @@ function CommitView(props) {
                   return next;
                 });
     }
-
+    
   };
   var handleCommit = function (_event) {
     if (!canCommit) {

@@ -3,11 +3,14 @@
 import * as Ipc from "./Ipc.res.mjs";
 import * as Raw from "./Raw.res.mjs";
 import * as Html from "./Html.res.mjs";
+import * as State from "./State.res.mjs";
+import * as Jotai from "jotai";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
 import * as Markdown from "./Markdown.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 
 var readSelectedFile = (event => new Promise((resolve, reject) => {
@@ -199,7 +202,7 @@ function decisionLabel(decision) {
         return "Applying and validating the fix…";
     case "LeftOut" :
         return "Left out by request";
-
+    
   }
 }
 
@@ -227,7 +230,7 @@ function buildReport(review, decisions) {
                   leftOut.contents = leftOut.contents + 1 | 0;
                   outcome = "Left out";
                   break;
-
+              
             }
           } else if (state.TAG === "Fixed") {
             fixed.contents = fixed.contents + 1 | 0;
@@ -272,10 +275,14 @@ function SpecCheckView(props) {
   var setDecisions = match$3[1];
   var decisions = match$3[0];
   var match$4 = React.useState(function () {
-
+        
       });
   var setReport = match$4[1];
   var report$1 = match$4[0];
+  var match$5 = Jotai.useAtom(State.piPreferencesAtom);
+  var piPreferences = match$5[0];
+  var match$6 = Jotai.useAtom(State.activePiRunAtom);
+  var setActivePiRun = match$6[1];
   var handleFile = function ($$event) {
     var onSuccess = function (uploaded) {
       setSpec(function (param) {
@@ -288,7 +295,7 @@ function SpecCheckView(props) {
             return "Entering";
           });
       setReport(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -308,11 +315,18 @@ function SpecCheckView(props) {
     if (trimmed.length <= 0) {
       return ;
     }
+    var model = PiPreferences.resolve(piPreferences, piPreferences.specReviewModel);
     setPhase(function (param) {
           return "Checking";
         });
+    setActivePiRun(function (param) {
+          return {
+                  action: "Specification check",
+                  model: model
+                };
+        });
     setReport(function (param) {
-
+          
         });
     var onSuccess = function (review) {
       var initial = {};
@@ -328,6 +342,9 @@ function SpecCheckView(props) {
                     _0: review
                   };
           });
+      setActivePiRun(function (param) {
+            
+          });
       return Promise.resolve();
     };
     var onError = function (error) {
@@ -337,9 +354,12 @@ function SpecCheckView(props) {
                     _0: Raw.errorMessage(error)
                   };
           });
+      setActivePiRun(function (param) {
+            
+          });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callCheckAgainstSpec(trimmed), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callCheckAgainstSpec(trimmed, model), onSuccess), onError);
   };
   var tmp;
   var exit = 0;
@@ -390,7 +410,15 @@ function SpecCheckView(props) {
                                       return next;
                                     });
                                 setReport(function (param) {
-
+                                      
+                                    });
+                                var model = PiPreferences.resolve(piPreferences, piPreferences.suggestionModel);
+                                var validationModel = PiPreferences.resolve(piPreferences, piPreferences.validationModel);
+                                setActivePiRun(function (param) {
+                                      return {
+                                              action: "Suggestion implementation; validation: " + validationModel,
+                                              model: model
+                                            };
                                     });
                                 var onSuccess = function (result) {
                                   setDecisions(function (previous) {
@@ -402,6 +430,9 @@ function SpecCheckView(props) {
                                         return next;
                                       });
                                   onChanged();
+                                  setActivePiRun(function (param) {
+                                        
+                                      });
                                   return Promise.resolve();
                                 };
                                 var onError = function (error) {
@@ -413,13 +444,18 @@ function SpecCheckView(props) {
                                         };
                                         return next;
                                       });
+                                  setActivePiRun(function (param) {
+                                        
+                                      });
                                   return Promise.resolve();
                                 };
                                 var request_commentKey = finding$1.commentKey;
                                 var request_suggestion = finding$1.suggestion;
                                 var request = {
                                   commentKey: request_commentKey,
-                                  suggestion: request_suggestion
+                                  suggestion: request_suggestion,
+                                  model: model,
+                                  validationModel: validationModel
                                 };
                                 Js_promise2.$$catch(Js_promise2.then(Ipc.callApplyReviewSuggestion(request), onSuccess), onError);
                               })
@@ -464,7 +500,7 @@ function SpecCheckView(props) {
                                                           return next;
                                                         });
                                                     setReport(function (param) {
-
+                                                          
                                                         });
                                                   })
                                               })
@@ -555,7 +591,7 @@ function SpecCheckView(props) {
                             return "Entering";
                           });
                       setReport(function (param) {
-
+                            
                           });
                     })
                 }),

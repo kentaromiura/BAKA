@@ -196,6 +196,8 @@ module Styles = {
 let make = (~uiColors: uiColors, ~onApplied: unit => unit) => {
   let (featureDescription, setFeatureDescription) = Jotai.Atom.useAtom(State.featureDescriptionAtom)
   let (featurePlan, setFeaturePlan) = Jotai.Atom.useAtom(State.featurePlanAtom)
+  let (piPreferences, _setPiPreferences) = Jotai.Atom.useAtom(State.piPreferencesAtom)
+  let (_activePiRun, setActivePiRun) = Jotai.Atom.useAtom(State.activePiRunAtom)
 
   let isGenerating = switch featurePlan {
   | GeneratingPlan => true
@@ -213,18 +215,22 @@ let make = (~uiColors: uiColors, ~onApplied: unit => unit) => {
   let handleGenerate = _event => {
     let trimmed = featureDescription->String.trim
     if trimmed != "" {
+      let model = PiPreferences.resolve(piPreferences, piPreferences.planModel)
       setFeaturePlan(_ => GeneratingPlan)
+      setActivePiRun(_ => Some({action: "Plan creation", model}))
       let onSuccess = (result: Ipc.createFeaturePlanResult): Js.Promise.t<unit> => {
         setFeaturePlan(_ => PlanReady(result.plan))
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
         let msg = Raw.errorMessage(err)
         setFeaturePlan(_ => State.Error(msg))
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let _ = Js.Promise2.catch(
-        Js.Promise2.then(Ipc.callCreateFeaturePlan(trimmed), onSuccess),
+        Js.Promise2.then(Ipc.callCreateFeaturePlan(trimmed, model), onSuccess),
         onError,
       )
     }
@@ -239,19 +245,23 @@ let make = (~uiColors: uiColors, ~onApplied: unit => unit) => {
     let description = featureDescription->String.trim
     let plan = planText->String.trim
     if description != "" && plan != "" {
+      let model = PiPreferences.resolve(piPreferences, piPreferences.implementationModel)
       setFeaturePlan(_ => State.Applying(plan))
+      setActivePiRun(_ => Some({action: "Plan implementation", model}))
       let onSuccess = (result: string): Js.Promise.t<unit> => {
         setFeaturePlan(_ => State.ApplyDone(plan, result))
+        setActivePiRun(_ => None)
         onApplied()
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
         let msg = Raw.errorMessage(err)
         setFeaturePlan(_ => State.Error(msg))
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let _ = Js.Promise2.catch(
-        Js.Promise2.then(Ipc.callApplyFeaturePlan({description, plan}), onSuccess),
+        Js.Promise2.then(Ipc.callApplyFeaturePlan({description, plan, model}), onSuccess),
         onError,
       )
     }

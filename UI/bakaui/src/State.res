@@ -20,6 +20,30 @@ type themeType = {
   dark: string,
 }
 
+type piPreferences = {
+  defaultModel: string,
+  inlineReviewModel: string,
+  codeReviewModel: string,
+  securityReviewModel: string,
+  specReviewModel: string,
+  suggestionModel: string,
+  validationModel: string,
+  planModel: string,
+  implementationModel: string,
+}
+
+type piModel = {
+  id: string,
+  name: string,
+  provider: string,
+  reasoning: bool,
+}
+
+type activePiRun = {
+  action: string,
+  model: string,
+}
+
 type uiColors = {
   bg: string,
   fg: string,
@@ -56,6 +80,22 @@ let themeAtom: Jotai.Atom.t<themeType, _, _> = Jotai.Atom.make({
 })
 
 let isDarkAtom: Jotai.Atom.t<bool, _, _> = Jotai.Atom.make(true)
+
+let piPreferencesAtom: Jotai.Atom.t<piPreferences, _, _> = Jotai.Atom.make({
+  defaultModel: "",
+  inlineReviewModel: "",
+  codeReviewModel: "",
+  securityReviewModel: "",
+  specReviewModel: "",
+  suggestionModel: "",
+  validationModel: "",
+  planModel: "",
+  implementationModel: "",
+})
+
+let piModelsAtom: Jotai.Atom.t<array<piModel>, _, _> = Jotai.Atom.make([])
+let piResolvedDefaultAtom: Jotai.Atom.t<string, _, _> = Jotai.Atom.make("")
+let activePiRunAtom: Jotai.Atom.t<option<activePiRun>, _, _> = Jotai.Atom.make(None)
 
 let defaultUiColors: uiColors = {
   bg: "#1f2937",

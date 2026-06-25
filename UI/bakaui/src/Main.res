@@ -16,6 +16,7 @@ let start = () => {
   registerOdinExtension()
   let themeNames = ThemePreferences.load()
   Jotai.Store.set(store, State.themeAtom, themeNames)
+  Jotai.Store.set(store, State.piPreferencesAtom, PiPreferences.load())
   let _ = Shiki.preloadShiki(themeNames.light, themeNames.dark)
   let _ = Markdown.preloadMarkdown(themeNames.light, themeNames.dark)
   switch ReactDOM.querySelector("#root") {

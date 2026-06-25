@@ -55,7 +55,13 @@ let callGetProjectFiles = (): Js.Promise.t<array<string>> => {
 }
 
 type askPiRequest = {commentKey: string, text: string}
+type askPiBatchRequest = {comments: array<askPiRequest>, model: string}
+type askPiWithDiffRequest = {diff: string, comments: array<askPiRequest>, model: string}
 type askPiReply = {commentKey: string, reply: string}
+type piModelResult = {
+  models: array<State.piModel>,
+  resolvedDefault: string,
+}
 type fullReviewFinding = {
   commentKey: string,
   summary: string,
@@ -74,10 +80,13 @@ type fullReviewKind =
 type fullReviewRequest = {
   kind: string,
   spec: option<string>,
+  model: string,
 }
 type applySuggestionRequest = {
   commentKey: string,
   suggestion: string,
+  model: string,
+  validationModel: string,
 }
 type commitSelectionRequest = {
   message: string,
@@ -89,9 +98,21 @@ type commitSelectionRequest = {
 // Odin spawns `pi --mode json @prompt.txt`, parses [REPLY:key] blocks from output.
 // The webview library JSON-stringifies all arguments and passes them as a JSON
 // array to the C callback, so we spread `comments` as separate arguments.
-@val external askPi_raw: string => Js.Promise.t<string> = "askPi"
+@val external getPiModels_raw: string => Js.Promise.t<string> = "getPiModels"
 
-let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>> => {
+let callGetPiModels = (): Js.Promise.t<piModelResult> => {
+  let parseResponse: string => Js.Promise.t<piModelResult> =
+    %raw(`async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result || !Array.isArray(raw.result.models)) throw new Error("Invalid Pi model response");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getPiModels_raw("{}"))
+}
+
+@val external askPi_raw: askPiBatchRequest => Js.Promise.t<string> = "askPi"
+
+let callAskPi = (comments: array<askPiRequest>, model: string): Js.Promise.t<array<askPiReply>> => {
   Js.log2("[BAKA UI] askPi called with comment count", comments->Array.length)
   let parseResponse: string => Js.Promise.t<array<askPiReply>> =
     %raw(`async raw => {
@@ -100,10 +121,12 @@ let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>>
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     }`)
-  let promise = %raw(`askPi(...comments)`)
+  let promise = askPi_raw({comments, model})
   Js.log2("[BAKA UI] askPi promise", promise)
   Js.Promise.then_(parseResponse)(promise)
 }
+
+@val external askPiWithDiff_raw: askPiWithDiffRequest => Js.Promise.t<string> = "askPiWithDiff"
 
 // Ask Pi with a caller-provided diff. Used by the "view full file" modal
 // so the AI sees the whole file as context instead of just the changed
@@ -116,6 +139,7 @@ let callAskPi = (comments: array<askPiRequest>): Js.Promise.t<array<askPiReply>>
 let callAskPiWithDiff = (
   diff: string,
   comments: array<askPiRequest>,
+  model: string,
 ): Js.Promise.t<array<askPiReply>> => {
   Js.log2("[BAKA UI] askPiWithDiff diff bytes", diff->String.length)
   Js.log2("[BAKA UI] askPiWithDiff comment count", comments->Array.length)
@@ -126,19 +150,20 @@ let callAskPiWithDiff = (
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     }`)
-  let promise = %raw(`askPiWithDiff({diff, comments})`)
+  let promise = askPiWithDiff_raw({diff, comments, model})
   Js.Promise.then_(parseResponse)(promise)
 }
 
 @val external startFullReview_raw: fullReviewRequest => Js.Promise.t<string> = "startFullReview"
 
-let callStartFullReview = (kind: fullReviewKind): Js.Promise.t<fullReviewResult> => {
+let callStartFullReview = (kind: fullReviewKind, model: string): Js.Promise.t<fullReviewResult> => {
   let request = {
     kind: switch kind {
     | CodeReview => "code"
     | VulnerabilityCheck => "vulnerability"
     },
     spec: None,
+    model,
   }
   Js.log2("[BAKA UI] startFullReview called", request.kind)
   let parseResponse: string => Js.Promise.t<fullReviewResult> =
@@ -151,10 +176,11 @@ let callStartFullReview = (kind: fullReviewKind): Js.Promise.t<fullReviewResult>
   Js.Promise.then_(parseResponse)(startFullReview_raw(request))
 }
 
-let callCheckAgainstSpec = (spec: string): Js.Promise.t<fullReviewResult> => {
+let callCheckAgainstSpec = (spec: string, model: string): Js.Promise.t<fullReviewResult> => {
   let request = {
     kind: "spec",
     spec: Some(spec),
+    model,
   }
   Js.log2("[BAKA UI] checkAgainstSpec called; spec bytes", spec->String.length)
   let parseResponse: string => Js.Promise.t<fullReviewResult> =
@@ -184,13 +210,13 @@ let callApplyReviewSuggestion = (
   Js.Promise.then_(parseResponse)(promise)
 }
 
-type createFeaturePlanRequest = {description: string}
+type createFeaturePlanRequest = {description: string, model: string}
 type createFeaturePlanResult = {plan: string}
-type applyFeaturePlanRequest = {description: string, plan: string}
+type applyFeaturePlanRequest = {description: string, plan: string, model: string}
 
-@val external createFeaturePlan_raw: string => Js.Promise.t<string> = "createFeaturePlan"
+@val external createFeaturePlan_raw: createFeaturePlanRequest => Js.Promise.t<string> = "createFeaturePlan"
 
-let callCreateFeaturePlan = (description: string): Js.Promise.t<createFeaturePlanResult> => {
+let callCreateFeaturePlan = (description: string, model: string): Js.Promise.t<createFeaturePlanResult> => {
   Js.log2("[BAKA UI] createFeaturePlan called", description)
   let parseResponse: string => Js.Promise.t<createFeaturePlanResult> =
     %raw(`async raw => {
@@ -199,7 +225,7 @@ let callCreateFeaturePlan = (description: string): Js.Promise.t<createFeaturePla
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
     }`)
-  let promise = createFeaturePlan_raw(description)
+  let promise = createFeaturePlan_raw({description, model})
   Js.Promise.then_(parseResponse)(promise)
 }
 

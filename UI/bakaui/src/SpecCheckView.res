@@ -242,6 +242,8 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
   let (phase, setPhase) = React.useState(() => Entering)
   let (decisions, setDecisions) = React.useState((): Js.Dict.t<decision> => Js.Dict.empty())
   let (report, setReport) = React.useState((): option<string> => None)
+  let (piPreferences, _setPiPreferences) = Jotai.Atom.useAtom(State.piPreferencesAtom)
+  let (_activePiRun, setActivePiRun) = Jotai.Atom.useAtom(State.activePiRunAtom)
 
   let handleFile = event => {
     let onSuccess = (uploaded: uploadedSpec) => {
@@ -261,7 +263,9 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
   let handleCheck = _ => {
     let trimmed = spec->String.trim
     if trimmed->String.length > 0 {
+      let model = PiPreferences.resolve(piPreferences, piPreferences.specReviewModel)
       setPhase(_ => Checking)
+      setActivePiRun(_ => Some({action: "Specification check", model}))
       setReport(_ => None)
       let onSuccess = (review: Ipc.fullReviewResult) => {
         let initial: Js.Dict.t<decision> = Js.Dict.empty()
@@ -270,13 +274,18 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
         )
         setDecisions(_ => initial)
         setPhase(_ => Ready(review))
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
       let onError = (error: Js.Promise2.error) => {
         setPhase(_ => Failed(Raw.errorMessage(error)))
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
-      let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callCheckAgainstSpec(trimmed), onSuccess), onError)
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callCheckAgainstSpec(trimmed, model), onSuccess),
+        onError,
+      )
     }
   }
 
@@ -297,6 +306,14 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
       next
     })
     setReport(_ => None)
+    let model = PiPreferences.resolve(piPreferences, piPreferences.suggestionModel)
+    let validationModel = PiPreferences.resolve(piPreferences, piPreferences.validationModel)
+    setActivePiRun(_ =>
+      Some({
+        action: "Suggestion implementation; validation: " ++ validationModel,
+        model,
+      })
+    )
     let onSuccess = result => {
       setDecisions(previous => {
         let next = Raw.copyDict(previous)
@@ -304,6 +321,7 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
         next
       })
       onChanged()
+      setActivePiRun(_ => None)
       Js.Promise2.resolve()
     }
     let onError = (error: Js.Promise2.error) => {
@@ -312,11 +330,14 @@ let make = (~uiColors: uiColors, ~themeType: string, ~onClose: unit => unit, ~on
         Js.Dict.set(next, key, FixFailed(Raw.errorMessage(error)))
         next
       })
+      setActivePiRun(_ => None)
       Js.Promise2.resolve()
     }
     let request: Ipc.applySuggestionRequest = {
       commentKey: finding.commentKey,
       suggestion: finding.suggestion,
+      model,
+      validationModel,
     }
     let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callApplyReviewSuggestion(request), onSuccess), onError)
   }

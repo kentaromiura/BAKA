@@ -381,6 +381,29 @@ module Styles = {
     color: ${colors.descriptionFg};
     font-size: 0.923rem;
   `
+
+  let settingsSectionTitle = Html.css`
+    margin: 28px 0 12px;
+    font-size: 1.23rem;
+  `
+
+  let settingsCardHint = (colors: uiColors) => Html.css`
+    color: ${colors.descriptionFg};
+    font-size: 0.846rem;
+    line-height: 1.4;
+  `
+
+  let statusBar = (colors: uiColors) => Html.css`
+    min-height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 3px 10px;
+    border-top: 1px solid ${colors.border};
+    background: ${colors.surfaceBg};
+    color: ${colors.descriptionFg};
+    font-size: 0.846rem;
+  `
 }
 
 @react.component
@@ -390,6 +413,11 @@ let make = () => {
   let (loadedThemes, setLoadedThemes) = Jotai.Atom.useAtom(State.themeColorsAtom)
   let (comments, setComments) = Jotai.Atom.useAtom(State.commentsAtom)
   let (reviewSuggestions, setReviewSuggestions) = Jotai.Atom.useAtom(State.reviewSuggestionsAtom)
+  let (piPreferences, setPiPreferences) = Jotai.Atom.useAtom(State.piPreferencesAtom)
+  let (piModels, setPiModels) = Jotai.Atom.useAtom(State.piModelsAtom)
+  let (piResolvedDefault, setPiResolvedDefault) = Jotai.Atom.useAtom(State.piResolvedDefaultAtom)
+  let (activePiRun, setActivePiRun) = Jotai.Atom.useAtom(State.activePiRunAtom)
+  let (featurePlan, _setFeaturePlan) = Jotai.Atom.useAtom(State.featurePlanAtom)
   let currentColors: uiColors = switch loadedThemes {
   | Some(themes) => if isDark { themes.dark } else { themes.light }
   | None => if isDark { State.defaultUiColors } else { State.lightDefaultUiColors }
@@ -404,6 +432,7 @@ let make = () => {
   let (repoRoot, setRepoRoot) = React.useState(() => "")
   let (isThemeLoading, setIsThemeLoading) = React.useState(() => false)
   let (isSpecCheckOpen, setIsSpecCheckOpen) = React.useState(() => false)
+  let (piModelsError, setPiModelsError) = React.useState(() => "")
   let themeLoadVersionRef = React.useRef(0)
   let lightThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("light"))
   let darkThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("dark"))
@@ -417,6 +446,30 @@ let make = () => {
     let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError)
     None
   })
+
+  let loadPiModels = () => {
+    let onSuccess = (result: Ipc.piModelResult): Js.Promise.t<unit> => {
+      setPiModels(_ => result.models)
+      setPiResolvedDefault(_ => result.resolvedDefault)
+      setPiModelsError(_ => "")
+      Js.Promise2.resolve()
+    }
+    let onError = (error: Js.Promise2.error): Js.Promise.t<unit> => {
+      setPiModelsError(_ => Raw.errorMessage(error))
+      Js.Promise2.resolve()
+    }
+    let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callGetPiModels(), onSuccess), onError)
+  }
+
+  React.useEffect0(() => {
+    loadPiModels()
+    None
+  })
+
+  React.useEffect1(() => {
+    PiPreferences.save(piPreferences)
+    None
+  }, [piPreferences])
 
   React.useEffect1(() => {
     themeLoadVersionRef.current = themeLoadVersionRef.current + 1
@@ -636,6 +689,7 @@ let make = () => {
           newDict
         })
       } else {
+        let model = PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel)
         Js.log2("[BAKA UI] Ask Pi sending comment count", payloadComments->Array.length)
         // Set all pending comments to streaming state
         setComments(prev => {
@@ -651,6 +705,7 @@ let make = () => {
         })
 
         setIsAskingPi(_ => true)
+        setActivePiRun(_ => Some({action: "Inline Q&A", model}))
 
         let onSuccess = (replies: array<Ipc.askPiReply>): Js.Promise.t<unit> => {
           Js.log2("[BAKA UI] Ask Pi success replies", replies->Array.length)
@@ -668,6 +723,7 @@ let make = () => {
             newDict
           })
           setIsAskingPi(_ => false)
+          setActivePiRun(_ => None)
           Js.Promise2.resolve()
         }
 
@@ -687,11 +743,18 @@ let make = () => {
             newDict
           })
           setIsAskingPi(_ => false)
+          setActivePiRun(_ => None)
           Js.Promise2.resolve()
         }
 
         let _ = Js.Promise2.catch(
-          Js.Promise2.then(Ipc.callAskPi(payloadComments), onSuccess),
+          Js.Promise2.then(
+            Ipc.callAskPi(
+              payloadComments,
+              model,
+            ),
+            onSuccess,
+          ),
           onError,
         )
       }
@@ -709,7 +772,15 @@ let make = () => {
         )
       }
       Js.log2("[BAKA UI] Full review button clicked", label)
+      let model = PiPreferences.resolve(
+        piPreferences,
+        switch kind {
+        | CodeReview => piPreferences.codeReviewModel
+        | VulnerabilityCheck => piPreferences.securityReviewModel
+        },
+      )
       setActiveReview(_ => Some(kind))
+      setActivePiRun(_ => Some({action: label, model}))
       setReviewSummaryLabel(_ => label)
       setReviewSummary(_ => progress)
 
@@ -761,6 +832,7 @@ let make = () => {
           newDict
         })
         setActiveReview(_ => None)
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
 
@@ -769,11 +841,18 @@ let make = () => {
         Js.log2("[BAKA UI] Full review error", msg)
         setReviewSummary(_ => label ++ " failed: " ++ msg)
         setActiveReview(_ => None)
+        setActivePiRun(_ => None)
         Js.Promise2.resolve()
       }
 
       let _ = Js.Promise2.catch(
-        Js.Promise2.then(Ipc.callStartFullReview(kind), onSuccess),
+        Js.Promise2.then(
+          Ipc.callStartFullReview(
+            kind,
+            model,
+          ),
+          onSuccess,
+        ),
         onError,
       )
     }
@@ -857,6 +936,39 @@ let make = () => {
     }
   }, (patchState, isDark, themeNames, currentColors))
 
+  let renderModelSelect = (~label, ~hint, ~value, ~inherit, ~onChange) =>
+    <label className={Styles.settingsCard(currentColors)}>
+      <span className={Styles.settingsLabel}>{str(label)}</span>
+      <span className={Styles.settingsCardHint(currentColors)}>{str(hint)}</span>
+      <select value onChange className={Styles.settingsSelect(currentColors)}>
+        {inherit
+          ? <option value="">
+              {str(
+                "Use default" ++
+                if piPreferences.defaultModel != "" {
+                  " (" ++ piPreferences.defaultModel ++ ")"
+                } else if piResolvedDefault != "" {
+                  " (" ++ piResolvedDefault ++ ")"
+                } else {
+                  ""
+                },
+              )}
+            </option>
+          : <option value="">
+              {str(
+                "Pi default" ++
+                if piResolvedDefault != "" { " (" ++ piResolvedDefault ++ ")" } else { "" },
+              )}
+            </option>}
+        {React.array(piModels->Array.map(model => {
+          let id = model.provider ++ "/" ++ model.id
+          <option key={id} value={id}>
+            {str(model.provider ++ " / " ++ if model.name != "" { model.name } else { model.id })}
+          </option>
+        }))}
+      </select>
+    </label>
+
   let renderSettings = () =>
     <main className={Styles.settingsPage(currentColors)}>
       <div className={Styles.settingsContent}>
@@ -894,11 +1006,169 @@ let make = () => {
             </select>
           </label>
         </div>
+        <h2 className={Styles.settingsSectionTitle}>{str("Pi models")}</h2>
+        <p className={Styles.settingsDescription(currentColors)}>
+          {str("Choose a default model, then override individual actions where a specialized or lower-cost model is more appropriate.")}
+        </p>
+        <div className={Styles.settingsGrid}>
+          {renderModelSelect(
+            ~label="Default model",
+            ~hint="Used by every action that does not have an explicit override.",
+            ~value=piPreferences.defaultModel,
+            ~inherit=false,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                defaultModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Inline Q&A",
+            ~hint="Replies to comments in the diff and full-file viewer.",
+            ~value=piPreferences.inlineReviewModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                inlineReviewModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Code review",
+            ~hint="General correctness and maintainability review.",
+            ~value=piPreferences.codeReviewModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                codeReviewModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Security review",
+            ~hint="Vulnerability-focused analysis.",
+            ~value=piPreferences.securityReviewModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                securityReviewModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Specification check",
+            ~hint="Compares the current changes against a supplied specification.",
+            ~value=piPreferences.specReviewModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                specReviewModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Suggestion implementation",
+            ~hint="Generates patches for accepted review findings.",
+            ~value=piPreferences.suggestionModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                suggestionModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Suggestion validation",
+            ~hint="Validates generated patches and creates a repair patch when needed.",
+            ~value=piPreferences.validationModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                validationModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Plan creation",
+            ~hint="Inspects the repository and creates feature or bug-fix plans.",
+            ~value=piPreferences.planModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                planModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+          {renderModelSelect(
+            ~label="Plan implementation",
+            ~hint="Turns an accepted plan into an applicable patch.",
+            ~value=piPreferences.implementationModel,
+            ~inherit=true,
+            ~onChange=event =>
+              setPiPreferences(previous => {
+                ...previous,
+                implementationModel: JsxEvent.Form.target(event)["value"],
+              }),
+          )}
+        </div>
         <p className={Styles.settingsHint(currentColors)}>
-          {str(if isThemeLoading { "Applying themes…" } else { "Theme preferences saved locally." })}
+          {str(
+            if piModelsError != "" {
+              "Could not load Pi models: " ++ piModelsError
+            } else if isThemeLoading {
+              "Applying themes…"
+            } else {
+              "Preferences saved locally."
+            },
+          )}
         </p>
       </div>
     </main>
+
+  let idlePiStatus = switch viewMode {
+  | Feature =>
+    switch featurePlan {
+    | Applying(_) =>
+      "Plan implementation · " ++
+      PiPreferences.resolve(piPreferences, piPreferences.implementationModel)
+    | _ =>
+      "Plan creation · " ++ PiPreferences.resolve(piPreferences, piPreferences.planModel)
+    }
+  | Review =>
+    switch activeReview {
+    | Some(CodeReview) =>
+      "Code review · " ++ PiPreferences.resolve(piPreferences, piPreferences.codeReviewModel)
+    | Some(VulnerabilityCheck) =>
+      "Security review · " ++
+      PiPreferences.resolve(piPreferences, piPreferences.securityReviewModel)
+    | None =>
+      "Inline Q&A · " ++
+      PiPreferences.resolve(piPreferences, piPreferences.inlineReviewModel)
+    }
+  | _ =>
+    "Default · " ++
+    if piPreferences.defaultModel == "" { piResolvedDefault } else { piPreferences.defaultModel }
+  }
+
+  let displayPiModel = model =>
+    if model != "" {
+      model
+    } else if piResolvedDefault != "" {
+      piResolvedDefault
+    } else {
+      "Pi default"
+    }
+
+  let piStatus = switch activePiRun {
+  | Some(run) =>
+    run.action ++ " · " ++ displayPiModel(run.model)
+  | None =>
+    let parts = idlePiStatus->String.split(" · ")
+    switch (Array.get(parts, 0), Array.get(parts, 1)) {
+    | (Some(action), Some(model)) => action ++ " · " ++ displayPiModel(model)
+    | _ => idlePiStatus
+    }
+  }
 
   switch patchState {
   | PatchLoading =>
@@ -1129,6 +1399,9 @@ let make = () => {
 	            </main>
 	          </div>
 	      }}
+      <div className={Styles.statusBar(currentColors)}>
+        {str("Pi · " ++ piStatus)}
+      </div>
 	    </div>
 	  }
 	}

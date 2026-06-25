@@ -9,6 +9,7 @@ import * as Markdown from "./Markdown.res.mjs";
 import * as ZoomMjs from "./Zoom.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as PiPreferences from "./PiPreferences.res.mjs";
 import * as ThemePreferences from "./ThemePreferences.res.mjs";
 import * as Client from "react-dom/client";
 import * as JsxRuntime from "react/jsx-runtime";
@@ -34,6 +35,7 @@ function start() {
   RegisterLanguagesMjs.registerOdinExtension();
   var themeNames = ThemePreferences.load();
   store.set(State.themeAtom, themeNames);
+  store.set(State.piPreferencesAtom, PiPreferences.load());
   Shiki.preloadShiki(themeNames.light, themeNames.dark);
   Markdown.preloadMarkdown(themeNames.light, themeNames.dark);
   var domElement = document.querySelector("#root");
