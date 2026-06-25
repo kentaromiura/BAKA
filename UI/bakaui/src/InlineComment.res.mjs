@@ -11,6 +11,7 @@ import * as Belt_Int from "rescript/lib/es6/belt_Int.js";
 import * as Js_string from "rescript/lib/es6/js_string.js";
 import * as CommentBox from "./CommentBox.res.mjs";
 import * as FileViewer from "./FileViewer.res.mjs";
+import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
@@ -91,8 +92,8 @@ function fullFileButton(colors) {
 
 function emptyFileLabel(colors) {
   return Html.css([
-              "\n    margin-left: 8px;\n    color: ",
-              ";\n    font-size: 0.923rem;\n  "
+              "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    min-height: 96px;\n    color: ",
+              ";\n    font-size: 1rem;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -221,50 +222,47 @@ function InlineComment(props) {
         toggleComment
       ]);
   var fullFileButton$1 = React.useCallback((function (_fd) {
-          return JsxRuntime.jsxs(JsxRuntime.Fragment, {
-                      children: [
-                        JsxRuntime.jsx("button", {
-                              children: "View full file",
-                              className: fullFileButton(uiColors),
-                              onClick: (function (ev) {
-                                  ev.stopPropagation();
-                                  setShowFullFile(function (param) {
-                                        return true;
-                                      });
-                                })
-                            }),
-                        isEmptyFile ? JsxRuntime.jsx("span", {
-                                children: "(empty file)",
-                                className: emptyFileLabel(uiColors)
-                              }) : null
-                      ]
+          return JsxRuntime.jsx(JsxRuntime.Fragment, {
+                      children: Caml_option.some(JsxRuntime.jsx("button", {
+                                children: "View full file",
+                                className: fullFileButton(uiColors),
+                                onClick: (function (ev) {
+                                    ev.stopPropagation();
+                                    setShowFullFile(function (param) {
+                                          return true;
+                                        });
+                                  })
+                              }))
                     });
         }), []);
   return JsxRuntime.jsxs(JsxRuntime.Fragment, {
               children: [
-                JsxRuntime.jsx(React$1.FileDiff, {
-                      fileDiff: fileDiff,
-                      options: optionsObj,
-                      lineAnnotations: annotations,
-                      renderAnnotation: (function (annotation) {
-                          var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
-                          var match = Js_dict.get(comments, ckey);
-                          if (match !== undefined) {
-                            return JsxRuntime.jsx(CommentBox.make, {
-                                        commentKey: ckey,
-                                        lineNumber: annotation.lineNumber,
-                                        comments: comments,
-                                        onSave: setComments,
-                                        onRemove: setComments,
-                                        uiColors: uiColors,
-                                        themeType: themeType
-                                      });
-                          } else {
-                            return JsxRuntime.jsx("div", {});
-                          }
-                        }),
-                      renderHeaderPrefix: fullFileButton$1
-                    }),
+                isEmptyFile ? JsxRuntime.jsx("div", {
+                        children: "(empty file)",
+                        className: emptyFileLabel(uiColors)
+                      }) : JsxRuntime.jsx(React$1.FileDiff, {
+                        fileDiff: fileDiff,
+                        options: optionsObj,
+                        lineAnnotations: annotations,
+                        renderAnnotation: (function (annotation) {
+                            var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
+                            var match = Js_dict.get(comments, ckey);
+                            if (match !== undefined) {
+                              return JsxRuntime.jsx(CommentBox.make, {
+                                          commentKey: ckey,
+                                          lineNumber: annotation.lineNumber,
+                                          comments: comments,
+                                          onSave: setComments,
+                                          onRemove: setComments,
+                                          uiColors: uiColors,
+                                          themeType: themeType
+                                        });
+                            } else {
+                              return JsxRuntime.jsx("div", {});
+                            }
+                          }),
+                        renderHeaderPrefix: fullFileButton$1
+                      }),
                 fileReviewCommentKeys.length > 0 ? JsxRuntime.jsxs("div", {
                         children: [
                           JsxRuntime.jsx("div", {

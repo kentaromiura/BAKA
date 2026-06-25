@@ -113,6 +113,13 @@ var body = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\
 
 var bodyDark = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n    background-color: #0d1117;\n  "], []);
 
+function emptyFile(colors) {
+  return Html.css([
+              "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    height: 100%;\n    color: ",
+              ";\n    font-size: 1rem;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var embeddedBody = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n    background-color: transparent;\n  "], []);
 
 function status(colors) {
@@ -140,6 +147,7 @@ var Styles = {
   closeButton: closeButton,
   body: body,
   bodyDark: bodyDark,
+  emptyFile: emptyFile,
   embeddedBody: embeddedBody,
   status: status,
   error: error
@@ -410,31 +418,36 @@ function FileViewer(props) {
                     error$1 !== undefined ? JsxRuntime.jsx("div", {
                             children: "Loaded",
                             className: status(uiColors)
-                          }) : JsxRuntime.jsx(React$1.Virtualizer, {
-                            children: JsxRuntime.jsx(React$1.FileDiff, {
-                                  fileDiff: fileDiff,
-                                  options: optionsObj,
-                                  lineAnnotations: annotations,
-                                  renderAnnotation: (function (annotation) {
-                                      var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
-                                      var match = Js_dict.get(comments, ckey);
-                                      if (match !== undefined) {
-                                        return JsxRuntime.jsx(CommentBox.make, {
-                                                    commentKey: ckey,
-                                                    lineNumber: annotation.lineNumber,
-                                                    comments: comments,
-                                                    onSave: setComments,
-                                                    onRemove: setComments,
-                                                    uiColors: uiColors,
-                                                    themeType: themeType
-                                                  });
-                                      } else {
-                                        return JsxRuntime.jsx("div", {});
-                                      }
-                                    })
-                                }),
-                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                          })
+                          }) : (
+                        Diffs.isEmptyFile(fileDiff) ? JsxRuntime.jsx("div", {
+                                children: "(empty file)",
+                                className: emptyFile(uiColors)
+                              }) : JsxRuntime.jsx(React$1.Virtualizer, {
+                                children: JsxRuntime.jsx(React$1.FileDiff, {
+                                      fileDiff: fileDiff,
+                                      options: optionsObj,
+                                      lineAnnotations: annotations,
+                                      renderAnnotation: (function (annotation) {
+                                          var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
+                                          var match = Js_dict.get(comments, ckey);
+                                          if (match !== undefined) {
+                                            return JsxRuntime.jsx(CommentBox.make, {
+                                                        commentKey: ckey,
+                                                        lineNumber: annotation.lineNumber,
+                                                        comments: comments,
+                                                        onSave: setComments,
+                                                        onRemove: setComments,
+                                                        uiColors: uiColors,
+                                                        themeType: themeType
+                                                      });
+                                          } else {
+                                            return JsxRuntime.jsx("div", {});
+                                          }
+                                        })
+                                    }),
+                                style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                              })
+                      )
                   ) : (
                     error$1 !== undefined ? JsxRuntime.jsx("div", {
                             children: "Failed to load file: " + error$1,

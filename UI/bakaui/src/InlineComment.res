@@ -75,9 +75,12 @@ module Styles = {
 
   let emptyFileLabel = (colors: uiColors) =>
     Html.css`
-    margin-left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 96px;
     color: ${colors.descriptionFg};
-    font-size: 0.923rem;
+    font-size: 1rem;
   `
 
   let fileReviewList = (colors: uiColors) =>
@@ -184,37 +187,36 @@ let make = (
         className={Styles.fullFileButton(uiColors)}>
         {React.string("View full file")}
       </button>
-      {isEmptyFile
-        ? <span className={Styles.emptyFileLabel(uiColors)}>
-            {React.string("(empty file)")}
-          </span>
-        : React.null}
     </>
   )
 
   <>
-    <Diffs.FileDiff.makeRaw
-      fileDiff={fileDiff}
-      options={optionsObj}
-      lineAnnotations={annotations}
-      renderAnnotation={(annotation: Diffs.lineAnnotation) => {
-            let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
-            switch Js.Dict.get(comments, ckey) {
-            | Some(_) =>
-              <CommentBox
-                commentKey={ckey}
-                lineNumber={annotation.lineNumber}
-                comments={comments}
-                onSave={setComments}
-                onRemove={setComments}
-                uiColors={uiColors}
-                themeType={themeType}
-              />
-            | None => <div />
-            }
-          }}
-          renderHeaderPrefix={fullFileButton}
-        />
+    {isEmptyFile
+      ? <div className={Styles.emptyFileLabel(uiColors)}>
+          {React.string("(empty file)")}
+        </div>
+      : <Diffs.FileDiff.makeRaw
+          fileDiff={fileDiff}
+          options={optionsObj}
+          lineAnnotations={annotations}
+          renderAnnotation={(annotation: Diffs.lineAnnotation) => {
+                let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
+                switch Js.Dict.get(comments, ckey) {
+                | Some(_) =>
+                  <CommentBox
+                    commentKey={ckey}
+                    lineNumber={annotation.lineNumber}
+                    comments={comments}
+                    onSave={setComments}
+                    onRemove={setComments}
+                    uiColors={uiColors}
+                    themeType={themeType}
+                  />
+                | None => <div />
+                }
+              }}
+              renderHeaderPrefix={fullFileButton}
+            />}
     {fileReviewCommentKeys->Array.length > 0
       ? <div className={Styles.fileReviewList(uiColors)}>
           <div className={Styles.fileReviewHeader(uiColors)}>

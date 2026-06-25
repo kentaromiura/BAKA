@@ -42,7 +42,13 @@ var changedLineAnnotations = (fd => {
     return annotations;
   });
 
-var isEmptyFile = (fd => !!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n");
+var isEmptyFile = (fd => {
+    if (!fd || fd.type !== "new" || !String(fd.newObjectId || "").startsWith("e69de29")) {
+      return false;
+    }
+    const lines = Array.isArray(fd.additionLines) ? fd.additionLines : [];
+    return lines.length === 0 || (lines.length === 1 && lines[0] === "\n");
+  });
 
 var FileDiff = {};
 

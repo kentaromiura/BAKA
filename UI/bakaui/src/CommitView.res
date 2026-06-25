@@ -3,6 +3,39 @@ open Diffs
 
 let str = React.string
 
+type commitDraft
+type reconciledDraft = {
+  message: string,
+  body: string,
+  selectedFiles: Js.Dict.t<bool>,
+  excludedLines: Js.Dict.t<bool>,
+  activeFileName: string,
+  resetCount: int,
+}
+type savedDraft = {
+  message: string,
+  body: string,
+  selectedFiles: Js.Dict.t<bool>,
+  excludedLines: Js.Dict.t<bool>,
+  fingerprints: Js.Dict.t<string>,
+  activeFileName: string,
+}
+
+@module("./CommitDraft.mjs") external draftStorageKey: string => string = "storageKey"
+@module("./CommitDraft.mjs")
+external fingerprintFiles: array<patchFile> => Js.Dict.t<string> = "fingerprintFiles"
+@module("./CommitDraft.mjs")
+external fingerprintSignature: Js.Dict.t<string> => string = "fingerprintSignature"
+@module("./CommitDraft.mjs") external loadDraft: string => Js.Nullable.t<commitDraft> = "loadDraft"
+@module("./CommitDraft.mjs")
+external reconcileDraft: (
+  Js.Nullable.t<commitDraft>,
+  array<string>,
+  Js.Dict.t<string>,
+) => reconciledDraft = "reconcileDraft"
+@module("./CommitDraft.mjs") external saveDraft: (string, savedDraft) => unit = "saveDraft"
+@module("./CommitDraft.mjs") external clearDraft: string => unit = "clearDraft"
+
 let lineKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
@@ -61,11 +94,28 @@ let buildSelectedPatch: (
       out.push("--- " + (fd.type === "new" ? "/dev/null" : "a/" + prevName));
       out.push("+++ " + (fd.type === "deleted" ? "/dev/null" : "b/" + name));
     };
+    const isEmptyFile = (fd) =>
+      fd && fd.type === "new" &&
+      String(fd.newObjectId || "").startsWith("e69de29") &&
+      (!Array.isArray(fd.additionLines) || fd.additionLines.length === 0 ||
+        (fd.additionLines.length === 1 && fd.additionLines[0] === "\n"));
+    const pushEmptyFile = (out, fd) => {
+      const name = fd.name || "";
+      const prevName = fd.prevName || name;
+      out.push("diff --git a/" + prevName + " b/" + name);
+      out.push("new file mode " + (fd.mode || "100644"));
+      out.push("index " + (fd.prevObjectId || "0000000") + ".." + (fd.newObjectId || "e69de29"));
+    };
 
     const out = [];
     for (const fd of fileDiffs) {
       const fileName = fd.name || "";
       if (!fileName || !isFileSelected(fileName)) continue;
+      if (isEmptyFile(fd)) {
+        if (out.length > 0) out.push("");
+        pushEmptyFile(out, fd);
+        continue;
+      }
 
       const fileHunks = [];
       let selectedDelta = 0;
@@ -506,6 +556,15 @@ module Styles = {
     overflow: hidden;
   `
 
+  let emptyFile = (colors: uiColors) => Html.css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: ${colors.descriptionFg};
+    font-size: 1rem;
+  `
+
   let emptyState = (colors: uiColors) => Html.css`
     display: flex;
     align-items: center;
@@ -579,6 +638,7 @@ module Styles = {
 @react.component
 let make = (
   ~patches: array<parsedPatch>,
+  ~repoRoot: string,
   ~theme: FileDiff.theme,
   ~themeType: string,
   ~uiColors: uiColors,
@@ -592,6 +652,11 @@ let make = (
     fileDiffs->Array.map(fileDiffName)
   }, [fileDiffs])
 
+  let fileFingerprints = React.useMemo1(() => fingerprintFiles(fileDiffs), [fileDiffs])
+  let fingerprintVersion =
+    React.useMemo1(() => fingerprintSignature(fileFingerprints), [fileFingerprints])
+  let storageKey = React.useMemo1(() => draftStorageKey(repoRoot), [repoRoot])
+
   let (selectedFiles, setSelectedFiles) = React.useState((): Js.Dict.t<bool> => Js.Dict.empty())
   let (excludedLines, setExcludedLines) = React.useState((): Js.Dict.t<bool> => Js.Dict.empty())
   let (activeFileName, setActiveFileName) = React.useState(() => "")
@@ -600,19 +665,80 @@ let make = (
   let (commitStatus, setCommitStatus) = React.useState(() => "")
   let (commitStatusIsError, setCommitStatusIsError) = React.useState(() => false)
   let (isCommitting, setIsCommitting) = React.useState(() => false)
+  let (draftReady, setDraftReady) = React.useState(() => false)
   let diffPaneRef: React.ref<Js.Nullable.t<Dom.element>> = React.useRef(Js.Nullable.null)
+  let skipPersistRef = React.useRef(false)
+  let committedRef = React.useRef(false)
+  let draftReadyRef = React.useRef(false)
+  let latestDraftRef: React.ref<savedDraft> = React.useRef({
+    message: "",
+    body: "",
+    selectedFiles: Js.Dict.empty(),
+    excludedLines: Js.Dict.empty(),
+    fingerprints: Js.Dict.empty(),
+    activeFileName: "",
+  })
 
-  React.useEffect1(() => {
-    let next: Js.Dict.t<bool> = Js.Dict.empty()
-    fileNames->Array.forEach(name => Js.Dict.set(next, name, true))
-    setSelectedFiles(_ => next)
-    setExcludedLines(_ => Js.Dict.empty())
-    switch Belt.Array.get(fileNames, 0) {
-    | Some(first) => setActiveFileName(_ => first)
-    | None => setActiveFileName(_ => "")
+  React.useEffect2(() => {
+    if storageKey != "" {
+      skipPersistRef.current = true
+      committedRef.current = false
+      let restored = reconcileDraft(loadDraft(storageKey), fileNames, fileFingerprints)
+      setCommitMessage(_ => restored.message)
+      setCommitBody(_ => restored.body)
+      setSelectedFiles(_ => restored.selectedFiles)
+      setExcludedLines(_ => restored.excludedLines)
+      setActiveFileName(_ => restored.activeFileName)
+      draftReadyRef.current = true
+      setDraftReady(_ => true)
+      if restored.resetCount > 0 {
+        setCommitStatus(_ =>
+          "Selection reset for " ++
+          Int.toString(restored.resetCount) ++
+          " file(s) whose diff changed."
+        )
+        setCommitStatusIsError(_ => false)
+      }
     }
     None
-  }, [fileNames])
+  }, (storageKey, fingerprintVersion))
+
+  latestDraftRef.current = {
+    message: commitMessage,
+    body: commitBody,
+    selectedFiles: selectedFiles,
+    excludedLines: excludedLines,
+    fingerprints: fileFingerprints,
+    activeFileName: activeFileName,
+  }
+
+  React.useEffect(() => {
+    if draftReady && storageKey != "" && !committedRef.current {
+      if skipPersistRef.current {
+        skipPersistRef.current = false
+      } else {
+        saveDraft(storageKey, latestDraftRef.current)
+      }
+    }
+    None
+  }, (
+    draftReady,
+    storageKey,
+    commitMessage,
+    commitBody,
+    selectedFiles,
+    excludedLines,
+    fileFingerprints,
+    activeFileName,
+  ))
+
+  React.useEffect1(() => {
+    Some(() => {
+      if draftReadyRef.current && storageKey != "" && !committedRef.current {
+        saveDraft(storageKey, latestDraftRef.current)
+      }
+    })
+  }, [storageKey])
 
   let activeFile = fileDiffs->Array.find(fd => fileDiffName(fd) == activeFileName)
 
@@ -642,6 +768,8 @@ let make = (
       let name = fileDiffName(fd)
       if !isFileSelected(name) {
         count
+      } else if isEmptyFile(fd) {
+        count + 1
       } else {
         let changed = changedLinesForFile(fd)
         let excluded = changed->Array.reduce(0, (excludedCount, annotation) => {
@@ -739,6 +867,8 @@ let make = (
           patch,
         }
         let onSuccess = (result: string): Js.Promise.t<unit> => {
+          committedRef.current = true
+          clearDraft(storageKey)
           setIsCommitting(_ => false)
           setCommitStatus(_ => result)
           setCommitStatusIsError(_ => false)
@@ -863,17 +993,29 @@ let make = (
         </div>
         <div className={Styles.toolbarActions}>
           <span className={Styles.lineCount(uiColors)}>
-            {str(Int.toString(selectedChangedLineCount) ++ " changed lines selected")}
+            {str(Int.toString(selectedChangedLineCount) ++ " changes selected")}
           </span>
-          <button className={Styles.smallButton(uiColors)} onClick={includeActiveLines}>
-            {str("Include file lines")}
-          </button>
-          <button className={Styles.smallButton(uiColors)} onClick={excludeActiveLines}>
-            {str("Exclude file lines")}
-          </button>
+          {switch activeFile {
+          | Some(fd) if isEmptyFile(fd) => React.null
+          | _ =>
+            <>
+              <button className={Styles.smallButton(uiColors)} onClick={includeActiveLines}>
+                {str("Include file lines")}
+              </button>
+              <button className={Styles.smallButton(uiColors)} onClick={excludeActiveLines}>
+                {str("Exclude file lines")}
+              </button>
+            </>
+          }}
         </div>
       </div>
       {switch activeFile {
+      | Some(fd) if isEmptyFile(fd) =>
+        <div key={activeFileName} className={Styles.diffPane}>
+          <div className={Styles.emptyFile(uiColors)}>
+            {str("(empty file)")}
+          </div>
+        </div>
       | Some(fd) =>
         <>
           <div key={activeFileName} ref={ReactDOM.Ref.domRef(diffPaneRef)} className={Styles.diffPane}>

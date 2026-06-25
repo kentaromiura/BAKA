@@ -6,15 +6,43 @@ import * as Html from "./Html.res.mjs";
 import * as Diffs from "./Diffs.res.mjs";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
-import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
+import * as CommitDraftMjs from "./CommitDraft.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as React$1 from "@pierre/diffs/react";
 
 function str(prim) {
   return prim;
+}
+
+function draftStorageKey(prim) {
+  return CommitDraftMjs.storageKey(prim);
+}
+
+function fingerprintFiles(prim) {
+  return CommitDraftMjs.fingerprintFiles(prim);
+}
+
+function fingerprintSignature(prim) {
+  return CommitDraftMjs.fingerprintSignature(prim);
+}
+
+function loadDraft(prim) {
+  return CommitDraftMjs.loadDraft(prim);
+}
+
+function reconcileDraft(prim0, prim1, prim2) {
+  return CommitDraftMjs.reconcileDraft(prim0, prim1, prim2);
+}
+
+function saveDraft(prim0, prim1) {
+  CommitDraftMjs.saveDraft(prim0, prim1);
+}
+
+function clearDraft(prim) {
+  CommitDraftMjs.clearDraft(prim);
 }
 
 function lineKey(fileName, side, lineNumber) {
@@ -70,11 +98,28 @@ var buildSelectedPatch = ((fileDiffs, selectedFiles, excludedLines) => {
       out.push("--- " + (fd.type === "new" ? "/dev/null" : "a/" + prevName));
       out.push("+++ " + (fd.type === "deleted" ? "/dev/null" : "b/" + name));
     };
+    const isEmptyFile = (fd) =>
+      fd && fd.type === "new" &&
+      String(fd.newObjectId || "").startsWith("e69de29") &&
+      (!Array.isArray(fd.additionLines) || fd.additionLines.length === 0 ||
+        (fd.additionLines.length === 1 && fd.additionLines[0] === "\n"));
+    const pushEmptyFile = (out, fd) => {
+      const name = fd.name || "";
+      const prevName = fd.prevName || name;
+      out.push("diff --git a/" + prevName + " b/" + name);
+      out.push("new file mode " + (fd.mode || "100644"));
+      out.push("index " + (fd.prevObjectId || "0000000") + ".." + (fd.newObjectId || "e69de29"));
+    };
 
     const out = [];
     for (const fd of fileDiffs) {
       const fileName = fd.name || "";
       if (!fileName || !isFileSelected(fileName)) continue;
+      if (isEmptyFile(fd)) {
+        if (out.length > 0) out.push("");
+        pushEmptyFile(out, fd);
+        continue;
+      }
 
       const fileHunks = [];
       let selectedDelta = 0;
@@ -450,6 +495,13 @@ var activeTitle = Html.css(["\n    min-width: 0;\n    overflow: hidden;\n    tex
 
 var diffPane = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
 
+function emptyFile(colors) {
+  return Html.css([
+              "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    height: 100%;\n    color: ",
+              ";\n    font-size: 1rem;\n  "
+            ], [colors.descriptionFg]);
+}
+
 function emptyState(colors) {
   return Html.css([
               "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    padding: 24px;\n    color: ",
@@ -545,6 +597,7 @@ var Styles = {
   toolbarActions: toolbarActions,
   activeTitle: activeTitle,
   diffPane: diffPane,
+  emptyFile: emptyFile,
   emptyState: emptyState,
   commitForm: commitForm,
   commitField: commitField,
@@ -558,6 +611,7 @@ function CommitView(props) {
   var uiColors = props.uiColors;
   var themeType = props.themeType;
   var theme = props.theme;
+  var repoRoot = props.repoRoot;
   var patches = props.patches;
   var fileDiffs = React.useMemo((function () {
           return patches.flatMap(function (patch) {
@@ -567,6 +621,15 @@ function CommitView(props) {
   var fileNames = React.useMemo((function () {
           return fileDiffs.map(Diffs.fileDiffName);
         }), [fileDiffs]);
+  var fileFingerprints = React.useMemo((function () {
+          return CommitDraftMjs.fingerprintFiles(fileDiffs);
+        }), [fileDiffs]);
+  var fingerprintVersion = React.useMemo((function () {
+          return CommitDraftMjs.fingerprintSignature(fileFingerprints);
+        }), [fileFingerprints]);
+  var storageKey = React.useMemo((function () {
+          return CommitDraftMjs.storageKey(repoRoot);
+        }), [repoRoot]);
   var match = React.useState(function () {
         return {};
       });
@@ -606,29 +669,98 @@ function CommitView(props) {
       });
   var setIsCommitting = match$7[1];
   var isCommitting = match$7[0];
+  var match$8 = React.useState(function () {
+        return false;
+      });
+  var setDraftReady = match$8[1];
+  var draftReady = match$8[0];
   var diffPaneRef = React.useRef(null);
+  var skipPersistRef = React.useRef(false);
+  var committedRef = React.useRef(false);
+  var draftReadyRef = React.useRef(false);
+  var latestDraftRef = React.useRef({
+        message: "",
+        body: "",
+        selectedFiles: {},
+        excludedLines: {},
+        fingerprints: {},
+        activeFileName: ""
+      });
   React.useEffect((function () {
-          var next = {};
-          fileNames.forEach(function (name) {
-                next[name] = true;
-              });
-          setSelectedFiles(function (param) {
-                return next;
-              });
-          setExcludedLines(function (param) {
-                return {};
-              });
-          var first = Belt_Array.get(fileNames, 0);
-          if (first !== undefined) {
-            setActiveFileName(function (param) {
-                  return first;
+          if (storageKey !== "") {
+            skipPersistRef.current = true;
+            committedRef.current = false;
+            var restored = CommitDraftMjs.reconcileDraft(CommitDraftMjs.loadDraft(storageKey), fileNames, fileFingerprints);
+            setCommitMessage(function (param) {
+                  return restored.message;
                 });
-          } else {
-            setActiveFileName(function (param) {
-                  return "";
+            setCommitBody(function (param) {
+                  return restored.body;
                 });
+            setSelectedFiles(function (param) {
+                  return restored.selectedFiles;
+                });
+            setExcludedLines(function (param) {
+                  return restored.excludedLines;
+                });
+            setActiveFileName(function (param) {
+                  return restored.activeFileName;
+                });
+            draftReadyRef.current = true;
+            setDraftReady(function (param) {
+                  return true;
+                });
+            if (restored.resetCount > 0) {
+              setCommitStatus(function (param) {
+                    return "Selection reset for " + restored.resetCount.toString() + " file(s) whose diff changed.";
+                  });
+              setCommitStatusIsError(function (param) {
+                    return false;
+                  });
+            }
+
           }
-        }), [fileNames]);
+
+        }), [
+        storageKey,
+        fingerprintVersion
+      ]);
+  latestDraftRef.current = {
+    message: commitMessage,
+    body: commitBody,
+    selectedFiles: selectedFiles,
+    excludedLines: excludedLines,
+    fingerprints: fileFingerprints,
+    activeFileName: activeFileName
+  };
+  React.useEffect((function () {
+          if (draftReady && storageKey !== "" && !committedRef.current) {
+            if (skipPersistRef.current) {
+              skipPersistRef.current = false;
+            } else {
+              CommitDraftMjs.saveDraft(storageKey, latestDraftRef.current);
+            }
+          }
+
+        }), [
+        draftReady,
+        storageKey,
+        commitMessage,
+        commitBody,
+        selectedFiles,
+        excludedLines,
+        fileFingerprints,
+        activeFileName
+      ]);
+  React.useEffect((function () {
+          return (function () {
+                    if (draftReadyRef.current && storageKey !== "" && !committedRef.current) {
+                      CommitDraftMjs.saveDraft(storageKey, latestDraftRef.current);
+                      return ;
+                    }
+
+                  });
+        }), [storageKey]);
   var activeFile = fileDiffs.find(function (fd) {
         return Diffs.fileDiffName(fd) === activeFileName;
       });
@@ -664,6 +796,9 @@ function CommitView(props) {
           var name = Diffs.fileDiffName(fd);
           if (!isFileSelected(name)) {
             return count;
+          }
+          if (Diffs.isEmptyFile(fd)) {
+            return count + 1 | 0;
           }
           var changed = Diffs.changedLineAnnotations(fd);
           var excluded = Core__Array.reduce(changed, 0, (function (excludedCount, annotation) {
@@ -716,7 +851,7 @@ function CommitView(props) {
                   return next;
                 });
     }
-    
+
   };
   var excludeActiveLines = function (_event) {
     if (isFileSelected(activeFileName)) {
@@ -728,7 +863,7 @@ function CommitView(props) {
                   return next;
                 });
     }
-    
+
   };
   var handleCommit = function (_event) {
     if (!canCommit) {
@@ -758,6 +893,8 @@ function CommitView(props) {
       patch: patch
     };
     var onSuccess = function (result) {
+      committedRef.current = true;
+      CommitDraftMjs.clearDraft(storageKey);
       setIsCommitting(function (param) {
             return false;
           });
@@ -806,6 +943,57 @@ function CommitView(props) {
         theme,
         themeType
       ]);
+  var tmp;
+  var exit = 0;
+  if (activeFile !== undefined && Diffs.isEmptyFile(Caml_option.valFromOption(activeFile))) {
+    tmp = null;
+  } else {
+    exit = 1;
+  }
+  if (exit === 1) {
+    tmp = JsxRuntime.jsxs(JsxRuntime.Fragment, {
+          children: [
+            JsxRuntime.jsx("button", {
+                  children: "Include file lines",
+                  className: smallButton(uiColors),
+                  onClick: includeActiveLines
+                }),
+            JsxRuntime.jsx("button", {
+                  children: "Exclude file lines",
+                  className: smallButton(uiColors),
+                  onClick: excludeActiveLines
+                })
+          ]
+        });
+  }
+  var tmp$1;
+  if (activeFile !== undefined) {
+    var fd = Caml_option.valFromOption(activeFile);
+    tmp$1 = Diffs.isEmptyFile(fd) ? JsxRuntime.jsx("div", {
+            children: JsxRuntime.jsx("div", {
+                  children: "(empty file)",
+                  className: emptyFile(uiColors)
+                }),
+            className: diffPane
+          }, activeFileName) : JsxRuntime.jsx(JsxRuntime.Fragment, {
+            children: Caml_option.some(JsxRuntime.jsx("div", {
+                      children: JsxRuntime.jsx(React$1.Virtualizer, {
+                            children: JsxRuntime.jsx(React$1.FileDiff, {
+                                  fileDiff: fd,
+                                  options: optionsObj
+                                }),
+                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                          }),
+                      ref: Caml_option.some(diffPaneRef),
+                      className: diffPane
+                    }, activeFileName))
+          });
+  } else {
+    tmp$1 = JsxRuntime.jsx("div", {
+          children: "No changed files to commit.",
+          className: emptyState(uiColors)
+        });
+  }
   return JsxRuntime.jsxs("div", {
               children: [
                 JsxRuntime.jsxs("aside", {
@@ -930,41 +1118,17 @@ function CommitView(props) {
                                 JsxRuntime.jsxs("div", {
                                       children: [
                                         JsxRuntime.jsx("span", {
-                                              children: selectedChangedLineCount.toString() + " changed lines selected",
+                                              children: selectedChangedLineCount.toString() + " changes selected",
                                               className: lineCount(uiColors)
                                             }),
-                                        JsxRuntime.jsx("button", {
-                                              children: "Include file lines",
-                                              className: smallButton(uiColors),
-                                              onClick: includeActiveLines
-                                            }),
-                                        JsxRuntime.jsx("button", {
-                                              children: "Exclude file lines",
-                                              className: smallButton(uiColors),
-                                              onClick: excludeActiveLines
-                                            })
+                                        tmp
                                       ],
                                       className: toolbarActions
                                     })
                               ],
                               className: toolbar(uiColors)
                             }),
-                        activeFile !== undefined ? JsxRuntime.jsx(JsxRuntime.Fragment, {
-                                children: Caml_option.some(JsxRuntime.jsx("div", {
-                                          children: JsxRuntime.jsx(React$1.Virtualizer, {
-                                                children: JsxRuntime.jsx(React$1.FileDiff, {
-                                                      fileDiff: Caml_option.valFromOption(activeFile),
-                                                      options: optionsObj
-                                                    }),
-                                                style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                                              }),
-                                          ref: Caml_option.some(diffPaneRef),
-                                          className: diffPane
-                                        }, activeFileName))
-                              }) : JsxRuntime.jsx("div", {
-                                children: "No changed files to commit.",
-                                className: emptyState(uiColors)
-                              })
+                        tmp$1
                       ],
                       className: main
                     })
@@ -979,6 +1143,13 @@ var make = CommitView;
 
 export {
   str ,
+  draftStorageKey ,
+  fingerprintFiles ,
+  fingerprintSignature ,
+  loadDraft ,
+  reconcileDraft ,
+  saveDraft ,
+  clearDraft ,
   lineKey ,
   copyBoolDict ,
   clearFileLineKeys ,

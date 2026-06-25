@@ -141,6 +141,13 @@ var container = Html.css([
 
 var content = Html.css(["\n    display: flex;\n    flex-direction: row;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
 
+function commitViewHost(hidden) {
+  return Html.css([
+              "\n    display: ",
+              ";\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "
+            ], [hidden ? "none" : "flex"]);
+}
+
 function sidebar(colors) {
   return Html.css([
               "\n    width: 280px;\n    min-width: 220px;\n    max-width: 360px;\n    display: flex;\n    flex-direction: column;\n    min-height: 0;\n    border-right: 1px solid ",
@@ -296,6 +303,7 @@ var Styles = {
   askPiButton: askPiButton,
   container: container,
   content: content,
+  commitViewHost: commitViewHost,
   sidebar: sidebar,
   main: main,
   diffWrapper: diffWrapper,
@@ -363,16 +371,32 @@ function App(props) {
   var setViewMode = match$9[1];
   var viewMode = match$9[0];
   var match$10 = React.useState(function () {
+        return "";
+      });
+  var setRepoRoot = match$10[1];
+  var match$11 = React.useState(function () {
         return false;
       });
-  var setIsThemeLoading = match$10[1];
-  var isThemeLoading = match$10[0];
+  var setIsThemeLoading = match$11[1];
+  var isThemeLoading = match$11[0];
   var themeLoadVersionRef = React.useRef(0);
   var lightThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("light");
         }), []);
   var darkThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("dark");
+        }), []);
+  React.useEffect((function () {
+          var onSuccess = function (root) {
+            setRepoRoot(function (param) {
+                  return root;
+                });
+            return Promise.resolve();
+          };
+          var onError = function (_error) {
+            return Promise.resolve();
+          };
+          Js_promise2.$$catch(Js_promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError);
         }), []);
   React.useEffect((function () {
           themeLoadVersionRef.current = themeLoadVersionRef.current + 1 | 0;
@@ -407,29 +431,29 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Shiki.loadBothThemes(themeNames.light, themeNames.dark), onThemesReady), onThemeError);
         }), [themeNames]);
-  var match$11 = React.useState(function () {
+  var match$12 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$11[1];
-  var patchState = match$11[0];
-  var diffReloadPollVersionRef = React.useRef(0);
-  var match$12 = React.useState(function () {
+  var setPatchState = match$12[1];
+  var patchState = match$12[0];
+  var watcherReloadCountRef = React.useRef(__bakaDiffReloadRequestCount);
+  var match$13 = React.useState(function () {
         return 0;
       });
-  var setDiffReloadPollVersion = match$12[1];
-  var diffReloadPollVersion = match$12[0];
+  var setPatchReloadVersion = match$13[1];
+  var patchReloadVersion = match$13[0];
   var requestPatchReload = function () {
-    setDiffReloadPollVersion(function (prev) {
+    setPatchReloadVersion(function (prev) {
           return prev + 1 | 0;
         });
   };
   React.useEffect((function () {
           var interval = setInterval((function () {
                   var next = __bakaDiffReloadRequestCount;
-                  if (next !== diffReloadPollVersionRef.current) {
-                    diffReloadPollVersionRef.current = next;
-                    return setDiffReloadPollVersion(function (param) {
-                                return next;
+                  if (next !== watcherReloadCountRef.current) {
+                    watcherReloadCountRef.current = next;
+                    return setPatchReloadVersion(function (prev) {
+                                return prev + 1 | 0;
                               });
                   }
                   
@@ -439,7 +463,7 @@ function App(props) {
                   });
         }), []);
   React.useEffect((function () {
-          console.log("[BAKA UI] fetching patch; reload version", diffReloadPollVersion);
+          console.log("[BAKA UI] fetching patch; reload version", patchReloadVersion);
           var onSuccess = function (rawPatch) {
             var patches = Diffs$1.parsePatchFiles(rawPatch);
             console.log("[BAKA UI] patch loaded bytes", rawPatch.length);
@@ -464,7 +488,7 @@ function App(props) {
             return Promise.resolve();
           };
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetPatch(), onSuccess), onError);
-        }), [diffReloadPollVersion]);
+        }), [patchReloadVersion]);
   var headerStyle = header(currentColors);
   var buttonStyle = button(currentColors);
   var settingsAriaPressed = viewMode === "Settings" ? "true" : "false";
@@ -1040,13 +1064,7 @@ function App(props) {
             });
         break;
     case "Commit" :
-        tmp = JsxRuntime.jsx(CommitView.make, {
-              patches: patchState._0,
-              theme: style,
-              themeType: isDark ? "dark" : "light",
-              uiColors: currentColors,
-              onCommitted: requestPatchReload
-            });
+        tmp = null;
         break;
     case "Feature" :
         tmp = JsxRuntime.jsx(NewFeatureView.make, {
@@ -1185,6 +1203,17 @@ function App(props) {
                         ],
                         className: reviewSummaryBar(currentColors)
                       }) : null,
+                JsxRuntime.jsx("div", {
+                      children: JsxRuntime.jsx(CommitView.make, {
+                            patches: patchState._0,
+                            repoRoot: match$10[0],
+                            theme: style,
+                            themeType: isDark ? "dark" : "light",
+                            uiColors: currentColors,
+                            onCommitted: requestPatchReload
+                          }),
+                      className: commitViewHost(viewMode !== "Commit")
+                    }),
                 tmp
               ],
               className: container

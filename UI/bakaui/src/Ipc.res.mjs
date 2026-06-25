@@ -12,6 +12,15 @@ function callGetPatch() {
   return Js_promise.then_(parseResponse, getPatch("{}"));
 }
 
+function callGetRepoRoot() {
+  var parseResponse = (async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing repository root");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getRepoRoot("{}"));
+}
+
 function callGetFilePatch(path) {
   console.log("[BAKA UI] getFilePatch called", path);
   var parseResponse = (async raw => {
@@ -132,6 +141,7 @@ function callCommitSelection(request) {
 
 export {
   callGetPatch ,
+  callGetRepoRoot ,
   callGetFilePatch ,
   callGetProjectFiles ,
   callAskPi ,

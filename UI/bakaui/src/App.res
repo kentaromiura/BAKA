@@ -168,6 +168,13 @@ module Styles = {
     overflow: hidden;
   `
 
+  let commitViewHost = (hidden: bool) => Html.css`
+    display: ${if hidden { "none" } else { "flex" }};
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  `
+
   let sidebar = (colors: uiColors) => Html.css`
     width: 280px;
     min-width: 220px;
@@ -345,10 +352,21 @@ let make = () => {
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
   let (reviewSummaryLabel, setReviewSummaryLabel) = React.useState(() => "Review")
   let (viewMode, setViewMode) = React.useState(() => Review)
+  let (repoRoot, setRepoRoot) = React.useState(() => "")
   let (isThemeLoading, setIsThemeLoading) = React.useState(() => false)
   let themeLoadVersionRef = React.useRef(0)
   let lightThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("light"))
   let darkThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("dark"))
+
+  React.useEffect0(() => {
+    let onSuccess = (root: string): Js.Promise.t<unit> => {
+      setRepoRoot(_ => root)
+      Js.Promise2.resolve()
+    }
+    let onError = (_error: Js.Promise2.error): Js.Promise.t<unit> => Js.Promise2.resolve()
+    let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError)
+    None
+  })
 
   React.useEffect1(() => {
     themeLoadVersionRef.current = themeLoadVersionRef.current + 1
@@ -389,19 +407,19 @@ let make = () => {
 
   // Async patch loading state
   let (patchState, setPatchState) = React.useState(() => PatchLoading)
-  let diffReloadPollVersionRef = React.useRef(0)
-  let (diffReloadPollVersion, setDiffReloadPollVersion) = React.useState(() => 0)
+  let watcherReloadCountRef = React.useRef(getDiffReloadRequestCount)
+  let (patchReloadVersion, setPatchReloadVersion) = React.useState(() => 0)
 
   let requestPatchReload = () => {
-    setDiffReloadPollVersion(prev => prev + 1)
+    setPatchReloadVersion(prev => prev + 1)
   }
 
   React.useEffect0(() => {
     let interval = Js.Global.setInterval(() => {
       let next = getDiffReloadRequestCount
-      if next != diffReloadPollVersionRef.current {
-        diffReloadPollVersionRef.current = next
-        setDiffReloadPollVersion(_ => next)
+      if next != watcherReloadCountRef.current {
+        watcherReloadCountRef.current = next
+        setPatchReloadVersion(prev => prev + 1)
       }
     }, 250)
     Some(() => Js.Global.clearInterval(interval))
@@ -409,7 +427,7 @@ let make = () => {
 
   // Fetch patch on mount and whenever the native watcher asks for a reload.
   React.useEffect1(() => {
-    Js.log2("[BAKA UI] fetching patch; reload version", diffReloadPollVersion)
+    Js.log2("[BAKA UI] fetching patch; reload version", patchReloadVersion)
     let onSuccess = (rawPatch: string): Js.Promise.t<unit> => {
       let patches = parsePatchFiles(rawPatch)
       Js.log2("[BAKA UI] patch loaded bytes", rawPatch->String.length)
@@ -428,7 +446,7 @@ let make = () => {
       onError,
     )
     None
-  }, [diffReloadPollVersion])
+  }, [patchReloadVersion])
 
   let headerStyle = Styles.header(currentColors)
   let buttonStyle = Styles.button(currentColors)
@@ -998,15 +1016,19 @@ let make = () => {
             {str(reviewSummaryText)}
           </div>
         : React.null}
-      {switch viewMode {
-      | Settings => renderSettings()
-      | Commit => <CommitView
+      <div className={Styles.commitViewHost(viewMode != Commit)}>
+        <CommitView
             patches={patches}
+            repoRoot={repoRoot}
             theme={style}
             themeType={if (isDark) { "dark" } else { "light" }}
             uiColors={currentColors}
             onCommitted={requestPatchReload}
           />
+      </div>
+      {switch viewMode {
+      | Settings => renderSettings()
+      | Commit => React.null
       | Feature => <NewFeatureView uiColors={currentColors} />
       | Project =>
         <ProjectView

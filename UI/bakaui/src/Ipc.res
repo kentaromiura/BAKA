@@ -15,6 +15,18 @@ let callGetPatch = (): Js.Promise.t<string> => {
   Js.Promise.then_(parseResponse)(getPatch_raw("{}"))
 }
 
+@val external getRepoRoot_raw: string => Js.Promise.t<string> = "getRepoRoot"
+
+let callGetRepoRoot = (): Js.Promise.t<string> => {
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing repository root");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getRepoRoot_raw("{}"))
+}
+
 @val external getFilePatch_raw: string => Js.Promise.t<string> = "getFilePatch"
 
 let callGetFilePatch = (path: string): Js.Promise.t<string> => {

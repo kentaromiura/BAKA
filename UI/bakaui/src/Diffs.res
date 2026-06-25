@@ -80,7 +80,13 @@ let changedLineAnnotations: patchFile => array<lineAnnotation> =
     return annotations;
   }`)
 let isEmptyFile: patchFile => bool =
-  %raw(`fd => !!fd && fd.type === "new" && fd.newObjectId === "e69de29" && Array.isArray(fd.additionLines) && fd.additionLines.length === 1 && fd.additionLines[0] === "\n"`)
+  %raw(`fd => {
+    if (!fd || fd.type !== "new" || !String(fd.newObjectId || "").startsWith("e69de29")) {
+      return false;
+    }
+    const lines = Array.isArray(fd.additionLines) ? fd.additionLines : [];
+    return lines.length === 0 || (lines.length === 1 && lines[0] === "\n");
+  }`)
 
 module FileDiff = {
   type theme = {light: string, dark: string}

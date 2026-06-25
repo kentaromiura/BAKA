@@ -28,8 +28,7 @@ WebView_Return_Error :: 1
 
 makeEmptyUntrackedFilePatch :: proc(filename: string) -> string {
 	return fmt.tprintf(
-		"diff --git a/%s b/%s\nnew file mode 100644\nindex 0000000..e69de29\n--- /dev/null\n+++ b/%s\n@@ -0,0 +1 @@\n+\n",
-		filename,
+		"diff --git a/%s b/%s\nnew file mode 100644\nindex 0000000..e69de29\n",
 		filename,
 		filename,
 	)
@@ -875,6 +874,23 @@ handle_get_file_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	webview.ret(w, seq, WebView_Return_Ok, c_result)
 }
 
+handle_get_repo_root :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	repo_root := getRepoWorkingDirectory()
+	defer delete(repo_root)
+	resp := Ipc_Response {
+		result = repo_root,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, `{"error": "marshal failed"}`)
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
 handle_get_project_files :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 
@@ -1004,6 +1020,7 @@ main :: proc() {
 	webview.set_title(w, "BAKA")
 	webview.set_size(w, 960, 720, .None)
 	webview.bind(w, "getPatch", handle_get_patch, nil)
+	webview.bind(w, "getRepoRoot", handle_get_repo_root, nil)
 	webview.bind(w, "getFilePatch", handle_get_file_patch, nil)
 	webview.bind(w, "getProjectFiles", handle_get_project_files, nil)
 	webview.bind(w, "getWatcherEvents", handle_get_watcher_events, nil)

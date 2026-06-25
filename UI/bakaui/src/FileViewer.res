@@ -128,6 +128,15 @@ module Styles = {
     background-color: #0d1117;
   `
 
+  let emptyFile = (colors: uiColors) => Html.css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: ${colors.descriptionFg};
+    font-size: 1rem;
+  `
+
   let embeddedBody = Html.css`
     flex: 1;
     min-height: 0;
@@ -389,29 +398,35 @@ let make = (
         }}>
         {switch (patch, error) {
         | (Some(_), None) =>
-          <Diffs.Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
-            <Diffs.FileDiff.makeRaw
-              fileDiff={fileDiff}
-              options={optionsObj}
-              lineAnnotations={annotations}
-              renderAnnotation={(annotation: Diffs.lineAnnotation) => {
-                let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
-                switch Js.Dict.get(comments, ckey) {
-                | Some(_) =>
-                  <CommentBox
-                    commentKey={ckey}
-                    lineNumber={annotation.lineNumber}
-                    comments={comments}
-                    onSave={setComments}
-                    onRemove={setComments}
-                    uiColors={uiColors}
-                    themeType={themeType}
-                  />
-                | None => <div />
-                }
-              }}
-            />
-          </Diffs.Virtualizer>
+          if Diffs.isEmptyFile(fileDiff) {
+            <div className={Styles.emptyFile(uiColors)}>
+              {React.string("(empty file)")}
+            </div>
+          } else {
+            <Diffs.Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
+              <Diffs.FileDiff.makeRaw
+                fileDiff={fileDiff}
+                options={optionsObj}
+                lineAnnotations={annotations}
+                renderAnnotation={(annotation: Diffs.lineAnnotation) => {
+                  let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
+                  switch Js.Dict.get(comments, ckey) {
+                  | Some(_) =>
+                    <CommentBox
+                      commentKey={ckey}
+                      lineNumber={annotation.lineNumber}
+                      comments={comments}
+                      onSave={setComments}
+                      onRemove={setComments}
+                      uiColors={uiColors}
+                      themeType={themeType}
+                    />
+                  | None => <div />
+                  }
+                }}
+              />
+            </Diffs.Virtualizer>
+          }
         | (None, Some(e)) =>
           <div className={Styles.error(uiColors)}>
             {React.string("Failed to load file: " ++ e)}
