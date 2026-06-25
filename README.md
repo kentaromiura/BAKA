@@ -1,57 +1,65 @@
-BAKA
-==
+# BAKA
 
-A little code-review AI assistant.
+BAKA is a native code review application for local Git changes. It is inspired
+by [Codiff](https://github.com/nkzw-tech/codiff) and uses
+[Pi](https://pi.dev) for AI-assisted workflows.
 
-Baka is a code-review, inspired by https://github.com/nkzw-tech/codiff but using pi.dev for review, allowing infinite customization for both local models and any API/subscription services, not limited to openAI.
+The application displays the current working tree as an interactive diff. You
+can comment on individual lines, ask Pi about those comments, run broader code,
+security, or specification reviews, and apply suggested fixes.
 
-It's combining different stuff I was doing so no code from codiff has been used directly (*) 
+BAKA also includes a project file browser, line-level commit selection, and a
+feature workflow where Pi creates an implementation plan before applying it.
+Repository changes are watched and the diff refreshes automatically.
 
+Pi models can be configured independently for each action. A default model is
+used unless an action has an override. Separate models can be selected for
+inline questions, code review, security review, specification checking,
+suggestion implementation and validation, plan creation, and plan
+implementation. This makes it possible to use specialized models or reduce
+costs for simpler tasks. The active model is shown in the bottom-right status
+area.
 
+Model discovery uses Pi's RPC interface, so BAKA supports the providers and
+custom models configured in Pi, including local OpenAI-compatible services.
 
-Screenshots:
-![Main screen v0.01](SCREEN/main.png)
+## Screenshots
 
-![light mode v0](SCREEN/light.png)
-![dark mode v0](SCREEN/dark.png)
+![Main screen](SCREEN/main.png)
 
+![Light theme](SCREEN/light.png)
 
+![Dark theme](SCREEN/dark.png)
 
+## Building
 
+BAKA requires Odin, CMake, Yarn, Pi, and the platform dependencies needed by
+the webview library. On Linux, install the GTK and WebKitGTK development
+packages before building.
 
-Build the UI bundle, libwebview, and BAKA from the repository root:
+Build the UI, webview library, and native application from the repository root:
 
 ```sh
 make
 ```
 
-The Makefile installs the UI dependencies from `yarn.lock` when needed, then
-builds the ReScript/esbuild bundle before compiling the application. The
-executable and shared library are kept under `build/`. The executable has an
-rpath pointing to `build/webview/core`, so no webview library needs to be copied
-into `APP/` or `APP/webview-odin/`.
+Build output is stored under `build/`.
 
-Run BAKA with:
+Run BAKA against the current directory or a specific repository:
 
 ```sh
 make run
+make run ARGS='/path/to/repository'
 make run ARGS='--verbose /path/to/repository'
 ```
 
-On Linux, install GTK and WebKitGTK development packages before building.
-
 ## Third-party acknowledgements
 
-- [`@pierre/diffs`](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs)
-  and [`@pierre/trees`](https://github.com/pierrecomputer/pierre/tree/main/packages/trees)
-  provide the diff and file-tree interfaces. Both are licensed under the
-  [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-  `@pierre/trees` also includes ideas and code derived from
-  [`headless-tree`](https://github.com/lukasbach/headless-tree), as documented
-  in its bundled notice.
-- [`Ioskeley Mono`](https://github.com/ahatem/IoskeleyMono) by Ahmed Hatem is
-  embedded as BAKA's interface font. Ioskeley Mono is a custom configuration
-  of [`Iosevka`](https://github.com/be5invis/Iosevka), created by Belleve Invis
-  and the Iosevka contributors. Both fonts are licensed under the SIL Open Font
-  License 1.1. The redistributed font license is included at
-  [`UI/bakaui/assets/fonts/IoskeleyMono/LICENSE`](UI/bakaui/assets/fonts/IoskeleyMono/LICENSE).
+[`@pierre/diffs`](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs)
+and [`@pierre/trees`](https://github.com/pierrecomputer/pierre/tree/main/packages/trees)
+provide the diff and file-tree interfaces. Both are licensed under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+[`Ioskeley Mono`](https://github.com/ahatem/IoskeleyMono) is embedded as the
+interface font. Its license is included at
+[`UI/bakaui/assets/fonts/IoskeleyMono/LICENSE`](UI/bakaui/assets/fonts/IoskeleyMono/LICENSE).
