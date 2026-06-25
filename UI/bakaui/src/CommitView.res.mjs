@@ -363,7 +363,7 @@ var excludedLineUnsafeCss = "\n    [data-selected-line] {\n      --diffs-line-bg
 
 var shell = Html.css([
       "\n    display: flex;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n    font-family: ",
-      ";\n    font-size: 13px;\n  "
+      ";\n    font-size: 1rem;\n  "
     ], [treeFont]);
 
 function sidebar(colors) {
@@ -381,7 +381,7 @@ function sidebarHeader(colors) {
   return Html.css([
               "\n    padding: 10px 12px;\n    border-bottom: 1px solid ",
               ";\n    color: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n  "
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n  "
             ], [
               colors.border,
               colors.fg
@@ -395,7 +395,7 @@ function smallButton(colors) {
               "\n    padding: 4px 8px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 12px;\n    cursor: pointer;\n    &:hover { background-color: ",
+              ";\n    font-size: 0.923rem;\n    cursor: pointer;\n    &:hover { background-color: ",
               "; }\n  "
             ], [
               colors.border,
@@ -420,12 +420,12 @@ function fileRow(colors, active) {
             ]);
 }
 
-var fileName = Html.css(["\n    min-width: 0;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    font-size: 13px;\n  "], []);
+var fileName = Html.css(["\n    min-width: 0;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    font-size: 1rem;\n  "], []);
 
 function lineCount(colors) {
   return Html.css([
               "\n    color: ",
-              ";\n    font-size: 12px;\n  "
+              ";\n    font-size: 0.923rem;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -436,7 +436,7 @@ function toolbar(colors) {
               "\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 12px;\n    padding: 8px 12px;\n    border-bottom: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 13px;\n  "
+              ";\n    font-size: 1rem;\n  "
             ], [
               colors.border,
               colors.inputBg,
@@ -453,7 +453,7 @@ var diffPane = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: hidd
 function emptyState(colors) {
   return Html.css([
               "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    padding: 24px;\n    color: ",
-              ";\n    font-size: 13px;\n  "
+              ";\n    font-size: 1rem;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -473,7 +473,7 @@ function commitField(colors) {
               "\n    width: 100%;\n    box-sizing: border-box;\n    border: 1px solid ",
               ";\n    border-radius: 4px;\n    background-color: ",
               ";\n    color: ",
-              ";\n    font: inherit;\n    font-size: 13px;\n    padding: 6px 8px;\n    outline: none;\n    &:focus { border-color: ",
+              ";\n    font: inherit;\n    font-size: 1rem;\n    padding: 6px 8px;\n    outline: none;\n    &:focus { border-color: ",
               "; }\n  "
             ], [
               colors.border,
@@ -488,7 +488,7 @@ function commitTextArea(colors) {
               "\n    width: 100%;\n    min-height: 64px;\n    resize: vertical;\n    box-sizing: border-box;\n    border: 1px solid ",
               ";\n    border-radius: 4px;\n    background-color: ",
               ";\n    color: ",
-              ";\n    font: inherit;\n    font-size: 13px;\n    padding: 6px 8px;\n    outline: none;\n    &:focus { border-color: ",
+              ";\n    font: inherit;\n    font-size: 1rem;\n    padding: 6px 8px;\n    outline: none;\n    &:focus { border-color: ",
               "; }\n  "
             ], [
               colors.border,
@@ -503,7 +503,7 @@ function commitButton(colors, disabled) {
               "\n    padding: 6px 10px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 13px;\n    cursor: ",
+              ";\n    font-size: 1rem;\n    cursor: ",
               ";\n    opacity: ",
               ";\n    &:hover { background-color: ",
               "; }\n  "
@@ -520,7 +520,7 @@ function commitButton(colors, disabled) {
 function commitStatus(colors, isError) {
   return Html.css([
               "\n    color: ",
-              ";\n    font-size: 12px;\n    line-height: 1.4;\n    white-space: pre-wrap;\n    ",
+              ";\n    font-size: 0.923rem;\n    line-height: 1.4;\n    white-space: pre-wrap;\n    ",
               "\n  "
             ], [
               colors.descriptionFg,

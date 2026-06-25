@@ -392,7 +392,7 @@ module Styles = {
     min-height: 0;
     overflow: hidden;
     font-family: ${treeFont};
-    font-size: 13px;
+    font-size: 1rem;
   `
 
   let sidebar = (colors: uiColors) => Html.css`
@@ -410,7 +410,7 @@ module Styles = {
     padding: 10px 12px;
     border-bottom: 1px solid ${colors.border};
     color: ${colors.fg};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
   `
 
@@ -427,7 +427,7 @@ module Styles = {
     border: 1px solid ${colors.border};
     background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
-    font-size: 12px;
+    font-size: 0.923rem;
     cursor: pointer;
     &:hover { background-color: ${colors.buttonHoverBg}; }
   `
@@ -458,12 +458,12 @@ module Styles = {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 1rem;
   `
 
   let lineCount = (colors: uiColors) => Html.css`
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 
   let main = Html.css`
@@ -483,7 +483,7 @@ module Styles = {
     border-bottom: 1px solid ${colors.border};
     background-color: ${colors.inputBg};
     color: ${colors.fg};
-    font-size: 13px;
+    font-size: 1rem;
   `
 
   let toolbarActions = Html.css`
@@ -513,7 +513,7 @@ module Styles = {
     flex: 1;
     padding: 24px;
     color: ${colors.descriptionFg};
-    font-size: 13px;
+    font-size: 1rem;
   `
 
   let commitForm = (colors: uiColors) => Html.css`
@@ -533,7 +533,7 @@ module Styles = {
     background-color: ${colors.inputBg};
     color: ${colors.fg};
     font: inherit;
-    font-size: 13px;
+    font-size: 1rem;
     padding: 6px 8px;
     outline: none;
     &:focus { border-color: ${colors.focusBorder}; }
@@ -549,7 +549,7 @@ module Styles = {
     background-color: ${colors.inputBg};
     color: ${colors.fg};
     font: inherit;
-    font-size: 13px;
+    font-size: 1rem;
     padding: 6px 8px;
     outline: none;
     &:focus { border-color: ${colors.focusBorder}; }
@@ -561,7 +561,7 @@ module Styles = {
     border: 1px solid ${colors.focusBorder};
     background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
-    font-size: 13px;
+    font-size: 1rem;
     cursor: ${if disabled { "not-allowed" } else { "pointer" }};
     opacity: ${if disabled { "0.55" } else { "1" }};
     &:hover { background-color: ${if disabled { colors.buttonBg } else { colors.buttonHoverBg }}; }
@@ -569,7 +569,7 @@ module Styles = {
 
   let commitStatus = (colors: uiColors, isError: bool) => Html.css`
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
     line-height: 1.4;
     white-space: pre-wrap;
     ${if isError { "color: " ++ colors.dangerBg ++ ";" } else { "" }}

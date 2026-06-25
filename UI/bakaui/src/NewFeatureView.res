@@ -25,14 +25,14 @@ module Styles = {
   let heading = (colors: uiColors) =>
     Html.css`
     color: ${colors.fg};
-    font-size: 18px;
+    font-size: 1.385rem;
     font-weight: 600;
   `
 
   let description = (colors: uiColors) =>
     Html.css`
     color: ${colors.descriptionFg};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.5;
   `
 
@@ -46,7 +46,7 @@ module Styles = {
     background-color: ${colors.inputBg};
     color: ${colors.inputFg};
     font: inherit;
-    font-size: 14px;
+    font-size: 1.077rem;
     line-height: 1.5;
     padding: 12px;
     outline: none;
@@ -74,7 +74,7 @@ module Styles = {
     border: 1px solid ${colors.focusBorder};
     background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
     cursor: ${if disabled {
       "not-allowed"
@@ -109,7 +109,7 @@ module Styles = {
     border: 1px solid ${colors.dangerBg};
     background-color: transparent;
     color: ${colors.dangerBg};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
     cursor: ${if disabled {
       "not-allowed"
@@ -143,7 +143,7 @@ module Styles = {
     border-radius: 6px;
     background-color: ${colors.inputBg};
     color: ${colors.fg};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.5;
     padding: 16px;
     white-space: pre-wrap;
@@ -161,7 +161,7 @@ module Styles = {
     border-top: 1px solid ${colors.border};
     background-color: ${colors.inputBg};
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 
   let spinner = Html.css`
@@ -176,7 +176,7 @@ module Styles = {
     background-color: ${colors.focusBorder}22;
     border: 1px solid ${colors.focusBorder}44;
     color: ${colors.fg};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.5;
     white-space: pre-wrap;
   `

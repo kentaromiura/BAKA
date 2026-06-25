@@ -106,7 +106,7 @@ module Styles = {
     border: 1px solid ${colors.border};
     background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
-    font-size: 18px;
+    font-size: 1.385rem;
     line-height: 1;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -147,12 +147,16 @@ module Styles = {
     flex-direction: column;
     height: 100vh;
     font-family: ${appFont};
+    font-size: 1rem;
+    line-height: 1.25;
 
     & button,
     & input,
     & textarea,
     & select {
       font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
     }
   `
 
@@ -191,7 +195,7 @@ module Styles = {
     border-bottom: 1px solid ${colors.border};
     color: ${colors.fg};
     font-family: ${appFont};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
   `
 
@@ -204,6 +208,7 @@ module Styles = {
       "--trees-selected-bg-override": colors.selectionBg,
       "--trees-selected-fg-override": colors.fg,
       "--trees-font-family-override": appFont,
+      "--trees-font-size-override": "1rem",
     })
 
   let loadingContainer = Html.css`
@@ -212,7 +217,7 @@ module Styles = {
     justify-content: center;
     flex: 1;
     font-family: ${appFont};
-    font-size: 14px;
+    font-size: 1.077rem;
   `
 
   let errorContainer = (colors: uiColors) => Html.css`
@@ -239,7 +244,7 @@ module Styles = {
     background-color: ${colors.inputBg};
     color: ${colors.fg};
     font-family: ${appFont};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.45;
     white-space: pre-wrap;
     max-height: 120px;
@@ -249,7 +254,7 @@ module Styles = {
   let reviewSummaryLabel = (colors: uiColors) => Html.css`
     color: ${colors.descriptionFg};
     font-family: ${appFont};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
     margin-right: 8px;
   `
@@ -269,7 +274,7 @@ module Styles = {
 
   let settingsTitle = Html.css`
     margin: 0 0 8px;
-    font-size: 24px;
+    font-size: 1.846rem;
   `
 
   let settingsDescription = (colors: uiColors) => Html.css`
@@ -295,7 +300,7 @@ module Styles = {
   `
 
   let settingsLabel = Html.css`
-    font-size: 14px;
+    font-size: 1.077rem;
     font-weight: 700;
   `
 
@@ -318,7 +323,7 @@ module Styles = {
     min-height: 20px;
     margin: 16px 0 0;
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 }
 

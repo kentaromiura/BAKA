@@ -6,6 +6,7 @@ import * as State from "./State.res.mjs";
 import * as Jotai from "jotai";
 import * as React from "react";
 import * as Markdown from "./Markdown.res.mjs";
+import * as ZoomMjs from "./Zoom.mjs";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as ThemePreferences from "./ThemePreferences.res.mjs";
@@ -21,9 +22,14 @@ function registerOdinExtension(prim) {
   RegisterLanguagesMjs.registerOdinExtension();
 }
 
+function installZoomShortcuts(prim) {
+  ZoomMjs.installZoomShortcuts();
+}
+
 var store = Jotai.createStore();
 
 function start() {
+  ZoomMjs.installZoomShortcuts();
   RegisterLanguagesMjs.registerRescript();
   RegisterLanguagesMjs.registerOdinExtension();
   var themeNames = ThemePreferences.load();
@@ -60,6 +66,7 @@ window.addEventListener("DOMContentLoaded", start);
 export {
   registerRescript ,
   registerOdinExtension ,
+  installZoomShortcuts ,
   store ,
   start ,
 }

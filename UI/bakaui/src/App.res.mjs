@@ -101,7 +101,7 @@ function iconButton(colors) {
               "\n    width: 34px;\n    height: 32px;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    padding: 0;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 18px;\n    line-height: 1;\n    cursor: pointer;\n    transition: all 0.2s ease;\n\n    &:hover,\n    &[aria-pressed=\"true\"] {\n      background-color: ",
+              ";\n    font-size: 1.385rem;\n    line-height: 1;\n    cursor: pointer;\n    transition: all 0.2s ease;\n\n    &:hover,\n    &[aria-pressed=\"true\"] {\n      background-color: ",
               ";\n      color: ",
               ";\n    }\n\n    &:focus-visible {\n      outline: 2px solid ",
               ";\n      outline-offset: 1px;\n    }\n  "
@@ -136,7 +136,7 @@ function askPiButton(colors, disabled) {
 
 var container = Html.css([
       "\n    display: flex;\n    flex-direction: column;\n    height: 100vh;\n    font-family: ",
-      ";\n\n    & button,\n    & input,\n    & textarea,\n    & select {\n      font-family: inherit;\n    }\n  "
+      ";\n    font-size: 1rem;\n    line-height: 1.25;\n\n    & button,\n    & input,\n    & textarea,\n    & select {\n      font-family: inherit;\n      font-size: inherit;\n      line-height: inherit;\n    }\n  "
     ], [appFont]);
 
 var content = Html.css(["\n    display: flex;\n    flex-direction: row;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n  "], []);
@@ -161,7 +161,7 @@ function treeHeader(colors) {
               "\n    padding: 10px 12px;\n    border-bottom: 1px solid ",
               ";\n    color: ",
               ";\n    font-family: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n  "
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n  "
             ], [
               colors.border,
               colors.fg,
@@ -177,13 +177,14 @@ function treeStyle(colors) {
           "--trees-border-color-override": colors.border,
           "--trees-selected-bg-override": colors.selectionBg,
           "--trees-selected-fg-override": colors.fg,
-          "--trees-font-family-override": appFont
+          "--trees-font-family-override": appFont,
+          "--trees-font-size-override": "1rem"
         };
 }
 
 var loadingContainer = Html.css([
       "\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex: 1;\n    font-family: ",
-      ";\n    font-size: 14px;\n  "
+      ";\n    font-size: 1.077rem;\n  "
     ], [appFont]);
 
 function errorContainer(colors) {
@@ -205,7 +206,7 @@ function reviewSummaryBar(colors) {
               ";\n    background-color: ",
               ";\n    color: ",
               ";\n    font-family: ",
-              ";\n    font-size: 13px;\n    line-height: 1.45;\n    white-space: pre-wrap;\n    max-height: 120px;\n    overflow: auto;\n  "
+              ";\n    font-size: 1rem;\n    line-height: 1.45;\n    white-space: pre-wrap;\n    max-height: 120px;\n    overflow: auto;\n  "
             ], [
               colors.border,
               colors.inputBg,
@@ -218,7 +219,7 @@ function reviewSummaryLabel(colors) {
   return Html.css([
               "\n    color: ",
               ";\n    font-family: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n    margin-right: 8px;\n  "
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n    margin-right: 8px;\n  "
             ], [
               colors.descriptionFg,
               appFont
@@ -238,7 +239,7 @@ function settingsPage(colors) {
 
 var settingsContent = Html.css(["\n    width: min(720px, 100%);\n    margin: 0 auto;\n  "], []);
 
-var settingsTitle = Html.css(["\n    margin: 0 0 8px;\n    font-size: 24px;\n  "], []);
+var settingsTitle = Html.css(["\n    margin: 0 0 8px;\n    font-size: 1.846rem;\n  "], []);
 
 function settingsDescription(colors) {
   return Html.css([
@@ -260,7 +261,7 @@ function settingsCard(colors) {
             ]);
 }
 
-var settingsLabel = Html.css(["\n    font-size: 14px;\n    font-weight: 700;\n  "], []);
+var settingsLabel = Html.css(["\n    font-size: 1.077rem;\n    font-weight: 700;\n  "], []);
 
 function settingsSelect(colors) {
   return Html.css([
@@ -280,7 +281,7 @@ function settingsSelect(colors) {
 function settingsHint(colors) {
   return Html.css([
               "\n    min-height: 20px;\n    margin: 16px 0 0;\n    color: ",
-              ";\n    font-size: 12px;\n  "
+              ";\n    font-size: 0.923rem;\n  "
             ], [colors.descriptionFg]);
 }
 

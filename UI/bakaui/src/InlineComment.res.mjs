@@ -77,7 +77,7 @@ function fullFileButton(colors) {
               "\n    padding: 4px 10px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 12px;\n    cursor: pointer;\n    transition: all 0.15s ease;\n    &:hover {\n      background-color: ",
+              ";\n    font-size: 0.923rem;\n    cursor: pointer;\n    transition: all 0.15s ease;\n    &:hover {\n      background-color: ",
               ";\n      border-color: ",
               ";\n    }\n  "
             ], [
@@ -92,7 +92,7 @@ function fullFileButton(colors) {
 function emptyFileLabel(colors) {
   return Html.css([
               "\n    margin-left: 8px;\n    color: ",
-              ";\n    font-size: 12px;\n  "
+              ";\n    font-size: 0.923rem;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -110,7 +110,7 @@ function fileReviewList(colors) {
 function fileReviewHeader(colors) {
   return Html.css([
               "\n    margin: 0 0 6px 0;\n    color: ",
-              ";\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 12px;\n    font-weight: 600;\n  "
+              ";\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 0.923rem;\n    font-weight: 600;\n  "
             ], [colors.descriptionFg]);
 }
 

@@ -3,7 +3,7 @@
 
 var fontFamily = "\"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
-var fontUnsafeCss = "\n  :host {\n    --diffs-font-family: " + fontFamily + ";\n    --diffs-header-font-family: " + fontFamily + ";\n  }\n";
+var fontUnsafeCss = "\n  :host {\n    --diffs-font-family: " + fontFamily + ";\n    --diffs-header-font-family: " + fontFamily + ";\n    --diffs-font-size: 1rem;\n  }\n";
 
 var fileDiffName = (fd => fd.name || "");
 

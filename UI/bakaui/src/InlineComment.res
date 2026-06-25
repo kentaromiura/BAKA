@@ -64,7 +64,7 @@ module Styles = {
     border: 1px solid ${colors.border};
     background-color: ${colors.surfaceBg};
     color: ${colors.fg};
-    font-size: 12px;
+    font-size: 0.923rem;
     cursor: pointer;
     transition: all 0.15s ease;
     &:hover {
@@ -77,7 +77,7 @@ module Styles = {
     Html.css`
     margin-left: 8px;
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 
   let fileReviewList = (colors: uiColors) =>
@@ -93,7 +93,7 @@ module Styles = {
     margin: 0 0 6px 0;
     color: ${colors.descriptionFg};
     font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: 0.923rem;
     font-weight: 600;
   `
 }

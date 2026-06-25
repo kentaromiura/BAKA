@@ -34,7 +34,7 @@ module Styles = {
     border-bottom: 1px solid ${colors.border};
     color: ${colors.fg};
     font-family: ${appFont};
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
   `
 
@@ -47,6 +47,7 @@ module Styles = {
       "--trees-selected-bg-override": colors.selectionBg,
       "--trees-selected-fg-override": colors.fg,
       "--trees-font-family-override": appFont,
+      "--trees-font-size-override": "1rem",
     })
 
   let main = Html.css`
@@ -65,7 +66,7 @@ module Styles = {
     padding: 24px;
     color: ${colors.descriptionFg};
     font-family: ${appFont};
-    font-size: 13px;
+    font-size: 1rem;
     text-align: center;
   `
 

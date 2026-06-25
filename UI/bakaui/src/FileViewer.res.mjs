@@ -81,7 +81,7 @@ function header(colors) {
             ]);
 }
 
-var headerTitle = Html.css(["\n    margin: 0;\n    font-size: 14px;\n    font-weight: 600;\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  "], []);
+var headerTitle = Html.css(["\n    margin: 0;\n    font-size: 1.077rem;\n    font-weight: 600;\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  "], []);
 
 var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n  "], []);
 
@@ -89,7 +89,7 @@ function askButton(colors) {
   return Html.css([
               "\n    padding: 6px 12px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
-              ";\n    color: #ffffff;\n    font-size: 13px;\n    font-weight: 500;\n    cursor: pointer;\n    transition: opacity 0.2s ease;\n    &:hover { opacity: 0.85; }\n    &:disabled { opacity: 0.5; cursor: not-allowed; }\n  "
+              ";\n    color: #ffffff;\n    font-size: 1rem;\n    font-weight: 500;\n    cursor: pointer;\n    transition: opacity 0.2s ease;\n    &:hover { opacity: 0.85; }\n    &:disabled { opacity: 0.5; cursor: not-allowed; }\n  "
             ], [
               colors.focusBorder,
               colors.focusBorder
@@ -100,7 +100,7 @@ function closeButton(colors) {
   return Html.css([
               "\n    padding: 4px 10px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: transparent;\n    color: ",
-              ";\n    font-size: 16px;\n    line-height: 1;\n    cursor: pointer;\n    &:hover { background-color: ",
+              ";\n    font-size: 1.231rem;\n    line-height: 1;\n    cursor: pointer;\n    &:hover { background-color: ",
               "; }\n  "
             ], [
               colors.border,
@@ -118,14 +118,14 @@ var embeddedBody = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: 
 function status(colors) {
   return Html.css([
               "\n    padding: 24px;\n    color: ",
-              ";\n    font-size: 13px;\n    text-align: center;\n  "
+              ";\n    font-size: 1rem;\n    text-align: center;\n  "
             ], [colors.descriptionFg]);
 }
 
 function error(colors) {
   return Html.css([
               "\n    padding: 12px 16px;\n    margin: 12px;\n    border-radius: 4px;\n    background-color: ",
-              ";\n    color: #ffffff;\n    font-size: 13px;\n  "
+              ";\n    color: #ffffff;\n    font-size: 1rem;\n  "
             ], [colors.dangerBg]);
 }
 
@@ -433,7 +433,7 @@ function FileViewer(props) {
                                       }
                                     })
                                 }),
-                            style: Caml_option.some({"height": "calc(100% - 56px)", "overflow-y": "auto"})
+                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
                           })
                   ) : (
                     error$1 !== undefined ? JsxRuntime.jsx("div", {

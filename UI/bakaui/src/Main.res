@@ -6,8 +6,12 @@ external registerRescript: unit => unit = "registerRescript"
 @module("./RegisterLanguages.mjs")
 external registerOdinExtension: unit => unit = "registerOdinExtension"
 
+@module("./Zoom.mjs")
+external installZoomShortcuts: unit => unit = "installZoomShortcuts"
+
 let store = Jotai.Store.make()
 let start = () => {
+  installZoomShortcuts()
   registerRescript()
   registerOdinExtension()
   let themeNames = ThemePreferences.load()

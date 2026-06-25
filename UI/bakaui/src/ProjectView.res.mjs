@@ -32,7 +32,7 @@ function treeHeader(colors) {
               "\n    padding: 10px 12px;\n    border-bottom: 1px solid ",
               ";\n    color: ",
               ";\n    font-family: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n  "
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n  "
             ], [
               colors.border,
               colors.fg,
@@ -48,7 +48,8 @@ function treeStyle(colors) {
           "--trees-border-color-override": colors.border,
           "--trees-selected-bg-override": colors.selectionBg,
           "--trees-selected-fg-override": colors.fg,
-          "--trees-font-family-override": appFont
+          "--trees-font-family-override": appFont,
+          "--trees-font-size-override": "1rem"
         };
 }
 
@@ -58,7 +59,7 @@ function status(colors) {
   return Html.css([
               "\n    height: 100%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    padding: 24px;\n    color: ",
               ";\n    font-family: ",
-              ";\n    font-size: 13px;\n    text-align: center;\n  "
+              ";\n    font-size: 1rem;\n    text-align: center;\n  "
             ], [
               colors.descriptionFg,
               appFont

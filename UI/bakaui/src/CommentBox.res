@@ -40,7 +40,7 @@ module Styles = {
       background-color: ${colors.inputBg};
       color: ${colors.inputFg};
       font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 14px;
+      font-size: 1.077rem;
       line-height: 1.5;
       resize: vertical;
 
@@ -67,7 +67,7 @@ module Styles = {
     border: 1px solid transparent;
     background-color: ${colors.dangerBg};
     color: #ffffff;
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -97,7 +97,7 @@ module Styles = {
     border-radius: 4px;
     background-color: ${colors.surfaceBg};
     border-left: 3px solid ${colors.focusBorder};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.5;
     color: ${colors.fg};
     word-wrap: break-word;
@@ -108,10 +108,10 @@ module Styles = {
       font-weight: 600;
       color: ${colors.fg};
     }
-    & h1 { font-size: 18px; }
-    & h2 { font-size: 16px; }
-    & h3 { font-size: 15px; }
-    & h4, & h5, & h6 { font-size: 14px; }
+    & h1 { font-size: 1.385rem; }
+    & h2 { font-size: 1.231rem; }
+    & h3 { font-size: 1.154rem; }
+    & h4, & h5, & h6 { font-size: 1.077rem; }
 
     & p {
       margin: 4px 0;
@@ -160,7 +160,7 @@ module Styles = {
 
     & code {
       font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12.5px;
+      font-size: 0.962rem;
       padding: 1px 4px;
       border-radius: 3px;
       background-color: ${colors.inputBg};
@@ -172,7 +172,7 @@ module Styles = {
       padding: 10px 12px;
       border-radius: 4px;
       overflow-x: auto;
-      font-size: 12.5px;
+      font-size: 0.962rem;
       line-height: 1.5;
     }
 
@@ -187,7 +187,7 @@ module Styles = {
   let aiLoading = Html.css`
     margin-top: 8px;
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 1rem;
     color: #9ca3af;
     font-style: italic;
   `
@@ -199,7 +199,7 @@ module Styles = {
     border-radius: 4px;
     background-color: ${colors.dangerBg};
     color: #ffffff;
-    font-size: 13px;
+    font-size: 1rem;
   `
 
   let reviewMeta = (colors: uiColors) =>
@@ -210,7 +210,7 @@ module Styles = {
     border: 1px solid ${colors.border};
     background-color: ${colors.inputBg};
     color: ${colors.fg};
-    font-size: 13px;
+    font-size: 1rem;
     line-height: 1.45;
   `
 
@@ -224,7 +224,7 @@ module Styles = {
     background-color: ${colors.surfaceBg};
     border: 1px solid ${colors.border};
     font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 
   let applyButton = (colors: uiColors) =>
@@ -235,7 +235,7 @@ module Styles = {
     border: 1px solid ${colors.focusBorder};
     background-color: ${colors.buttonBg};
     color: ${colors.buttonFg};
-    font-size: 13px;
+    font-size: 1rem;
     cursor: pointer;
     &:hover { background-color: ${colors.buttonHoverBg}; }
     &:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -245,7 +245,7 @@ module Styles = {
     Html.css`
     margin-top: 8px;
     color: ${colors.descriptionFg};
-    font-size: 12px;
+    font-size: 0.923rem;
   `
 }
 

@@ -24,14 +24,14 @@ var content = Html.css(["\n    display: flex;\n    flex-direction: column;\n    
 function heading(colors) {
   return Html.css([
               "\n    color: ",
-              ";\n    font-size: 18px;\n    font-weight: 600;\n  "
+              ";\n    font-size: 1.385rem;\n    font-weight: 600;\n  "
             ], [colors.fg]);
 }
 
 function description(colors) {
   return Html.css([
               "\n    color: ",
-              ";\n    font-size: 13px;\n    line-height: 1.5;\n  "
+              ";\n    font-size: 1rem;\n    line-height: 1.5;\n  "
             ], [colors.descriptionFg]);
 }
 
@@ -40,7 +40,7 @@ function textarea(colors) {
               "\n    width: 100%;\n    min-height: 200px;\n    box-sizing: border-box;\n    border: 1px solid ",
               ";\n    border-radius: 6px;\n    background-color: ",
               ";\n    color: ",
-              ";\n    font: inherit;\n    font-size: 14px;\n    line-height: 1.5;\n    padding: 12px;\n    outline: none;\n    resize: vertical;\n\n    &:focus {\n      border-color: ",
+              ";\n    font: inherit;\n    font-size: 1.077rem;\n    line-height: 1.5;\n    padding: 12px;\n    outline: none;\n    resize: vertical;\n\n    &:focus {\n      border-color: ",
               ";\n    }\n\n    &::placeholder {\n      color: ",
               ";\n    }\n  "
             ], [
@@ -59,7 +59,7 @@ function button(colors, disabled) {
               "\n    padding: 8px 16px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n    cursor: ",
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n    cursor: ",
               ";\n    opacity: ",
               ";\n    transition: all 0.2s ease;\n\n    &:hover {\n      background-color: ",
               ";\n      border-color: ",
@@ -79,7 +79,7 @@ function dangerButton(colors, disabled) {
   return Html.css([
               "\n    padding: 8px 16px;\n    border-radius: 4px;\n    border: 1px solid ",
               ";\n    background-color: transparent;\n    color: ",
-              ";\n    font-size: 13px;\n    font-weight: 600;\n    cursor: ",
+              ";\n    font-size: 1rem;\n    font-weight: 600;\n    cursor: ",
               ";\n    opacity: ",
               ";\n    transition: all 0.2s ease;\n\n    &:hover {\n      background-color: ",
               ";\n      color: ",
@@ -99,7 +99,7 @@ function planContainer(colors) {
               "\n    border: 1px solid ",
               ";\n    border-radius: 6px;\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 13px;\n    line-height: 1.5;\n    padding: 16px;\n    white-space: pre-wrap;\n    overflow-wrap: break-word;\n    max-height: 400px;\n    overflow-y: auto;\n  "
+              ";\n    font-size: 1rem;\n    line-height: 1.5;\n    padding: 16px;\n    white-space: pre-wrap;\n    overflow-wrap: break-word;\n    max-height: 400px;\n    overflow-y: auto;\n  "
             ], [
               colors.border,
               colors.inputBg,
@@ -112,7 +112,7 @@ function statusBar(colors) {
               "\n    display: flex;\n    align-items: center;\n    gap: 8px;\n    padding: 8px 12px;\n    border-top: 1px solid ",
               ";\n    background-color: ",
               ";\n    color: ",
-              ";\n    font-size: 12px;\n  "
+              ";\n    font-size: 0.923rem;\n  "
             ], [
               colors.border,
               colors.inputBg,
@@ -127,7 +127,7 @@ function successBar(colors) {
               "\n    padding: 12px;\n    border-radius: 6px;\n    background-color: ",
               "22;\n    border: 1px solid ",
               "44;\n    color: ",
-              ";\n    font-size: 13px;\n    line-height: 1.5;\n    white-space: pre-wrap;\n  "
+              ";\n    font-size: 1rem;\n    line-height: 1.5;\n    white-space: pre-wrap;\n  "
             ], [
               colors.focusBorder,
               colors.focusBorder,

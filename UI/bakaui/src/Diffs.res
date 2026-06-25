@@ -42,6 +42,7 @@ let fontUnsafeCss = `
   :host {
     --diffs-font-family: ${fontFamily};
     --diffs-header-font-family: ${fontFamily};
+    --diffs-font-size: 1rem;
   }
 `
 

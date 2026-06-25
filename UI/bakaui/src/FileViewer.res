@@ -75,7 +75,7 @@ module Styles = {
 
   let headerTitle = Html.css`
     margin: 0;
-    font-size: 14px;
+    font-size: 1.077rem;
     font-weight: 600;
     font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   `
@@ -93,7 +93,7 @@ module Styles = {
     border: 1px solid ${colors.focusBorder};
     background-color: ${colors.focusBorder};
     color: #ffffff;
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
     transition: opacity 0.2s ease;
@@ -108,7 +108,7 @@ module Styles = {
     border: 1px solid ${colors.border};
     background-color: transparent;
     color: ${colors.fg};
-    font-size: 16px;
+    font-size: 1.231rem;
     line-height: 1;
     cursor: pointer;
     &:hover { background-color: ${colors.hoverBg}; }
@@ -139,7 +139,7 @@ module Styles = {
     Html.css`
     padding: 24px;
     color: ${colors.descriptionFg};
-    font-size: 13px;
+    font-size: 1rem;
     text-align: center;
   `
 
@@ -150,7 +150,7 @@ module Styles = {
     border-radius: 4px;
     background-color: ${colors.dangerBg};
     color: #ffffff;
-    font-size: 13px;
+    font-size: 1rem;
   `
 }
 
@@ -389,7 +389,7 @@ let make = (
         }}>
         {switch (patch, error) {
         | (Some(_), None) =>
-          <Diffs.Virtualizer style={%raw(`{"height": "calc(100% - 56px)", "overflow-y": "auto"}`)}>
+          <Diffs.Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
             <Diffs.FileDiff.makeRaw
               fileDiff={fileDiff}
               options={optionsObj}
