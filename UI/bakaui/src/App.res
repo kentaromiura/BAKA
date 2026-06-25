@@ -77,6 +77,55 @@ module Styles = {
     margin-left: auto;
   `
 
+  let aiMenu = Html.css`
+    position: relative;
+    display: inline-flex;
+
+    &:hover > div,
+    &:focus-within > div {
+      display: flex;
+    }
+  `
+
+  let aiMenuPanel = (colors: uiColors) => Html.css`
+    position: absolute;
+    z-index: 50;
+    top: 100%;
+    right: -20px;
+    display: none;
+    width: 220px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 20px 20px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 5px 20px 15px;
+      border: 1px solid ${colors.border};
+      border-radius: 7px;
+      background: ${colors.surfaceBg};
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+    }
+  `
+
+  let aiMenuItem = (colors: uiColors, disabled: bool) => Html.css`
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: ${colors.fg};
+    text-align: left;
+    cursor: ${disabled ? "not-allowed" : "pointer"};
+    opacity: ${disabled ? "0.55" : "1"};
+
+    &:hover {
+      background: ${disabled ? "transparent" : colors.hoverBg};
+    }
+  `
+
   let button = (colors: uiColors) => Html.css`
     padding: 6px 12px;
     border-radius: 4px;
@@ -354,6 +403,7 @@ let make = () => {
   let (viewMode, setViewMode) = React.useState(() => Review)
   let (repoRoot, setRepoRoot) = React.useState(() => "")
   let (isThemeLoading, setIsThemeLoading) = React.useState(() => false)
+  let (isSpecCheckOpen, setIsSpecCheckOpen) = React.useState(() => false)
   let themeLoadVersionRef = React.useRef(0)
   let lightThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("light"))
   let darkThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("dark"))
@@ -960,34 +1010,54 @@ let make = () => {
         </div>
         <div className={Styles.headerActions}>
           {viewMode == Review
-            ? <>
+            ? <div className={Styles.aiMenu}>
                 <button
                   type_="button"
-                  onClick={event => handleFullReview(CodeReview, event)}
-                  disabled={isReviewing}
-                  title={reviewButtonTitle}
-                  className={Styles.askPiButton(currentColors, isReviewing)}
+                  ariaHaspopup=#menu
+                  className={Styles.askPiButton(currentColors, isReviewing || isAskingPi)}
                 >
-                  {str(if isCodeReviewing { "Reviewing..." } else { "Code Review" })}
+                  {str(if isReviewing || isAskingPi { "AI working…" } else { "AI ▾" })}
                 </button>
-                <button
-                  type_="button"
-                  onClick={event => handleFullReview(VulnerabilityCheck, event)}
-                  disabled={isReviewing}
-                  title={reviewButtonTitle}
-                  className={Styles.askPiButton(currentColors, isReviewing)}
-                >
-                  {str(if isCheckingVulnerabilities { "Checking..." } else { "Vulnerability Check" })}
-                </button>
-                <button
-                  type_="button"
-                  onClick={handleAskPi}
-                  disabled={isAskingPi}
-                  className={Styles.askPiButton(currentColors, isAskingPi)}
-                >
-                  {str(if isAskingPi { "⠋ Asking Pi..." } else { "🤖 Ask Pi" })}
-                </button>
-              </>
+                <div className={Styles.aiMenuPanel(currentColors)} role="menu">
+                  <button
+                    type_="button"
+                    role="menuitem"
+                    onClick={handleAskPi}
+                    disabled={isAskingPi}
+                    className={Styles.aiMenuItem(currentColors, isAskingPi)}
+                  >
+                    {str(if isAskingPi { "Asking Pi…" } else { "Ask Pi" })}
+                  </button>
+                  <button
+                    type_="button"
+                    role="menuitem"
+                    onClick={event => handleFullReview(CodeReview, event)}
+                    disabled={isReviewing}
+                    title={reviewButtonTitle}
+                    className={Styles.aiMenuItem(currentColors, isReviewing)}
+                  >
+                    {str(if isCodeReviewing { "Reviewing…" } else { "Code Review" })}
+                  </button>
+                  <button
+                    type_="button"
+                    role="menuitem"
+                    onClick={event => handleFullReview(VulnerabilityCheck, event)}
+                    disabled={isReviewing}
+                    title={reviewButtonTitle}
+                    className={Styles.aiMenuItem(currentColors, isReviewing)}
+                  >
+                    {str(if isCheckingVulnerabilities { "Checking…" } else { "Vulnerability Check" })}
+                  </button>
+                  <button
+                    type_="button"
+                    role="menuitem"
+                    onClick={_ => setIsSpecCheckOpen(_ => true)}
+                    className={Styles.aiMenuItem(currentColors, false)}
+                  >
+                    {str("Check against spec")}
+                  </button>
+                </div>
+              </div>
             : React.null}
           <button
             type_="button"
@@ -1016,6 +1086,14 @@ let make = () => {
             {str(reviewSummaryText)}
           </div>
         : React.null}
+      {isSpecCheckOpen
+        ? <SpecCheckView
+            uiColors={currentColors}
+            themeType={if isDark { "dark" } else { "light" }}
+            onClose={() => setIsSpecCheckOpen(_ => false)}
+            onChanged={requestPatchReload}
+          />
+        : React.null}
       <div className={Styles.commitViewHost(viewMode != Commit)}>
         <CommitView
             patches={patches}
@@ -1029,7 +1107,7 @@ let make = () => {
       {switch viewMode {
       | Settings => renderSettings()
       | Commit => React.null
-      | Feature => <NewFeatureView uiColors={currentColors} />
+      | Feature => <NewFeatureView uiColors={currentColors} onApplied={requestPatchReload} />
       | Project =>
         <ProjectView
           theme={style}

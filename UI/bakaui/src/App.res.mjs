@@ -20,6 +20,7 @@ import * as Js_promise2 from "rescript/lib/es6/js_promise2.js";
 import * as ProjectView from "./ProjectView.res.mjs";
 import * as Diffs$1 from "@pierre/diffs";
 import * as InlineComment from "./InlineComment.res.mjs";
+import * as SpecCheckView from "./SpecCheckView.res.mjs";
 import * as NewFeatureView from "./NewFeatureView.res.mjs";
 import * as ThemePreferences from "./ThemePreferences.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
@@ -80,6 +81,34 @@ function tab(colors) {
 }
 
 var headerActions = Html.css(["\n    display: flex;\n    align-items: center;\n    gap: 8px;\n    margin-left: auto;\n  "], []);
+
+var aiMenu = Html.css(["\n    position: relative;\n    display: inline-flex;\n\n    &:hover > div,\n    &:focus-within > div {\n      display: flex;\n    }\n  "], []);
+
+function aiMenuPanel(colors) {
+  return Html.css([
+              "\n    position: absolute;\n    z-index: 50;\n    top: 100%;\n    right: -20px;\n    display: none;\n    width: 220px;\n    flex-direction: column;\n    gap: 3px;\n    padding: 8px 20px 20px;\n\n    &::before {\n      content: \"\";\n      position: absolute;\n      z-index: -1;\n      inset: 5px 20px 15px;\n      border: 1px solid ",
+              ";\n      border-radius: 7px;\n      background: ",
+              ";\n      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);\n    }\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg
+            ]);
+}
+
+function aiMenuItem(colors, disabled) {
+  return Html.css([
+              "\n    width: 100%;\n    padding: 8px 10px;\n    border: 0;\n    border-radius: 4px;\n    background: transparent;\n    color: ",
+              ";\n    text-align: left;\n    cursor: ",
+              ";\n    opacity: ",
+              ";\n\n    &:hover {\n      background: ",
+              ";\n    }\n  "
+            ], [
+              colors.fg,
+              disabled ? "not-allowed" : "pointer",
+              disabled ? "0.55" : "1",
+              disabled ? "transparent" : colors.hoverBg
+            ]);
+}
 
 function button(colors) {
   return Html.css([
@@ -298,6 +327,9 @@ var Styles = {
   tabs: tabs,
   tab: tab,
   headerActions: headerActions,
+  aiMenu: aiMenu,
+  aiMenuPanel: aiMenuPanel,
+  aiMenuItem: aiMenuItem,
   button: button,
   iconButton: iconButton,
   askPiButton: askPiButton,
@@ -379,6 +411,10 @@ function App(props) {
       });
   var setIsThemeLoading = match$11[1];
   var isThemeLoading = match$11[0];
+  var match$12 = React.useState(function () {
+        return false;
+      });
+  var setIsSpecCheckOpen = match$12[1];
   var themeLoadVersionRef = React.useRef(0);
   var lightThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("light");
@@ -431,17 +467,17 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Shiki.loadBothThemes(themeNames.light, themeNames.dark), onThemesReady), onThemeError);
         }), [themeNames]);
-  var match$12 = React.useState(function () {
+  var match$13 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$12[1];
-  var patchState = match$12[0];
+  var setPatchState = match$13[1];
+  var patchState = match$13[0];
   var watcherReloadCountRef = React.useRef(__bakaDiffReloadRequestCount);
-  var match$13 = React.useState(function () {
+  var match$14 = React.useState(function () {
         return 0;
       });
-  var setPatchReloadVersion = match$13[1];
-  var patchReloadVersion = match$13[0];
+  var setPatchReloadVersion = match$14[1];
+  var patchReloadVersion = match$14[0];
   var requestPatchReload = function () {
     setPatchReloadVersion(function (prev) {
           return prev + 1 | 0;
@@ -1068,7 +1104,8 @@ function App(props) {
         break;
     case "Feature" :
         tmp = JsxRuntime.jsx(NewFeatureView.make, {
-              uiColors: currentColors
+              uiColors: currentColors,
+              onApplied: requestPatchReload
             });
         break;
     case "Settings" :
@@ -1137,36 +1174,63 @@ function App(props) {
                             }),
                         JsxRuntime.jsxs("div", {
                               children: [
-                                viewMode === "Review" ? JsxRuntime.jsxs(JsxRuntime.Fragment, {
+                                viewMode === "Review" ? JsxRuntime.jsxs("div", {
                                         children: [
                                           JsxRuntime.jsx("button", {
-                                                children: isCodeReviewing ? "Reviewing..." : "Code Review",
-                                                className: askPiButton(currentColors, isReviewing),
-                                                title: reviewButtonTitle,
-                                                disabled: isReviewing,
-                                                type: "button",
-                                                onClick: (function ($$event) {
-                                                    handleFullReview("CodeReview", $$event);
-                                                  })
+                                                children: isReviewing || isAskingPi ? "AI working…" : "AI ▾",
+                                                "aria-haspopup": "menu",
+                                                className: askPiButton(currentColors, isReviewing || isAskingPi),
+                                                type: "button"
                                               }),
-                                          JsxRuntime.jsx("button", {
-                                                children: isCheckingVulnerabilities ? "Checking..." : "Vulnerability Check",
-                                                className: askPiButton(currentColors, isReviewing),
-                                                title: reviewButtonTitle,
-                                                disabled: isReviewing,
-                                                type: "button",
-                                                onClick: (function ($$event) {
-                                                    handleFullReview("VulnerabilityCheck", $$event);
-                                                  })
-                                              }),
-                                          JsxRuntime.jsx("button", {
-                                                children: isAskingPi ? "⠋ Asking Pi..." : "🤖 Ask Pi",
-                                                className: askPiButton(currentColors, isAskingPi),
-                                                disabled: isAskingPi,
-                                                type: "button",
-                                                onClick: handleAskPi
+                                          JsxRuntime.jsxs("div", {
+                                                children: [
+                                                  JsxRuntime.jsx("button", {
+                                                        children: isAskingPi ? "Asking Pi…" : "Ask Pi",
+                                                        className: aiMenuItem(currentColors, isAskingPi),
+                                                        role: "menuitem",
+                                                        disabled: isAskingPi,
+                                                        type: "button",
+                                                        onClick: handleAskPi
+                                                      }),
+                                                  JsxRuntime.jsx("button", {
+                                                        children: isCodeReviewing ? "Reviewing…" : "Code Review",
+                                                        className: aiMenuItem(currentColors, isReviewing),
+                                                        role: "menuitem",
+                                                        title: reviewButtonTitle,
+                                                        disabled: isReviewing,
+                                                        type: "button",
+                                                        onClick: (function ($$event) {
+                                                            handleFullReview("CodeReview", $$event);
+                                                          })
+                                                      }),
+                                                  JsxRuntime.jsx("button", {
+                                                        children: isCheckingVulnerabilities ? "Checking…" : "Vulnerability Check",
+                                                        className: aiMenuItem(currentColors, isReviewing),
+                                                        role: "menuitem",
+                                                        title: reviewButtonTitle,
+                                                        disabled: isReviewing,
+                                                        type: "button",
+                                                        onClick: (function ($$event) {
+                                                            handleFullReview("VulnerabilityCheck", $$event);
+                                                          })
+                                                      }),
+                                                  JsxRuntime.jsx("button", {
+                                                        children: "Check against spec",
+                                                        className: aiMenuItem(currentColors, false),
+                                                        role: "menuitem",
+                                                        type: "button",
+                                                        onClick: (function (param) {
+                                                            setIsSpecCheckOpen(function (param) {
+                                                                  return true;
+                                                                });
+                                                          })
+                                                      })
+                                                ],
+                                                className: aiMenuPanel(currentColors),
+                                                role: "menu"
                                               })
-                                        ]
+                                        ],
+                                        className: aiMenu
                                       }) : null,
                                 JsxRuntime.jsx("button", {
                                       children: isDark ? "Light Mode" : "Dark Mode",
@@ -1202,6 +1266,16 @@ function App(props) {
                           reviewSummaryText
                         ],
                         className: reviewSummaryBar(currentColors)
+                      }) : null,
+                match$12[0] ? JsxRuntime.jsx(SpecCheckView.make, {
+                        uiColors: currentColors,
+                        themeType: isDark ? "dark" : "light",
+                        onClose: (function () {
+                            setIsSpecCheckOpen(function (param) {
+                                  return false;
+                                });
+                          }),
+                        onChanged: requestPatchReload
                       }) : null,
                 JsxRuntime.jsx("div", {
                       children: JsxRuntime.jsx(CommitView.make, {

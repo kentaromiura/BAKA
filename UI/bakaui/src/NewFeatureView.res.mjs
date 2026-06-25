@@ -167,6 +167,7 @@ var Styles = {
 };
 
 function NewFeatureView(props) {
+  var onApplied = props.onApplied;
   var uiColors = props.uiColors;
   var match = Jotai.useAtom(State.featureDescriptionAtom);
   var setFeatureDescription = match[1];
@@ -177,9 +178,9 @@ function NewFeatureView(props) {
   var isGenerating;
   isGenerating = typeof featurePlan !== "object" && featurePlan === "GeneratingPlan" ? true : false;
   var isApplying;
-  isApplying = typeof featurePlan !== "object" && featurePlan === "Applying" ? true : false;
+  isApplying = typeof featurePlan !== "object" || featurePlan.TAG !== "Applying" ? false : true;
   var planText;
-  planText = typeof featurePlan !== "object" || featurePlan.TAG !== "PlanReady" ? "" : featurePlan._0;
+  planText = typeof featurePlan !== "object" || featurePlan.TAG === "Error" ? "" : featurePlan._0;
   var handleGenerate = function (_event) {
     var trimmed = featureDescription.trim();
     if (trimmed === "") {
@@ -224,15 +225,20 @@ function NewFeatureView(props) {
       return ;
     }
     setFeaturePlan(function (param) {
-          return "Applying";
+          return {
+                  TAG: "Applying",
+                  _0: plan
+                };
         });
     var onSuccess = function (result) {
       setFeaturePlan(function (param) {
             return {
                     TAG: "ApplyDone",
-                    _0: result
+                    _0: plan,
+                    _1: result
                   };
           });
+      onApplied();
       return Promise.resolve();
     };
     var onError = function (err) {
@@ -253,24 +259,18 @@ function NewFeatureView(props) {
   var canGenerate = !isGenerating && !isApplying && featureDescription.trim() !== "";
   var statusMessage;
   if (typeof featurePlan !== "object") {
-    switch (featurePlan) {
-      case "Idle" :
-          statusMessage = "";
-          break;
-      case "GeneratingPlan" :
-          statusMessage = "Pi is generating a plan... this may take a moment.";
-          break;
-      case "Applying" :
-          statusMessage = "Applying the plan to your codebase...";
-          break;
-      
-    }
+    statusMessage = featurePlan === "Idle" ? "" : "Pi is generating a plan... this may take a moment.";
   } else {
     switch (featurePlan.TAG) {
       case "PlanReady" :
           statusMessage = "Plan ready. You can refine or apply it.";
           break;
+      case "Applying" :
+          statusMessage = "Applying the plan to your codebase...";
+          break;
       case "ApplyDone" :
+          statusMessage = featurePlan._1;
+          break;
       case "Error" :
           statusMessage = featurePlan._0;
           break;
@@ -281,7 +281,7 @@ function NewFeatureView(props) {
   statusIsError = typeof featurePlan !== "object" || featurePlan.TAG !== "Error" ? false : true;
   var tmp;
   var exit = 0;
-  if (typeof featurePlan !== "object" || featurePlan.TAG !== "PlanReady") {
+  if (typeof featurePlan !== "object" || featurePlan.TAG === "Error") {
     exit = 1;
   } else {
     tmp = JsxRuntime.jsxs(JsxRuntime.Fragment, {
@@ -294,13 +294,15 @@ function NewFeatureView(props) {
                   children: [
                     JsxRuntime.jsx("button", {
                           children: "↩ Refine",
-                          className: dangerButton(uiColors, false),
+                          className: dangerButton(uiColors, isApplying),
+                          disabled: isApplying,
                           type: "button",
                           onClick: handleRefine
                         }),
                     JsxRuntime.jsx("button", {
-                          children: "✓ Start Applying",
-                          className: button(uiColors, false),
+                          children: isApplying ? "Applying…" : "✓ Start Applying",
+                          className: button(uiColors, isApplying),
+                          disabled: isApplying,
                           type: "button",
                           onClick: handleApply
                         })
@@ -327,9 +329,7 @@ function NewFeatureView(props) {
                 }),
             JsxRuntime.jsx("div", {
                   children: JsxRuntime.jsx("button", {
-                        children: isGenerating ? "Loading... Generating..." : (
-                            isApplying ? "Loading... Applying..." : "Create Plan  →"
-                          ),
+                        children: isGenerating ? "Generating…" : "Create Plan  →",
                         className: button(uiColors, !canGenerate),
                         disabled: !canGenerate,
                         type: "button",

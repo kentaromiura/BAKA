@@ -112,7 +112,13 @@ type loadedThemes = {
 
 let themeColorsAtom: Jotai.Atom.t<option<loadedThemes>, _, _> = Jotai.Atom.make(None)
 
-type featurePlanPhase = Idle | GeneratingPlan | PlanReady(string) | Applying | ApplyDone(string) | Error(string)
+type featurePlanPhase =
+  | Idle
+  | GeneratingPlan
+  | PlanReady(string)
+  | Applying(string)
+  | ApplyDone(string, string)
+  | Error(string)
 
 let featurePlanAtom: Jotai.Atom.t<featurePlanPhase, _, _> = Jotai.Atom.make(Idle)
 let featureDescriptionAtom: Jotai.Atom.t<string, _, _> = Jotai.Atom.make("")

@@ -49,6 +49,7 @@ FullReview_Result :: struct {
 
 FullReview_Request :: struct {
 	kind: string `json:"kind"`,
+	spec: string `json:"spec"`,
 }
 
 ApplySuggestion_Request :: struct {
@@ -410,6 +411,7 @@ buildFullReviewPrompt :: proc(
 	diff: string,
 	batch_index, batch_count: int,
 	review_kind: string,
+	spec: string = "",
 ) -> (string, mem.Allocator_Error) {
 	prompt := strings.builder_make()
 	defer strings.builder_destroy(&prompt)
@@ -433,7 +435,20 @@ resource exhaustion, and trust-boundary violations.
 Do not report general correctness, style, performance, or maintainability issues
 unless they have a concrete security impact. Trace attacker-controlled input to a
 sensitive operation and explain the exploit path. If exploitability depends on
-context absent from the diff, omit the finding rather than speculate.`
+			context absent from the diff, omit the finding rather than speculate.`
+	} else if review_kind == "spec" {
+		reviewer_role = "software specification compliance reviewer"
+		review_focus =
+			`Compare the changed lines directly against the supplied specification.
+Report each requirement that is missing, contradicted, only partially implemented,
+or implemented with observably different behavior. Do not report unrelated code
+quality concerns. A finding must identify a concrete changed line where the
+implementation diverges and provide a minimal correction another model can apply.`
+	}
+
+	spec_section := ""
+	if review_kind == "spec" {
+		spec_section = fmt.tprintf("## Specification\n\n[SPEC]\n%s\n[END_SPEC]", spec)
 	}
 
 	fmt.sbprintf(
@@ -455,6 +470,8 @@ This batch may contain only part of the complete working-tree diff. Imports,
 references, and related files can exist outside this batch. Do not report a file,
 symbol, import, or dependency as missing merely because it is not shown in this
 batch. Review only the changed lines present in this batch.
+
+%s
 
 %s
 
@@ -499,6 +516,7 @@ Markdown explanation.
 			batch_index,
 			batch_count,
 			review_focus,
+			spec_section,
 			file_list,
 			diff,
 		)
@@ -1297,10 +1315,20 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 		return make_error_cstring("Failed to parse full review request JSON"), true
 	}
 	review_kind := "code"
-	if len(requests) > 0 && requests[0].kind == "vulnerability" {
-		review_kind = "vulnerability"
+	spec := ""
+	if len(requests) > 0 {
+		if requests[0].kind == "vulnerability" {
+			review_kind = "vulnerability"
+		} else if requests[0].kind == "spec" {
+			review_kind = "spec"
+			spec = strings.trim_space(requests[0].spec)
+			if len(spec) == 0 {
+				return make_error_cstring("Specification is empty"), true
+			}
+		}
 	}
 	is_vulnerability_review := review_kind == "vulnerability"
+	is_spec_review := review_kind == "spec"
 
 	file_names, ok := getReviewFileNames()
 	defer deleteStringArray(file_names)
@@ -1313,6 +1341,8 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 		empty_summary := "There are no changed files to review."
 		if is_vulnerability_review {
 			empty_summary = "There are no changed files to check for vulnerabilities."
+		} else if is_spec_review {
+			empty_summary = "There are no changed files to compare with the specification."
 		}
 		empty := FullReview_Result {
 			result = FullReview_Result_Data {
@@ -1385,6 +1415,8 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 		empty_summary := "There are no diff hunks to review."
 		if is_vulnerability_review {
 			empty_summary = "There are no diff hunks to check for vulnerabilities."
+		} else if is_spec_review {
+			empty_summary = "There are no diff hunks to compare with the specification."
 		}
 		empty := FullReview_Result {
 			result = FullReview_Result_Data {
@@ -1409,7 +1441,7 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 
 	for batch, idx in batches {
 		debug_log(fmt.tprintf("review batch %d/%d has %d byte(s)", idx + 1, len(batches), len(batch)))
-		prompt, perr := buildFullReviewPrompt(batch, idx + 1, len(batches), review_kind)
+		prompt, perr := buildFullReviewPrompt(batch, idx + 1, len(batches), review_kind, spec)
 		if perr != nil {
 			return make_error_cstring("Failed to build review prompt"), true
 		}
@@ -1443,6 +1475,8 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 			fallback_summary := "Pi did not find review issues in the current diff."
 			if is_vulnerability_review {
 				fallback_summary = "Pi did not find vulnerabilities in the current diff."
+			} else if is_spec_review {
+				fallback_summary = "The current modifications adhere to the supplied specification."
 			}
 			merged.summary = strings.clone(fallback_summary, context.allocator) or_else fallback_summary
 		}
@@ -1453,6 +1487,8 @@ process_full_review :: proc(req_str: string) -> (cstring, bool) {
 			fallback_summary := fmt.tprintf("Pi found %d review item(s).", len(merged.findings))
 			if is_vulnerability_review {
 				fallback_summary = fmt.tprintf("Pi found %d potential vulnerability finding(s).", len(merged.findings))
+			} else if is_spec_review {
+				fallback_summary = fmt.tprintf("Pi found %d difference(s) from the supplied specification.", len(merged.findings))
 			}
 			merged.summary = strings.clone(fallback_summary, context.allocator) or_else fallback_summary
 		}

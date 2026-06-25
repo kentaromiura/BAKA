@@ -393,6 +393,8 @@ apply_feature_plan :: proc(description, plan: string) -> (string, string) {
 
 	current_diff := getCurrentGitPatch()
 	defer delete(current_diff)
+	before_diff := strings.clone(current_diff, context.allocator) or_else ""
+	defer delete(before_diff)
 
 	prompt, perr := buildApplyFeaturePlanPrompt(repo_root, description, plan, current_diff)
 	if perr != nil {
@@ -427,6 +429,12 @@ apply_feature_plan :: proc(description, plan: string) -> (string, string) {
 	if ok, apply_msg := applyPatchFile(repo_root, patch_path); !ok {
 		defer delete(apply_msg)
 		return "", apply_msg
+	}
+
+	updated_diff := getCurrentGitPatch()
+	defer delete(updated_diff)
+	if updated_diff == before_diff {
+		return "", "The patch command completed but did not change the working tree"
 	}
 
 	result := fmt.tprintf("Applied feature plan patch.\n\nPatch size: %d byte(s).", len(patch))

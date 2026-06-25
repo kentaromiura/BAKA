@@ -79,6 +79,9 @@ var buildSelectedPatch = ((fileDiffs, selectedFiles, excludedLines) => {
       hunk.lines.push(prefix + withoutTrailingNewline(line));
       countLine(hunk, prefix);
     };
+    const pushNoNewlineMarker = (hunk) => {
+      hunk.lines.push("\\ No newline at end of file");
+    };
     const formatRange = (start, count) => count === 1 ? String(start) : String(start) + "," + String(count);
     const pushHeader = (out, fd) => {
       const name = fd.name || "";
@@ -146,6 +149,14 @@ var buildSelectedPatch = ((fileDiffs, selectedFiles, excludedLines) => {
             const lines = item.lines || 0;
             for (let i = 0; i < lines; i += 1) {
               pushLine(built, " ", (fd.deletionLines || [])[deletionIndex + i]);
+              const isOldEof = deletionIndex + i === (fd.deletionLines || []).length - 1;
+              const isNewEof = additionIndex + i === (fd.additionLines || []).length - 1;
+              if (
+                (hunk.noEOFCRDeletions && isOldEof) ||
+                (hunk.noEOFCRAdditions && isNewEof)
+              ) {
+                pushNoNewlineMarker(built);
+              }
             }
             deletionLineNumber += lines;
             additionLineNumber += lines;
@@ -163,12 +174,24 @@ var buildSelectedPatch = ((fileDiffs, selectedFiles, excludedLines) => {
                 pushLine(built, "-", line);
                 built.selectedDeletes += 1;
               }
+              if (
+                hunk.noEOFCRDeletions &&
+                deletionIndex + i === (fd.deletionLines || []).length - 1
+              ) {
+                pushNoNewlineMarker(built);
+              }
             }
             for (let i = 0; i < additions; i += 1) {
               const lineNumber = additionLineNumber + i;
               if (!isExcluded(fileName, "additions", lineNumber)) {
                 pushLine(built, "+", (fd.additionLines || [])[additionIndex + i]);
                 built.selectedAdds += 1;
+                if (
+                  hunk.noEOFCRAdditions &&
+                  additionIndex + i === (fd.additionLines || []).length - 1
+                ) {
+                  pushNoNewlineMarker(built);
+                }
               }
             }
             deletionLineNumber += deletions;

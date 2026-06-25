@@ -71,7 +71,10 @@ type fullReviewResult = {
 type fullReviewKind =
   | CodeReview
   | VulnerabilityCheck
-type fullReviewRequest = {kind: string}
+type fullReviewRequest = {
+  kind: string,
+  spec: option<string>,
+}
 type applySuggestionRequest = {
   commentKey: string,
   suggestion: string,
@@ -135,11 +138,28 @@ let callStartFullReview = (kind: fullReviewKind): Js.Promise.t<fullReviewResult>
     | CodeReview => "code"
     | VulnerabilityCheck => "vulnerability"
     },
+    spec: None,
   }
   Js.log2("[BAKA UI] startFullReview called", request.kind)
   let parseResponse: string => Js.Promise.t<fullReviewResult> =
     %raw(`async raw => {
       console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(startFullReview_raw(request))
+}
+
+let callCheckAgainstSpec = (spec: string): Js.Promise.t<fullReviewResult> => {
+  let request = {
+    kind: "spec",
+    spec: Some(spec),
+  }
+  Js.log2("[BAKA UI] checkAgainstSpec called; spec bytes", spec->String.length)
+  let parseResponse: string => Js.Promise.t<fullReviewResult> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] checkAgainstSpec raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
@@ -195,7 +215,10 @@ let callApplyFeaturePlan = (request: applyFeaturePlanRequest): Js.Promise.t<stri
       console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
-      return raw.result;
+      const result = raw.result;
+      if (typeof result === "string") return result;
+      if (result && typeof result.result === "string") return result.result;
+      throw new Error("Invalid apply feature response");
     }`)
   let promise = applyFeaturePlan_raw(request)
   Js.Promise.then_(parseResponse)(promise)

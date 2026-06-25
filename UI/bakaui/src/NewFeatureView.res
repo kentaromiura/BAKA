@@ -193,7 +193,7 @@ module Styles = {
 }
 
 @react.component
-let make = (~uiColors: uiColors) => {
+let make = (~uiColors: uiColors, ~onApplied: unit => unit) => {
   let (featureDescription, setFeatureDescription) = Jotai.Atom.useAtom(State.featureDescriptionAtom)
   let (featurePlan, setFeaturePlan) = Jotai.Atom.useAtom(State.featurePlanAtom)
 
@@ -202,11 +202,11 @@ let make = (~uiColors: uiColors) => {
   | _ => false
   }
   let isApplying = switch featurePlan {
-  | Applying => true
+  | Applying(_) => true
   | _ => false
   }
   let planText = switch featurePlan {
-  | PlanReady(t) => t
+  | PlanReady(t) | Applying(t) | ApplyDone(t, _) => t
   | _ => ""
   }
 
@@ -239,9 +239,10 @@ let make = (~uiColors: uiColors) => {
     let description = featureDescription->String.trim
     let plan = planText->String.trim
     if description != "" && plan != "" {
-      setFeaturePlan(_ => State.Applying)
+      setFeaturePlan(_ => State.Applying(plan))
       let onSuccess = (result: string): Js.Promise.t<unit> => {
-        setFeaturePlan(_ => State.ApplyDone(result))
+        setFeaturePlan(_ => State.ApplyDone(plan, result))
+        onApplied()
         Js.Promise2.resolve()
       }
       let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
@@ -261,8 +262,8 @@ let make = (~uiColors: uiColors) => {
   | Idle => ""
   | GeneratingPlan => "Pi is generating a plan... this may take a moment."
   | PlanReady(_) => "Plan ready. You can refine or apply it."
-  | Applying => "Applying the plan to your codebase..."
-  | ApplyDone(msg) => msg
+  | Applying(_) => "Applying the plan to your codebase..."
+  | ApplyDone(_, msg) => msg
   | State.Error(msg) => msg
   }
 
@@ -284,7 +285,7 @@ Or: 'Fix the issue where undo sometimes crashes when the file has unsaved change
         )}
       </div>
       {switch featurePlan {
-      | Idle | GeneratingPlan | Applying | State.Error(_) | ApplyDone(_) =>
+      | Idle | GeneratingPlan | State.Error(_) =>
         <>
           <textarea
             className={Styles.textarea(uiColors)}
@@ -304,9 +305,7 @@ Or: 'Fix the issue where undo sometimes crashes when the file has unsaved change
               onClick={handleGenerate}>
               {str(
                 if isGenerating {
-                  "Loading... Generating..."
-                } else if isApplying {
-                  "Loading... Applying..."
+                  "Generating…"
                 } else {
                   "Create Plan  →"
                 },
@@ -314,18 +313,23 @@ Or: 'Fix the issue where undo sometimes crashes when the file has unsaved change
             </button>
           </div>
         </>
-      | PlanReady(plan) =>
+      | PlanReady(plan) | Applying(plan) | ApplyDone(plan, _) =>
         <>
           <div className={Styles.planContainer(uiColors)}> {str(plan)} </div>
           <div className={Styles.actions}>
             <button
               type_="button"
-              className={Styles.dangerButton(uiColors, false)}
+              disabled={isApplying}
+              className={Styles.dangerButton(uiColors, isApplying)}
               onClick={handleRefine}>
               {str("↩ Refine")}
             </button>
-            <button type_="button" className={Styles.button(uiColors, false)} onClick={handleApply}>
-              {str("✓ Start Applying")}
+            <button
+              type_="button"
+              disabled={isApplying}
+              className={Styles.button(uiColors, isApplying)}
+              onClick={handleApply}>
+              {str(if isApplying { "Applying…" } else { "✓ Start Applying" })}
             </button>
           </div>
         </>

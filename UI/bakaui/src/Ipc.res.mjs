@@ -72,11 +72,28 @@ function callStartFullReview(kind) {
   var tmp;
   tmp = kind === "CodeReview" ? "code" : "vulnerability";
   var request = {
-    kind: tmp
+    kind: tmp,
+    spec: undefined
   };
-  console.log("[BAKA UI] startFullReview called", request.kind);
+  console.log("[BAKA UI] startFullReview called", tmp);
   var parseResponse = (async raw => {
       console.log("[BAKA UI] startFullReview raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, startFullReview(request));
+}
+
+function callCheckAgainstSpec(spec) {
+  var request_spec = spec;
+  var request = {
+    kind: "spec",
+    spec: request_spec
+  };
+  console.log("[BAKA UI] checkAgainstSpec called; spec bytes", spec.length);
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] checkAgainstSpec raw response meta", raw && raw.error ? {error: raw.error} : {summaryBytes: raw && raw.result && raw.result.summary ? raw.result.summary.length : null, findingCount: raw && raw.result && raw.result.findings ? raw.result.findings.length : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
       return raw.result;
@@ -117,7 +134,10 @@ function callApplyFeaturePlan(request) {
       console.log("[BAKA UI] applyFeaturePlan raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
       if (raw.error) throw new Error(raw.error);
       if (raw.result === undefined) throw new Error("Missing result field in response");
-      return raw.result;
+      const result = raw.result;
+      if (typeof result === "string") return result;
+      if (result && typeof result.result === "string") return result.result;
+      throw new Error("Invalid apply feature response");
     });
   var promise = applyFeaturePlan(request);
   return Js_promise.then_(parseResponse, promise);
@@ -147,6 +167,7 @@ export {
   callAskPi ,
   callAskPiWithDiff ,
   callStartFullReview ,
+  callCheckAgainstSpec ,
   callApplyReviewSuggestion ,
   callCreateFeaturePlan ,
   callApplyFeaturePlan ,
