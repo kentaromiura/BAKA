@@ -1036,6 +1036,7 @@ main :: proc() {
 
 	webview.set_title(w, "BAKA")
 	webview.set_size(w, 960, 720, .None)
+	set_app_icon(w)
 	webview.bind(w, "getPatch", handle_get_patch, nil)
 	webview.bind(w, "getRepoRoot", handle_get_repo_root, nil)
 	webview.bind(w, "getFilePatch", handle_get_file_patch, nil)
