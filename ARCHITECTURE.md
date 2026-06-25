@@ -28,8 +28,9 @@ Commit view supports selecting files and individual changed lines before
 creating a commit. The New Feature view separates plan creation from plan
 implementation.
 
-Watchman monitors repository changes. Events are passed back to the webview and
-cause the displayed diff to reload.
+Watchman monitors repository changes when it is available. A portable Odin
+polling watcher is used when Watchman is missing or its connection fails.
+Events are passed back to the webview and cause the displayed diff to reload.
 
 ## Pi integration
 
@@ -89,8 +90,9 @@ Long-running Pi operations run on worker threads. Results are dispatched back
 to the webview thread before calling `webview.ret`.
 
 `APP/watchman_watcher.odin` connects to Watchman over its Unix socket protocol.
-Watcher events are transferred through a temporary file and polled by the
-webview integration.
+If Watchman is unavailable, it falls back to periodically comparing repository
+filesystem metadata while excluding `.git`. Watcher events are transferred
+through a temporary file and polled by the webview integration.
 
 ## Frontend
 

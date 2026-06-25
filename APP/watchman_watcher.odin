@@ -5,12 +5,14 @@ package main
 import "base:runtime"
 import json "core:encoding/json"
 import "core:fmt"
+import "core:hash"
 //import os "core:os/os2"
 import "core:os"
 import "core:os/old"
 import "core:strings"
 import "core:sys/posix"
 import "core:thread"
+import "core:time"
 
 Watchman_Sockname :: struct {
 	sockname: string `json:"sockname"`,
@@ -39,7 +41,15 @@ Watcher_Event_File :: struct {
 	result: [dynamic]string `json:"result"`,
 }
 
+Repo_Snapshot :: struct {
+	file_count: int,
+	hash_xor:   u64,
+	hash_sum:   u64,
+}
+
 repo_watcher_started: bool
+
+FALLBACK_WATCH_INTERVAL :: 1 * time.Second
 
 watchman_log :: proc(message: string) {
 	if !baka_verbose {
@@ -105,7 +115,7 @@ watchman_installed :: proc() -> bool {
 		return true
 	}
 
-	watchman_log("watchman not found; repository auto-reload disabled")
+	watchman_log("watchman not found; using polling fallback")
 	return false
 }
 
@@ -353,6 +363,70 @@ format_non_git_files :: proc(files: [dynamic]string) -> string {
 	return strings.clone(strings.to_string(builder), context.allocator)
 }
 
+snapshot_mix :: proc(value, data: u64) -> u64 {
+	mixed := value ~ data
+	mixed *= 0x9e3779b185ebca87
+	return mixed ~ (mixed >> 32)
+}
+
+repo_snapshot :: proc(repo_root: string) -> (Repo_Snapshot, bool) {
+	snapshot: Repo_Snapshot
+	walker := os.walker_create(repo_root)
+	defer os.walker_destroy(&walker)
+
+	for info in os.walker_walk(&walker) {
+		if info.type == .Directory && info.name == ".git" {
+			os.walker_skip_dir(&walker)
+			continue
+		}
+
+		entry_hash := hash.fnv64a(transmute([]byte)info.fullpath)
+		entry_hash = snapshot_mix(entry_hash, u64(info.size))
+		entry_hash = snapshot_mix(entry_hash, u64(time.to_unix_nanoseconds(info.modification_time)))
+		entry_hash = snapshot_mix(entry_hash, u64(info.type))
+
+		snapshot.file_count += 1
+		snapshot.hash_xor ~= entry_hash
+		snapshot.hash_sum += entry_hash
+	}
+
+	if path, err := os.walker_error(&walker); err != nil {
+		watchman_log(fmt.tprintf("Polling fallback failed to scan %s: %v", path, err))
+		return {}, false
+	}
+
+	return snapshot, true
+}
+
+poll_repo_for_changes :: proc(repo_root: string) {
+	watchman_log("Starting polling watcher fallback")
+	write_watcher_event("Watcher using polling fallback")
+
+	previous, has_previous := repo_snapshot(repo_root)
+	for {
+		time.sleep(FALLBACK_WATCH_INTERVAL)
+
+		current, ok := repo_snapshot(repo_root)
+		if !ok {
+			continue
+		}
+		if !has_previous {
+			previous = current
+			has_previous = true
+			continue
+		}
+		if current == previous {
+			continue
+		}
+
+		previous = current
+		watchman_log("Polling fallback detected repository changes")
+		dispatch_repo_changed_event(
+			"Repository files changed. Reload the diff to see the latest changes.",
+		)
+	}
+}
+
 watch_repo_worker :: proc(repo_root: string) {
 	context = runtime.default_context()
 	defer delete(repo_root)
@@ -360,23 +434,24 @@ watch_repo_worker :: proc(repo_root: string) {
 	watchman_log(fmt.tprintf("Repository watcher starting for: %s", repo_root))
 
 	if !watchman_installed() {
-		write_watcher_event("Watcher disabled: watchman not found")
+		poll_repo_for_changes(repo_root)
 		return
 	}
 
 	client, ok := watchman_client_connect()
 	if !ok {
-		write_watcher_event("Watcher disabled: failed to connect to watchman")
-		watchman_log("Failed to connect to watchman; repository auto-reload disabled")
+		watchman_log("Failed to connect to watchman; using polling fallback")
+		poll_repo_for_changes(repo_root)
 		return
 	}
-	defer posix.close(client.fd)
 
 	watchman_log("Sending watch-project command")
 	watch_project := fmt.aprintf("[\"watch-project\",%q]\n", repo_root)
 	defer delete(watch_project)
 	if !watchman_client_send(&client, watch_project) || !watchman_read_ok_response(&client) {
 		watchman_log(fmt.tprintf("Failed to start watchman watch for: %s", repo_root))
+		posix.close(client.fd)
+		poll_repo_for_changes(repo_root)
 		return
 	}
 	watchman_log("Started watchman watch-project")
@@ -386,6 +461,8 @@ watch_repo_worker :: proc(repo_root: string) {
 	defer delete(subscribe)
 	if !watchman_client_send(&client, subscribe) || !watchman_read_ok_response(&client) {
 		watchman_log(fmt.tprintf("Failed to subscribe to watchman changes for: %s", repo_root))
+		posix.close(client.fd)
+		poll_repo_for_changes(repo_root)
 		return
 	}
 
@@ -396,8 +473,7 @@ watch_repo_worker :: proc(repo_root: string) {
 	for {
 		line, ok := watchman_client_receive_line(&client)
 		if !ok {
-			write_watcher_event("Watcher stopped: Watchman connection closed")
-			watchman_log("Watchman connection closed; repository auto-reload disabled")
+			watchman_log("Watchman connection closed; using polling fallback")
 			break
 		}
 
@@ -444,6 +520,9 @@ watch_repo_worker :: proc(repo_root: string) {
 		delete(resp.files)
 		delete(line)
 	}
+
+	posix.close(client.fd)
+	poll_repo_for_changes(repo_root)
 }
 
 start_repo_watcher :: proc() {
