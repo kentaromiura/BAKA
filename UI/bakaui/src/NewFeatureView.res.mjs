@@ -209,7 +209,7 @@ function NewFeatureView(props) {
                   };
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -222,7 +222,7 @@ function NewFeatureView(props) {
                   };
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -264,7 +264,7 @@ function NewFeatureView(props) {
                   };
           });
       setActivePiRun(function (param) {
-
+            
           });
       onApplied();
       return Promise.resolve();
@@ -278,7 +278,7 @@ function NewFeatureView(props) {
                   };
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -306,7 +306,7 @@ function NewFeatureView(props) {
       case "Error" :
           statusMessage = featurePlan._0;
           break;
-
+      
     }
   }
   var statusIsError;

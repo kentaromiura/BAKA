@@ -5,7 +5,17 @@ var copyDict = (dict => Object.assign({}, dict));
 
 var deleteProp = ((dict, key) => { delete dict[key]; });
 
-var errorMessage = (error => String(error).replace(/^Error: /, ''));
+var errorMessage = (error => {
+    if (error == null) return "Unknown error";
+    if (typeof error === "string") return error.replace(/^Error: /, "");
+    if (typeof error.message === "string") return error.message.replace(/^Error: /, "");
+    if (typeof error.error === "string") return error.error;
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== "{}") return json;
+    } catch (_err) {}
+    return String(error).replace(/^Error: /, "");
+  });
 
 export {
   copyDict ,

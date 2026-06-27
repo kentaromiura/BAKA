@@ -94,6 +94,12 @@ If Watchman is unavailable, it falls back to periodically comparing repository
 filesystem metadata while excluding `.git`. Watcher events are transferred
 through a temporary file and polled by the webview integration.
 
+The active repository is selected through backend state instead of assuming the
+process working directory. Command-line launches can still pass a repository
+path, while desktop launches can use the native `osdialog` folder picker exposed
+through the `chooseWorkingFolder` IPC binding. Selecting a new repository resets
+repository-scoped UI state and starts a watcher for the new root.
+
 ## Frontend
 
 `UI/bakaui/src/App.res` owns the main layout, navigation, review controls,
@@ -121,7 +127,14 @@ The top-level Makefile builds three parts in order:
 
 1. ReScript source is compiled to ES modules and bundled with esbuild.
 2. The webview shared library is built with CMake.
-3. Odin embeds the UI bundle and links the native application.
+3. The osdialog native dialog bridge is compiled.
+4. Odin embeds the UI bundle and links the native application.
 
 The resulting executable and shared library are stored below `build/`. The
 executable uses an rpath to locate the webview library there.
+
+`make package` dispatches to the native package for the current platform. On
+macOS it builds `build/dist/BAKA.app` with the Odin executable in
+`Contents/MacOS`, the webview dylib tree next to it, an app `Info.plist`, and an
+`.icns` generated from the UI logo when the standard macOS icon tools are
+available. The Linux target is reserved for a future AppImage package.

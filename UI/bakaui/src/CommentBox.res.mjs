@@ -256,7 +256,7 @@ function CommentBox(props) {
                 className: aiError(uiColors)
               });
           break;
-
+      
     }
   }
   var reviewSuggestionContent;
@@ -320,7 +320,7 @@ function CommentBox(props) {
                               });
                           ((window.__bakaDiffReloadRequestCount = (window.__bakaDiffReloadRequestCount || 0) + 1));
                           setActivePiRun(function (param) {
-
+                                
                               });
                           return Promise.resolve();
                         };
@@ -337,7 +337,7 @@ function CommentBox(props) {
                                 applyError: msg
                               });
                           setActivePiRun(function (param) {
-
+                                
                               });
                           return Promise.resolve();
                         };

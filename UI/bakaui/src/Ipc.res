@@ -17,6 +17,13 @@ let callGetPatch = (): Js.Promise.t<string> => {
 
 @val external getRepoRoot_raw: string => Js.Promise.t<string> = "getRepoRoot"
 
+type repoInfo = {
+  workingDirectory: string,
+  repoRoot: string,
+  isGitRepository: bool,
+  canceled: bool,
+}
+
 let callGetRepoRoot = (): Js.Promise.t<string> => {
   let parseResponse: string => Js.Promise.t<string> =
     %raw(`async raw => {
@@ -25,6 +32,30 @@ let callGetRepoRoot = (): Js.Promise.t<string> => {
       return raw.result;
     }`)
   Js.Promise.then_(parseResponse)(getRepoRoot_raw("{}"))
+}
+
+@val external getRepositoryInfo_raw: string => Js.Promise.t<string> = "getRepositoryInfo"
+
+let callGetRepositoryInfo = (): Js.Promise.t<repoInfo> => {
+  let parseResponse: string => Js.Promise.t<repoInfo> =
+    %raw(`async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result) throw new Error("Missing repository info");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getRepositoryInfo_raw("{}"))
+}
+
+@val external chooseWorkingFolder_raw: string => Js.Promise.t<string> = "chooseWorkingFolder"
+
+let callChooseWorkingFolder = (): Js.Promise.t<repoInfo> => {
+  let parseResponse: string => Js.Promise.t<repoInfo> =
+    %raw(`async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result) throw new Error("Missing repository info");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(chooseWorkingFolder_raw("{}"))
 }
 
 @val external getFilePatch_raw: string => Js.Promise.t<string> = "getFilePatch"
@@ -52,6 +83,41 @@ let callGetProjectFiles = (): Js.Promise.t<array<string>> => {
       return raw.result;
     }`)
   Js.Promise.then_(parseResponse)(getProjectFiles_raw("{}"))
+}
+
+type commitSummary = {
+  hash: string,
+  shortHash: string,
+  author: string,
+  date: string,
+  subject: string,
+}
+
+@val external getCommitHistory_raw: string => Js.Promise.t<string> = "getCommitHistory"
+
+let callGetCommitHistory = (): Js.Promise.t<array<commitSummary>> => {
+  let parseResponse: string => Js.Promise.t<array<commitSummary>> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getCommitHistory raw response meta", raw && raw.error ? {error: raw.error} : {commitCount: raw && raw.result ? raw.result.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (!Array.isArray(raw.result)) throw new Error("Missing commit history");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getCommitHistory_raw("{}"))
+}
+
+@val external getCommitPatch_raw: string => Js.Promise.t<string> = "getCommitPatch"
+
+let callGetCommitPatch = (hash: string): Js.Promise.t<string> => {
+  Js.log2("[BAKA UI] getCommitPatch called", hash)
+  let parseResponse: string => Js.Promise.t<string> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getCommitPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getCommitPatch_raw(hash))
 }
 
 type askPiRequest = {commentKey: string, text: string}

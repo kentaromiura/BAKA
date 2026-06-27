@@ -4,3 +4,6 @@
 [submodule "webview"]
 	path = webview
 	url = https://github.com/webview/webview.git
+[submodule "APP/osdialog"]
+	path = APP/osdialog
+	url = https://github.com/ttytm/osdialog-odin.git

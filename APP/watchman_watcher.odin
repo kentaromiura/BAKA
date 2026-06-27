@@ -48,6 +48,7 @@ Repo_Snapshot :: struct {
 }
 
 repo_watcher_started: bool
+repo_watcher_root: string
 
 FALLBACK_WATCH_INTERVAL :: 1 * time.Second
 
@@ -58,8 +59,18 @@ watchman_log :: proc(message: string) {
 	fmt.eprintln("[BAKA watcher]", message)
 }
 
-dispatch_repo_changed_event :: proc(message: string) {
+dispatch_repo_changed_event :: proc(repo_root, message: string) {
+	if !is_current_watcher_root(repo_root) {
+		watchman_log(fmt.tprintf("Ignoring stale watcher event for inactive repository: %s", repo_root))
+		return
+	}
 	write_watcher_event(message)
+}
+
+is_current_watcher_root :: proc(repo_root: string) -> bool {
+	current := getRepoRoot()
+	defer delete(current)
+	return current == repo_root
 }
 
 watcher_event_path :: proc() -> (string, string) {
@@ -213,6 +224,19 @@ watchman_client_send :: proc(client: ^Watchman_Client, message: string) -> bool 
 		offset += n
 	}
 	return true
+}
+
+watchman_unsubscribe :: proc(client: ^Watchman_Client, repo_root: string) {
+	if client.fd < 0 {
+		return
+	}
+	unsubscribe := fmt.aprintf("[\"unsubscribe\",%q,\"baka\"]\n", repo_root)
+	defer delete(unsubscribe)
+	if watchman_client_send(client, unsubscribe) {
+		watchman_log(fmt.tprintf("Unsubscribed watchman watcher for: %s", repo_root))
+	} else {
+		watchman_log(fmt.tprintf("Failed to unsubscribe watchman watcher for: %s", repo_root))
+	}
 }
 
 watchman_client_receive_line :: proc(client: ^Watchman_Client) -> (string, bool) {
@@ -405,6 +429,10 @@ poll_repo_for_changes :: proc(repo_root: string) {
 	previous, has_previous := repo_snapshot(repo_root)
 	for {
 		time.sleep(FALLBACK_WATCH_INTERVAL)
+		if !is_current_watcher_root(repo_root) {
+			watchman_log(fmt.tprintf("Stopping polling watcher for inactive repository: %s", repo_root))
+			return
+		}
 
 		current, ok := repo_snapshot(repo_root)
 		if !ok {
@@ -422,6 +450,7 @@ poll_repo_for_changes :: proc(repo_root: string) {
 		previous = current
 		watchman_log("Polling fallback detected repository changes")
 		dispatch_repo_changed_event(
+			repo_root,
 			"Repository files changed. Reload the diff to see the latest changes.",
 		)
 	}
@@ -477,6 +506,14 @@ watch_repo_worker :: proc(repo_root: string) {
 			break
 		}
 
+		if !is_current_watcher_root(repo_root) {
+			watchman_log(fmt.tprintf("Stopping watchman watcher for inactive repository: %s", repo_root))
+			delete(line)
+			watchman_unsubscribe(&client, repo_root)
+			posix.close(client.fd)
+			return
+		}
+
 		line = strings.trim_right(line, "\r\n")
 		if line == "" {
 			delete(line)
@@ -515,6 +552,7 @@ watch_repo_worker :: proc(repo_root: string) {
 		delete(changed_files)
 
 		dispatch_repo_changed_event(
+			repo_root,
 			"Repository files changed. Reload the diff to see the latest changes.",
 		)
 		delete(resp.files)
@@ -522,21 +560,30 @@ watch_repo_worker :: proc(repo_root: string) {
 	}
 
 	posix.close(client.fd)
+	if !is_current_watcher_root(repo_root) {
+		watchman_log(fmt.tprintf("Not falling back to polling for inactive repository: %s", repo_root))
+		return
+	}
 	poll_repo_for_changes(repo_root)
 }
 
 start_repo_watcher :: proc() {
-	if repo_watcher_started {
-		watchman_log("Repository watcher already started")
-		return
-	}
-	repo_watcher_started = true
-
 	repo_root := getRepoRoot()
 	if repo_root == "" {
 		watchman_log("Not a git repository; repository watcher disabled")
+		repo_watcher_started = false
 		return
 	}
+	if repo_watcher_started && repo_watcher_root == repo_root {
+		watchman_log("Repository watcher already started")
+		delete(repo_root)
+		return
+	}
+	repo_watcher_started = true
+	if repo_watcher_root != "" {
+		delete(repo_watcher_root)
+	}
+	repo_watcher_root = strings.clone(repo_root, context.allocator) or_else ""
 
 	watchman_log(fmt.tprintf("Repository root: %s", repo_root))
 

@@ -5,6 +5,13 @@ let styled = Html.styled
 let str = React.string
 
 type patchState = PatchLoading | PatchReady(array<parsedPatch>) | PatchError(string)
+type reviewSourceMode = Changed | History
+type historyState = HistoryIdle | HistoryLoading | HistoryReady(array<Ipc.commitSummary>) | HistoryError(string)
+type commitPatchState =
+  | CommitPatchIdle
+  | CommitPatchLoading
+  | CommitPatchReady(string, array<parsedPatch>)
+  | CommitPatchError(string)
 type viewMode = Review | Project | Commit | Feature | Settings
 
 @val external document: {..} = "document"
@@ -236,6 +243,118 @@ module Styles = {
     overflow: hidden;
   `
 
+  let reviewModeTabs = (colors: uiColors) => Html.css`
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid ${colors.border};
+    background-color: ${colors.surfaceBg};
+  `
+
+  let reviewModeTab = (colors: uiColors) => Html.css`
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: ${colors.descriptionFg};
+    cursor: pointer;
+    font-weight: 600;
+
+    &[aria-selected="true"] {
+      border-color: ${colors.focusBorder};
+      background: ${colors.selectionBg};
+      color: ${colors.fg};
+    }
+
+    &:hover {
+      background: ${colors.hoverBg};
+      color: ${colors.fg};
+    }
+  `
+
+  let commitList = Html.css`
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  `
+
+  let commitRow = (colors: uiColors, selected: bool) => Html.css`
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-bottom: 1px solid ${colors.border};
+    background: ${if selected { colors.selectionBg } else { "transparent" }};
+    color: ${colors.fg};
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: ${if selected { colors.selectionBg } else { colors.hoverBg }};
+    }
+  `
+
+  let commitSubject = Html.css`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  `
+
+  let commitMeta = (colors: uiColors) => Html.css`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${colors.descriptionFg};
+    font-size: 0.846rem;
+  `
+
+  let historyFilesPanel = (colors: uiColors) => Html.css`
+    width: 260px;
+    min-width: 220px;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid ${colors.border};
+    background-color: ${colors.surfaceBg};
+    overflow: hidden;
+  `
+
+  let fileList = Html.css`
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  `
+
+  let fileRow = (colors: uiColors, selected: bool) => Html.css`
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    border-bottom: 1px solid ${colors.border};
+    background: ${if selected { colors.selectionBg } else { "transparent" }};
+    color: ${colors.fg};
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+      background: ${if selected { colors.selectionBg } else { colors.hoverBg }};
+    }
+  `
+
+  let paneMessage = (colors: uiColors) => Html.css`
+    padding: 14px 12px;
+    color: ${colors.descriptionFg};
+    white-space: pre-wrap;
+  `
+
   let main = Html.css`
     flex: 1;
     min-width: 0;
@@ -292,6 +411,43 @@ module Styles = {
     text-align: center;
     max-width: 400px;
     white-space: pre-wrap;
+  `
+
+  let repositoryPicker = (colors: uiColors) => Html.css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex: 1;
+    padding: 32px;
+    background: ${colors.bg};
+    color: ${colors.fg};
+    text-align: center;
+  `
+
+  let repositoryPickerTitle = Html.css`
+    font-size: 1.231rem;
+    font-weight: 700;
+  `
+
+  let repositoryPickerMessage = (colors: uiColors) => Html.css`
+    max-width: 520px;
+    color: ${colors.descriptionFg};
+    line-height: 1.45;
+    white-space: pre-wrap;
+  `
+
+  let repositoryPath = (colors: uiColors) => Html.css`
+    max-width: min(680px, 100%);
+    padding: 6px 8px;
+    border: 1px solid ${colors.border};
+    border-radius: 4px;
+    background: ${colors.inputBg};
+    color: ${colors.inputFg};
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   `
 
   let reviewSummaryBar = (colors: uiColors) => Html.css`
@@ -429,23 +585,20 @@ let make = () => {
   let (reviewSummary, setReviewSummary) = React.useState(() => "No full review has run yet.")
   let (reviewSummaryLabel, setReviewSummaryLabel) = React.useState(() => "Review")
   let (viewMode, setViewMode) = React.useState(() => Review)
+  let (reviewSourceMode, setReviewSourceMode) = React.useState(() => Changed)
+  let (historyState, setHistoryState) = React.useState(() => HistoryIdle)
+  let (selectedCommitHash, setSelectedCommitHash) = React.useState(() => "")
+  let (commitPatchState, setCommitPatchState) = React.useState(() => CommitPatchIdle)
+  let (selectedCommitFile, setSelectedCommitFile) = React.useState(() => "")
+  let (historyDiffStyles, setHistoryDiffStyles) = React.useState((): Js.Dict.t<string> => Js.Dict.empty())
   let (repoRoot, setRepoRoot) = React.useState(() => "")
+  let (repoInfo, setRepoInfo) = React.useState((): option<Ipc.repoInfo> => None)
   let (isThemeLoading, setIsThemeLoading) = React.useState(() => false)
   let (isSpecCheckOpen, setIsSpecCheckOpen) = React.useState(() => false)
   let (piModelsError, setPiModelsError) = React.useState(() => "")
   let themeLoadVersionRef = React.useRef(0)
   let lightThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("light"))
   let darkThemeOptions = React.useMemo0(() => ThemePreferences.getOptions("dark"))
-
-  React.useEffect0(() => {
-    let onSuccess = (root: string): Js.Promise.t<unit> => {
-      setRepoRoot(_ => root)
-      Js.Promise2.resolve()
-    }
-    let onError = (_error: Js.Promise2.error): Js.Promise.t<unit> => Js.Promise2.resolve()
-    let _ = Js.Promise2.catch(Js.Promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError)
-    None
-  })
 
   let loadPiModels = () => {
     let onSuccess = (result: Ipc.piModelResult): Js.Promise.t<unit> => {
@@ -517,6 +670,67 @@ let make = () => {
     setPatchReloadVersion(prev => prev + 1)
   }
 
+  let applyRepositoryInfo = (info: Ipc.repoInfo) => {
+    setRepoInfo(_ => Some(info))
+    setRepoRoot(_ => info.repoRoot)
+  }
+
+  let resetRepositoryScopedState = () => {
+    setComments(_ => Js.Dict.empty())
+    setReviewSuggestions(_ => Js.Dict.empty())
+    setReviewSummary(_ => "No full review has run yet.")
+    setReviewSummaryLabel(_ => "Review")
+    setActiveReview(_ => None)
+    setIsSpecCheckOpen(_ => false)
+    setReviewSourceMode(_ => Changed)
+    setHistoryState(_ => HistoryIdle)
+    setSelectedCommitHash(_ => "")
+    setCommitPatchState(_ => CommitPatchIdle)
+    setSelectedCommitFile(_ => "")
+    setHistoryDiffStyles(_ => Js.Dict.empty())
+  }
+
+  let loadRepositoryInfo = () => {
+    let onSuccess = (info: Ipc.repoInfo): Js.Promise.t<unit> => {
+      applyRepositoryInfo(info)
+      Js.Promise2.resolve()
+    }
+    let onError = (_error: Js.Promise2.error): Js.Promise.t<unit> => Js.Promise2.resolve()
+    let _ = Js.Promise2.catch(
+      Js.Promise2.then(Ipc.callGetRepositoryInfo(), onSuccess),
+      onError,
+    )
+  }
+
+  React.useEffect0(() => {
+    loadRepositoryInfo()
+    None
+  })
+
+  let handleChooseWorkingFolder = _event => {
+    let onSuccess = (info: Ipc.repoInfo): Js.Promise.t<unit> => {
+      if !info.canceled {
+        setPatchState(_ => PatchLoading)
+        applyRepositoryInfo(info)
+        resetRepositoryScopedState()
+        setViewMode(_ => Review)
+        requestPatchReload()
+      }
+      Js.Promise2.resolve()
+    }
+    let onError = (error: Js.Promise2.error): Js.Promise.t<unit> => {
+      let message = Raw.errorMessage(error)
+      if message != "Folder selection canceled" {
+        setPatchState(_ => PatchError(message))
+      }
+      Js.Promise2.resolve()
+    }
+    let _ = Js.Promise2.catch(
+      Js.Promise2.then(Ipc.callChooseWorkingFolder(), onSuccess),
+      onError,
+    )
+  }
+
   React.useEffect0(() => {
     let interval = Js.Global.setInterval(() => {
       let next = getDiffReloadRequestCount
@@ -550,6 +764,63 @@ let make = () => {
     )
     None
   }, [patchReloadVersion])
+
+  React.useEffect2(() => {
+    switch (reviewSourceMode, historyState) {
+    | (History, HistoryIdle) =>
+      setHistoryState(_ => HistoryLoading)
+      let onSuccess = (commits: array<Ipc.commitSummary>): Js.Promise.t<unit> => {
+        setHistoryState(_ => HistoryReady(commits))
+        switch Belt.Array.get(commits, 0) {
+        | Some(commit) if selectedCommitHash == "" =>
+          setSelectedCommitHash(_ => commit.hash)
+        | _ => ()
+        }
+        Js.Promise2.resolve()
+      }
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        setHistoryState(_ => HistoryError(Raw.errorMessage(err)))
+        Js.Promise2.resolve()
+      }
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callGetCommitHistory(), onSuccess),
+        onError,
+      )
+      None
+    | _ => None
+    }
+  }, (reviewSourceMode, historyState))
+
+  React.useEffect2(() => {
+    if reviewSourceMode == History && selectedCommitHash != "" {
+      setCommitPatchState(_ => CommitPatchLoading)
+      setSelectedCommitFile(_ => "")
+      let hash = selectedCommitHash
+      let onSuccess = (rawPatch: string): Js.Promise.t<unit> => {
+        let parsed = parsePatchFiles(rawPatch)
+        setCommitPatchState(_ => CommitPatchReady(rawPatch, parsed))
+        let files = parsed->Array.flatMap(patch =>
+          patch.files->Array.map(fileDiff => fileDiffName(fileDiff))
+        )
+        switch Belt.Array.get(files, 0) {
+        | Some(fileName) => setSelectedCommitFile(_ => fileName)
+        | None => setSelectedCommitFile(_ => "")
+        }
+        Js.Promise2.resolve()
+      }
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        setCommitPatchState(_ => CommitPatchError(Raw.errorMessage(err)))
+        Js.Promise2.resolve()
+      }
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callGetCommitPatch(hash), onSuccess),
+        onError,
+      )
+      None
+    } else {
+      None
+    }
+  }, (reviewSourceMode, selectedCommitHash))
 
   let headerStyle = Styles.header(currentColors)
   let buttonStyle = Styles.button(currentColors)
@@ -661,6 +932,46 @@ let make = () => {
     setThemeNames(previous => {...previous, dark: themeName})
   }
 
+  let historyCommentPrefix = if selectedCommitHash != "" {
+    "history:" ++ selectedCommitHash ++ "|"
+  } else {
+    ""
+  }
+
+  let historyDiffStyleKey = (fileName: string) => selectedCommitHash ++ "|" ++ fileName
+
+  let historyDiffStyleFor = (fileName: string) => {
+    switch Js.Dict.get(historyDiffStyles, historyDiffStyleKey(fileName)) {
+    | Some(style) => style
+    | None => "unified"
+    }
+  }
+
+  let toggleHistoryDiffStyle = (fileName: string) => {
+    let key = historyDiffStyleKey(fileName)
+    setHistoryDiffStyles(prev => {
+      let next: Js.Dict.t<string> = Raw.copyDict(prev)
+      let current = switch Js.Dict.get(prev, key) {
+      | Some(style) => style
+      | None => "unified"
+      }
+      Js.Dict.set(next, key, if current == "unified" { "split" } else { "unified" })
+      next
+    })
+  }
+
+  let historyRawPatch = switch commitPatchState {
+  | CommitPatchReady(rawPatch, _) => rawPatch
+  | _ => ""
+  }
+
+  let scopedAskKey = (key: string) =>
+    if reviewSourceMode == History {
+      historyCommentPrefix ++ key
+    } else {
+      key
+    }
+
   // Collect all comments with non-empty text, send to pi for review
   let handleAskPi = _event => {
     if !isAskingPi {
@@ -669,7 +980,22 @@ let make = () => {
       let payloadComments = Js.Dict.keys(comments)->Array.filterMap(key => {
         switch Js.Dict.get(comments, key) {
         | Some(c) if c.text->String.trim->String.length > 0 && c.aiReply == State.AiIdle =>
-          Some({commentKey: key, text: c.text}: Ipc.askPiRequest)
+          switch reviewSourceMode {
+          | Changed =>
+            switch InlineComment.parseKey(key) {
+            | Some(_) => Some({commentKey: key, text: c.text}: Ipc.askPiRequest)
+            | None => None
+            }
+          | History =>
+            if historyCommentPrefix != "" && InlineComment.hasKeyPrefix(key, historyCommentPrefix) {
+              Some({
+                commentKey: InlineComment.stripKeyPrefix(key, historyCommentPrefix),
+                text: c.text,
+              }: Ipc.askPiRequest)
+            } else {
+              None
+            }
+          }
         | _ => None
         }
       })
@@ -682,7 +1008,13 @@ let make = () => {
           Js.Dict.keys(newDict)->Array.forEach(key => {
             switch Js.Dict.get(newDict, key) {
             | Some(c) if c.text->String.trim->String.length > 0 && c.aiReply == State.AiIdle =>
-              Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiDone("No new questions — your comments are already reviewed.")})
+              let inScope = switch reviewSourceMode {
+              | Changed => InlineComment.parseKey(key) != None
+              | History => historyCommentPrefix != "" && InlineComment.hasKeyPrefix(key, historyCommentPrefix)
+              }
+              if inScope {
+                Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiDone("No new questions — your comments are already reviewed.")})
+              }
             | _ => ()
             }
           })
@@ -695,9 +1027,10 @@ let make = () => {
         setComments(prev => {
           let newDict = InlineComment.copyDict(prev)
           payloadComments->Array.forEach(pc => {
-            switch Js.Dict.get(newDict, pc.commentKey) {
+            let key = scopedAskKey(pc.commentKey)
+            switch Js.Dict.get(newDict, key) {
             | Some(c) =>
-              Js.Dict.set(newDict, pc.commentKey, {text: c.text, aiReply: State.AiStreaming("")})
+              Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiStreaming("")})
             | None => ()
             }
           })
@@ -713,10 +1046,11 @@ let make = () => {
             let newDict = InlineComment.copyDict(prev)
             replies->Array.forEach(reply => {
               let key = InlineComment.normalizeModelKey(reply.commentKey)
-              Js.log2("[BAKA UI] Ask Pi applying reply key", key)
-              switch Js.Dict.get(newDict, key) {
+              let scopedKey = scopedAskKey(key)
+              Js.log2("[BAKA UI] Ask Pi applying reply key", scopedKey)
+              switch Js.Dict.get(newDict, scopedKey) {
               | Some(c) =>
-                Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiDone(reply.reply)})
+                Js.Dict.set(newDict, scopedKey, {text: c.text, aiReply: State.AiDone(reply.reply)})
               | None => ()
               }
             })
@@ -732,14 +1066,15 @@ let make = () => {
           Js.log2("[BAKA UI] Ask Pi error", msg)
           // Mark all streaming comments as error
           setComments(prev => {
-            let newDict = InlineComment.copyDict(prev)
-            payloadComments->Array.forEach(pc => {
-              switch Js.Dict.get(newDict, pc.commentKey) {
-              | Some(c) =>
-                Js.Dict.set(newDict, pc.commentKey, {text: c.text, aiReply: State.AiError(msg)})
-              | None => ()
-              }
-            })
+          let newDict = InlineComment.copyDict(prev)
+          payloadComments->Array.forEach(pc => {
+            let key = scopedAskKey(pc.commentKey)
+            switch Js.Dict.get(newDict, key) {
+            | Some(c) =>
+              Js.Dict.set(newDict, key, {text: c.text, aiReply: State.AiError(msg)})
+            | None => ()
+            }
+          })
             newDict
           })
           setIsAskingPi(_ => false)
@@ -749,10 +1084,14 @@ let make = () => {
 
         let _ = Js.Promise2.catch(
           Js.Promise2.then(
-            Ipc.callAskPi(
-              payloadComments,
-              model,
-            ),
+            if reviewSourceMode == History {
+              Ipc.callAskPiWithDiff(historyRawPatch, payloadComments, model)
+            } else {
+              Ipc.callAskPi(
+                payloadComments,
+                model,
+              )
+            },
             onSuccess,
           ),
           onError,
@@ -935,6 +1274,47 @@ let make = () => {
     | _ => []
     }
   }, (patchState, isDark, themeNames, currentColors))
+
+  let historyCommits = switch historyState {
+  | HistoryReady(commits) => commits
+  | _ => []
+  }
+
+  let selectedCommit = historyCommits->Array.find(commit => commit.hash == selectedCommitHash)
+
+  let historyFileDiffs = switch commitPatchState {
+  | CommitPatchReady(_, parsed) =>
+    parsed->Array.flatMap(patch => patch.files)
+  | _ => []
+  }
+
+  let historyFileNames = historyFileDiffs->Array.map(fileDiff => fileDiffName(fileDiff))
+
+  let selectedHistoryFileDiffs =
+    if selectedCommitFile == "" {
+      historyFileDiffs
+    } else {
+      historyFileDiffs->Array.filter(fileDiff => fileDiffName(fileDiff) == selectedCommitFile)
+    }
+
+  let historyDiffChildren = React.useMemo((): array<React.element> =>
+    selectedHistoryFileDiffs->Array.map(fileDiff => {
+      let fileName = fileDiffName(fileDiff)
+      let diffStyle = historyDiffStyleFor(fileName)
+      <div key={selectedCommitHash ++ ":" ++ fileName} id={"history-" ++ fileName} className={Styles.diffWrapper}>
+        <InlineComment
+          fileDiff={fileDiff}
+          theme={style}
+          themeType={if (isDark) { "dark" } else { "light" }}
+          uiColors={currentColors}
+          commentKeyPrefix={historyCommentPrefix}
+          showFullFileButton={false}
+          diffStyle={diffStyle}
+          onDiffStyleToggle={() => toggleHistoryDiffStyle(fileName)}
+        />
+      </div>
+    })
+  , (selectedHistoryFileDiffs, isDark, themeNames, currentColors, historyDiffStyles))
 
   let renderModelSelect = (~label, ~hint, ~value, ~inherit, ~onChange) =>
     <label className={Styles.settingsCard(currentColors)}>
@@ -1170,11 +1550,52 @@ let make = () => {
     }
   }
 
+  let hasGitRepository = switch repoInfo {
+  | Some(info) => info.isGitRepository
+  | None => repoRoot != ""
+  }
+
+  let activeRepositoryPath = switch repoInfo {
+  | Some(info) if info.repoRoot != "" => info.repoRoot
+  | Some(info) => info.workingDirectory
+  | None => repoRoot
+  }
+
+  let renderRepositoryPicker = (message: string) =>
+    <div className={Styles.repositoryPicker(currentColors)}>
+      <div className={Styles.repositoryPickerTitle}>
+        {str("Choose a repository")}
+      </div>
+      <div className={Styles.repositoryPickerMessage(currentColors)}>
+        {str(message)}
+      </div>
+      {activeRepositoryPath != ""
+        ? <div className={Styles.repositoryPath(currentColors)} title={activeRepositoryPath}>
+            {str(activeRepositoryPath)}
+          </div>
+        : React.null}
+      <button
+        type_="button"
+        onClick={handleChooseWorkingFolder}
+        className={buttonStyle}
+      >
+        {str("Open Repository")}
+      </button>
+    </div>
+
   switch patchState {
   | PatchLoading =>
     <div className={Styles.container}>
       <div className={headerStyle}>
         <div className={Styles.headerActions}>
+          <button
+            type_="button"
+            title="Choose repository"
+            onClick={handleChooseWorkingFolder}
+            className={buttonStyle}
+          >
+            {str("Open Repository")}
+          </button>
           <button
             type_="button"
             onClick={handleThemeToggle}
@@ -1209,6 +1630,14 @@ let make = () => {
         <div className={Styles.headerActions}>
           <button
             type_="button"
+            title="Choose repository"
+            onClick={handleChooseWorkingFolder}
+            className={buttonStyle}
+          >
+            {str("Open Repository")}
+          </button>
+          <button
+            type_="button"
             onClick={handleThemeToggle}
             className={buttonStyle}
           >
@@ -1228,6 +1657,8 @@ let make = () => {
       </div>
       {if viewMode == Settings {
         renderSettings()
+      } else if !hasGitRepository {
+        renderRepositoryPicker(msg)
       } else {
         <div className={Styles.errorContainer(currentColors)}>
           <div className={Styles.errorMessage}>
@@ -1279,6 +1710,14 @@ let make = () => {
           </button>
         </div>
         <div className={Styles.headerActions}>
+          <button
+            type_="button"
+            title="Choose repository"
+            onClick={handleChooseWorkingFolder}
+            className={buttonStyle}
+          >
+            {str("Open Repository")}
+          </button>
           {viewMode == Review
             ? <div className={Styles.aiMenu}>
                 <button
@@ -1386,18 +1825,120 @@ let make = () => {
         />
       | Review => <div className={Styles.content}>
             <aside className={Styles.sidebar(currentColors)}>
-              <Trees.make
-                model={fileTree.model}
-                header={<div className={Styles.treeHeader(currentColors)}>{str("Changed files")}</div>}
-                style={Styles.treeStyle(currentColors)}
-              />
+              <div className={Styles.reviewModeTabs(currentColors)} role="tablist" ariaLabel="Review source">
+                <button
+                  type_="button"
+                  role="tab"
+                  ariaSelected={reviewSourceMode == Changed}
+                  onClick={_ => setReviewSourceMode(_ => Changed)}
+                  className={Styles.reviewModeTab(currentColors)}
+                >
+                  {str("Changed")}
+                </button>
+                <button
+                  type_="button"
+                  role="tab"
+                  ariaSelected={reviewSourceMode == History}
+                  onClick={_ => setReviewSourceMode(_ => History)}
+                  className={Styles.reviewModeTab(currentColors)}
+                >
+                  {str("History")}
+                </button>
+              </div>
+              {switch reviewSourceMode {
+              | Changed =>
+                <Trees.make
+                  model={fileTree.model}
+                  header={<div className={Styles.treeHeader(currentColors)}>{str("Changed files")}</div>}
+                  style={Styles.treeStyle(currentColors)}
+                />
+              | History =>
+                <>
+                  <div className={Styles.treeHeader(currentColors)}>{str("Commits")}</div>
+                  <div className={Styles.commitList}>
+                    {switch historyState {
+                    | HistoryIdle | HistoryLoading =>
+                      <div className={Styles.paneMessage(currentColors)}>{str("Loading commits...")}</div>
+                    | HistoryError(message) =>
+                      <div className={Styles.paneMessage(currentColors)}>{str(message)}</div>
+                    | HistoryReady(commits) =>
+                      commits->Array.length == 0
+                        ? <div className={Styles.paneMessage(currentColors)}>{str("No commits found.")}</div>
+                        : React.array(commits->Array.map(commit =>
+                            <button
+                              key={commit.hash}
+                              type_="button"
+                              title={commit.subject}
+                              onClick={_ => setSelectedCommitHash(_ => commit.hash)}
+                              className={Styles.commitRow(currentColors, commit.hash == selectedCommitHash)}
+                            >
+                              <span className={Styles.commitSubject}>{str(commit.subject)}</span>
+                              <span className={Styles.commitMeta(currentColors)}>
+                                {str(commit.author ++ " · " ++ commit.date ++ " · " ++ commit.shortHash)}
+                              </span>
+                            </button>
+                          ))
+                    }}
+                  </div>
+                </>
+              }}
             </aside>
+            {reviewSourceMode == History
+              ? <aside className={Styles.historyFilesPanel(currentColors)}>
+                  <div className={Styles.treeHeader(currentColors)}>
+                    {switch selectedCommit {
+                    | Some(commit) => str("Files in " ++ commit.shortHash)
+                    | None => str("Files")
+                    }}
+                  </div>
+                  <div className={Styles.fileList}>
+                    {switch commitPatchState {
+                    | CommitPatchIdle =>
+                      <div className={Styles.paneMessage(currentColors)}>{str("Select a commit.")}</div>
+                    | CommitPatchLoading =>
+                      <div className={Styles.paneMessage(currentColors)}>{str("Loading files...")}</div>
+                    | CommitPatchError(message) =>
+                      <div className={Styles.paneMessage(currentColors)}>{str(message)}</div>
+                    | CommitPatchReady(_, _) =>
+                      historyFileNames->Array.length == 0
+                        ? <div className={Styles.paneMessage(currentColors)}>{str("No changed files in this commit.")}</div>
+                        : React.array(historyFileNames->Array.map(fileName =>
+                            <button
+                              key={fileName}
+                              type_="button"
+                              title={fileName}
+                              onClick={_ => setSelectedCommitFile(_ => fileName)}
+                              className={Styles.fileRow(currentColors, fileName == selectedCommitFile)}
+                            >
+                              {str(fileName)}
+                            </button>
+                          ))
+                    }}
+                  </div>
+                </aside>
+              : React.null}
             <main ref={ReactDOM.Ref.domRef(virtualizerWrapperRef)} className={Styles.main}>
-              <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
-                {React.array(diffChildren)}
-	              </Virtualizer>
-	            </main>
-	          </div>
+              {switch reviewSourceMode {
+              | Changed =>
+                <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
+                  {React.array(diffChildren)}
+                </Virtualizer>
+              | History =>
+                switch commitPatchState {
+                | CommitPatchIdle =>
+                  <div className={Styles.paneMessage(currentColors)}>{str("Select a commit to review.")}</div>
+                | CommitPatchLoading =>
+                  <div className={Styles.paneMessage(currentColors)}>{str("Loading commit diff...")}</div>
+                | CommitPatchError(message) =>
+                  <div className={Styles.paneMessage(currentColors)}>{str(message)}</div>
+                | CommitPatchReady(_, _) =>
+                  <Virtualizer style={%raw(`{"height": "100%", "overflow-y": "auto"}`)}>
+                    {React.array(historyDiffChildren)}
+                  </Virtualizer>
+                }
+              }}
+            </main>
+          </div>
 	      }}
       <div className={Styles.statusBar(currentColors)}>
         {str("Pi · " ++ piStatus)}

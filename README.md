@@ -34,8 +34,8 @@ custom models configured in Pi, including local OpenAI-compatible services.
 ## Building
 
 BAKA requires Odin, CMake, Yarn, Pi, and the platform dependencies needed by
-the webview library. On Linux, install the GTK and WebKitGTK development
-packages before building.
+the webview and osdialog libraries. On Linux, install the GTK and WebKitGTK
+development packages before building.
 
 Build the UI, webview library, and native application from the repository root:
 
@@ -45,6 +45,16 @@ make
 
 Build output is stored under `build/`.
 
+Create the macOS application bundle:
+
+```sh
+make package
+```
+
+On macOS this writes `build/dist/BAKA.app`. The explicit target is also
+available as `make macos-app` or `make osx-app`. The `make package` command is
+reserved for the future Linux AppImage target on Linux.
+
 Run BAKA against the current directory or a specific repository:
 
 ```sh
@@ -52,6 +62,9 @@ make run
 make run ARGS='/path/to/repository'
 make run ARGS='--verbose /path/to/repository'
 ```
+
+When BAKA is launched as a desktop app, use **Open Repository** to choose the
+Git working folder to review.
 
 ## Third-party acknowledgements
 

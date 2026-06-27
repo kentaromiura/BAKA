@@ -99,6 +99,7 @@ module FileDiff = {
     ~selectedLines: selectedLineRange=?,
     ~renderAnnotation: (lineAnnotation => React.element)=?,
     ~renderHeaderPrefix: (patchFile => React.element)=?,
+    ~renderHeaderMetadata: (patchFile => React.element)=?,
     ~disableWorkerPool: bool=?,
   ) => React.element = "FileDiff"
 }

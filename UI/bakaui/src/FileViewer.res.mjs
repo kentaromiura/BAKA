@@ -48,7 +48,7 @@ function parseKey(key) {
             lineNumber
           ];
   }
-
+  
 }
 
 var backdrop = Html.css(["\n    position: fixed;\n    inset: 0;\n    background-color: rgba(0, 0, 0, 0.5);\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    z-index: 1000;\n  "], []);
@@ -171,12 +171,12 @@ function FileViewer(props) {
   var setComments = match[1];
   var comments = match[0];
   var match$1 = React.useState(function () {
-
+        
       });
   var setPatch = match$1[1];
   var patch = match$1[0];
   var match$2 = React.useState(function () {
-
+        
       });
   var setError = match$2[1];
   var error$1 = match$2[0];
@@ -206,7 +206,7 @@ function FileViewer(props) {
           if (onClose !== undefined) {
             return listenForEscape(onClose);
           }
-
+          
         }), []);
   var fileDiff = React.useMemo((function () {
           if (patch === undefined) {
@@ -233,7 +233,7 @@ function FileViewer(props) {
                                   lineNumber: match[2]
                                 };
                         }
-
+                        
                       }));
         }), [comments]);
   var toggleComment = React.useCallback((function (props) {
@@ -282,7 +282,7 @@ function FileViewer(props) {
                       text: c.text
                     };
             }
-
+            
           }));
     if (payloadComments.length === 0) {
       return setComments(function (prev) {
@@ -299,7 +299,7 @@ function FileViewer(props) {
                           };
                           return ;
                         }
-
+                        
                       });
                   return newDict;
                 });
@@ -319,7 +319,7 @@ function FileViewer(props) {
                   };
                   return ;
                 }
-
+                
               });
           return newDict;
         });
@@ -349,7 +349,7 @@ function FileViewer(props) {
                     };
                     return ;
                   }
-
+                  
                 });
             return newDict;
           });
@@ -357,7 +357,7 @@ function FileViewer(props) {
             return false;
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -377,7 +377,7 @@ function FileViewer(props) {
                     };
                     return ;
                   }
-
+                  
                 });
             return newDict;
           });
@@ -385,7 +385,7 @@ function FileViewer(props) {
             return false;
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -495,7 +495,7 @@ function FileViewer(props) {
                     if (onClose !== undefined) {
                       return onClose();
                     }
-
+                    
                   })
               });
   }

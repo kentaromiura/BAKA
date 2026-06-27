@@ -20,6 +20,10 @@ function makeKey(fileName, side, lineNumber) {
   return fileName + "|" + side + "|" + lineNumber.toString();
 }
 
+var stripKeyPrefix = ((key, prefix) => prefix && key.startsWith(prefix) ? key.slice(prefix.length) : key);
+
+var hasKeyPrefix = ((key, prefix) => !prefix || key.startsWith(prefix));
+
 var cleanModelLine = (line => String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, ""));
 
 function parseKey(key) {
@@ -115,18 +119,45 @@ function fileReviewHeader(colors) {
             ], [colors.descriptionFg]);
 }
 
+function diffStyleToggle(colors) {
+  return Html.css([
+              "\n    margin-left: 8px;\n    padding: 3px 7px;\n    border: 1px solid ",
+              ";\n    border-radius: 4px;\n    background: ",
+              ";\n    color: ",
+              ";\n    font-family: \"Ioskeley Mono\", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 0.846rem;\n    font-weight: 600;\n    line-height: 1.2;\n    cursor: pointer;\n\n    &:hover {\n      background: ",
+              ";\n      border-color: ",
+              ";\n    }\n\n    &:focus-visible {\n      outline: 2px solid ",
+              ";\n      outline-offset: 1px;\n    }\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg,
+              colors.fg,
+              colors.hoverBg,
+              colors.focusBorder,
+              colors.focusBorder
+            ]);
+}
+
 var Styles = {
   fullFileButton: fullFileButton,
   emptyFileLabel: emptyFileLabel,
   fileReviewList: fileReviewList,
-  fileReviewHeader: fileReviewHeader
+  fileReviewHeader: fileReviewHeader,
+  diffStyleToggle: diffStyleToggle
 };
 
 function InlineComment(props) {
+  var onDiffStyleToggle = props.onDiffStyleToggle;
+  var __diffStyle = props.diffStyle;
+  var __showFullFileButton = props.showFullFileButton;
+  var __commentKeyPrefix = props.commentKeyPrefix;
   var uiColors = props.uiColors;
   var themeType = props.themeType;
   var theme = props.theme;
   var fileDiff = props.fileDiff;
+  var commentKeyPrefix = __commentKeyPrefix !== undefined ? __commentKeyPrefix : "";
+  var showFullFileButton = __showFullFileButton !== undefined ? __showFullFileButton : true;
+  var diffStyle = __diffStyle !== undefined ? __diffStyle : "split";
   var match = Jotai.useAtom(State.commentsAtom);
   var setComments = match[1];
   var comments = match[0];
@@ -136,10 +167,19 @@ function InlineComment(props) {
         return false;
       });
   var setShowFullFile = match$1[1];
+  var scopedKey = function (side, lineNumber) {
+    return commentKeyPrefix + makeKey(fileName, side, lineNumber);
+  };
+  var parseScopedKey = function (key) {
+    if (hasKeyPrefix(key, commentKeyPrefix)) {
+      return parseKey(stripKeyPrefix(key, commentKeyPrefix));
+    }
+    
+  };
   var toggleComment = React.useCallback((function (props) {
           var lineNumber = props.lineNumber | 0;
           var sideStr = props.annotationSide;
-          var key = makeKey(fileName, sideStr, lineNumber);
+          var key = scopedKey(sideStr, lineNumber);
           setComments(function (prev) {
                 var match = Js_dict.get(prev, key);
                 if (match !== undefined) {
@@ -158,13 +198,16 @@ function InlineComment(props) {
   var validAnnotationKeys = React.useMemo((function () {
           var keys = {};
           Diffs.changedLineAnnotations(fileDiff).forEach(function (annotation) {
-                keys[makeKey(fileName, annotation.side, annotation.lineNumber)] = true;
+                keys[scopedKey(annotation.side, annotation.lineNumber)] = true;
               });
           return keys;
-        }), [fileDiff]);
+        }), [
+        fileDiff,
+        commentKeyPrefix
+      ]);
   var annotations = React.useMemo((function () {
           return Core__Array.filterMap(Object.keys(comments), (function (key) {
-                        var match = parseKey(key);
+                        var match = parseScopedKey(key);
                         if (match === undefined) {
                           return ;
                         }
@@ -173,7 +216,7 @@ function InlineComment(props) {
                         }
                         var lineNumber = match[2];
                         var side = match[1];
-                        var match$1 = Js_dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber));
+                        var match$1 = Js_dict.get(validAnnotationKeys, scopedKey(side, lineNumber));
                         if (match$1 !== undefined && match$1) {
                           return {
                                   side: side,
@@ -188,14 +231,14 @@ function InlineComment(props) {
       ]);
   var fileReviewCommentKeys = React.useMemo((function () {
           return Object.keys(comments).filter(function (key) {
-                      var match = parseKey(key);
+                      var match = parseScopedKey(key);
                       if (match === undefined) {
                         return false;
                       }
                       if (match[0] !== fileName) {
                         return false;
                       }
-                      var match$1 = Js_dict.get(validAnnotationKeys, makeKey(fileName, match[1], match[2]));
+                      var match$1 = Js_dict.get(validAnnotationKeys, scopedKey(match[1], match[2]));
                       if (match$1 !== undefined && match$1) {
                         return false;
                       } else {
@@ -213,28 +256,50 @@ function InlineComment(props) {
                     dark: theme.dark
                   },
                   themeType: themeType,
+                  diffStyle: diffStyle,
                   onLineClick: toggleComment,
                   unsafeCSS: Diffs.fontUnsafeCss
                 };
         }), [
         theme,
         themeType,
-        toggleComment
+        toggleComment,
+        diffStyle
       ]);
   var fullFileButton$1 = React.useCallback((function (_fd) {
-          return JsxRuntime.jsx(JsxRuntime.Fragment, {
-                      children: Caml_option.some(JsxRuntime.jsx("button", {
-                                children: "View full file",
-                                className: fullFileButton(uiColors),
-                                onClick: (function (ev) {
-                                    ev.stopPropagation();
-                                    setShowFullFile(function (param) {
-                                          return true;
-                                        });
-                                  })
-                              }))
-                    });
+          if (showFullFileButton) {
+            return JsxRuntime.jsx(JsxRuntime.Fragment, {
+                        children: Caml_option.some(JsxRuntime.jsx("button", {
+                                  children: "View full file",
+                                  className: fullFileButton(uiColors),
+                                  onClick: (function (ev) {
+                                      ev.stopPropagation();
+                                      setShowFullFile(function (param) {
+                                            return true;
+                                          });
+                                    })
+                                }))
+                      });
+          } else {
+            return null;
+          }
         }), []);
+  var headerMetadata = function (_fd) {
+    if (onDiffStyleToggle !== undefined) {
+      return JsxRuntime.jsx("button", {
+                  children: diffStyle === "unified" ? "Side by side" : "Unified",
+                  className: diffStyleToggle(uiColors),
+                  title: diffStyle === "unified" ? "Show side-by-side diff" : "Show unified diff",
+                  type: "button",
+                  onClick: (function (ev) {
+                      ev.stopPropagation();
+                      onDiffStyleToggle();
+                    })
+                });
+    } else {
+      return null;
+    }
+  };
   return JsxRuntime.jsxs(JsxRuntime.Fragment, {
               children: [
                 isEmptyFile ? JsxRuntime.jsx("div", {
@@ -245,7 +310,7 @@ function InlineComment(props) {
                         options: optionsObj,
                         lineAnnotations: annotations,
                         renderAnnotation: (function (annotation) {
-                            var ckey = makeKey(fileName, annotation.side, annotation.lineNumber);
+                            var ckey = scopedKey(annotation.side, annotation.lineNumber);
                             var match = Js_dict.get(comments, ckey);
                             if (match !== undefined) {
                               return JsxRuntime.jsx(CommentBox.make, {
@@ -261,7 +326,8 @@ function InlineComment(props) {
                               return JsxRuntime.jsx("div", {});
                             }
                           }),
-                        renderHeaderPrefix: fullFileButton$1
+                        renderHeaderPrefix: fullFileButton$1,
+                        renderHeaderMetadata: headerMetadata
                       }),
                 fileReviewCommentKeys.length > 0 ? JsxRuntime.jsxs("div", {
                         children: [
@@ -270,7 +336,7 @@ function InlineComment(props) {
                                 className: fileReviewHeader(uiColors)
                               }),
                           fileReviewCommentKeys.map(function (key) {
-                                var match = parseKey(key);
+                                var match = parseScopedKey(key);
                                 if (match !== undefined) {
                                   return JsxRuntime.jsx(CommentBox.make, {
                                               commentKey: key,
@@ -313,6 +379,8 @@ export {
   copyDict ,
   deleteProp ,
   makeKey ,
+  stripKeyPrefix ,
+  hasKeyPrefix ,
   cleanModelLine ,
   parseKey ,
   normalizeModelKey ,

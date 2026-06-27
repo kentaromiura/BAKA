@@ -7,6 +7,12 @@ let deleteProp = Raw.deleteProp
 let makeKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
+let stripKeyPrefix: (string, string) => string =
+  %raw(`(key, prefix) => prefix && key.startsWith(prefix) ? key.slice(prefix.length) : key`)
+
+let hasKeyPrefix: (string, string) => bool =
+  %raw(`(key, prefix) => !prefix || key.startsWith(prefix)`)
+
 let cleanModelLine: string => string =
   %raw(`line => String(line || "").trim().split("-")[0].replace(/^[+-]/, "").replace(/[^0-9].*$/, "")`)
 
@@ -99,6 +105,31 @@ module Styles = {
     font-size: 0.923rem;
     font-weight: 600;
   `
+
+  let diffStyleToggle = (colors: uiColors) =>
+    Html.css`
+    margin-left: 8px;
+    padding: 3px 7px;
+    border: 1px solid ${colors.border};
+    border-radius: 4px;
+    background: ${colors.surfaceBg};
+    color: ${colors.fg};
+    font-family: "Ioskeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.846rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+
+    &:hover {
+      background: ${colors.hoverBg};
+      border-color: ${colors.focusBorder};
+    }
+
+    &:focus-visible {
+      outline: 2px solid ${colors.focusBorder};
+      outline-offset: 1px;
+    }
+  `
 }
 
 @react.component
@@ -107,16 +138,29 @@ let make = (
   ~theme: Diffs.FileDiff.theme,
   ~themeType: string,
   ~uiColors: uiColors,
+  ~commentKeyPrefix: string="",
+  ~showFullFileButton: bool=true,
+  ~diffStyle: string="split",
+  ~onDiffStyleToggle: option<unit => unit>=?,
 ) => {
   let (comments, setComments) = Jotai.Atom.useAtom(State.commentsAtom)
   let fileName = Diffs.fileDiffName(fileDiff)
   let isEmptyFile = Diffs.isEmptyFile(fileDiff)
   let (showFullFile, setShowFullFile) = React.useState(_ => false)
+  let scopedKey = (side: string, lineNumber: int) =>
+    commentKeyPrefix ++ makeKey(fileName, side, lineNumber)
+  let parseScopedKey = key => {
+    if hasKeyPrefix(key, commentKeyPrefix) {
+      parseKey(stripKeyPrefix(key, commentKeyPrefix))
+    } else {
+      None
+    }
+  }
 
   let toggleComment = React.useCallback0((props: Diffs.lineClickProps) => {
     let lineNumber = int_of_float(props.lineNumber)
     let sideStr = props.annotationSide
-    let key = makeKey(fileName, sideStr, lineNumber)
+    let key = scopedKey(sideStr, lineNumber)
 
     setComments(prev => {
       switch Js.Dict.get(prev, key) {
@@ -137,16 +181,16 @@ let make = (
   let validAnnotationKeys = React.useMemo(() => {
     let keys: Js.Dict.t<bool> = Js.Dict.empty()
     Diffs.changedLineAnnotations(fileDiff)->Array.forEach((annotation: Diffs.lineAnnotation) => {
-      Js.Dict.set(keys, makeKey(fileName, annotation.side, annotation.lineNumber), true)
+      Js.Dict.set(keys, scopedKey(annotation.side, annotation.lineNumber), true)
     })
     keys
-  }, [fileDiff])
+  }, (fileDiff, commentKeyPrefix))
 
   let annotations = React.useMemo(() => {
     Js.Dict.keys(comments)->Array.filterMap(key => {
-      switch parseKey(key) {
+      switch parseScopedKey(key) {
       | Some((kFileName, side, lineNumber)) if kFileName == fileName =>
-        switch Js.Dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber)) {
+        switch Js.Dict.get(validAnnotationKeys, scopedKey(side, lineNumber)) {
         | Some(true) => Some(({side, lineNumber}: Diffs.lineAnnotation))
         | _ => None
         }
@@ -157,9 +201,9 @@ let make = (
 
   let fileReviewCommentKeys = React.useMemo(() => {
     Js.Dict.keys(comments)->Array.filter(key => {
-      switch parseKey(key) {
+      switch parseScopedKey(key) {
       | Some((kFileName, side, lineNumber)) if kFileName == fileName =>
-        switch Js.Dict.get(validAnnotationKeys, makeKey(fileName, side, lineNumber)) {
+        switch Js.Dict.get(validAnnotationKeys, scopedKey(side, lineNumber)) {
         | Some(true) => false
         | _ => true
         }
@@ -168,27 +212,49 @@ let make = (
     })
   }, (comments, validAnnotationKeys))
 
-  let optionsObj = React.useMemo3((): Diffs.jsObj =>
+  let optionsObj = React.useMemo4((): Diffs.jsObj =>
     Obj.magic({
       "theme": {"light": theme.light, "dark": theme.dark},
       "themeType": themeType,
+      "diffStyle": diffStyle,
       "onLineClick": toggleComment,
       "unsafeCSS": Diffs.fontUnsafeCss,
     })
-  , (theme, themeType, toggleComment))
+  , (theme, themeType, toggleComment, diffStyle))
 
   let fullFileButton = React.useCallback0((_fd: Diffs.patchFile) =>
-    <>
+    if showFullFileButton {
+      <>
+        <button
+          onClick={ev => {
+            let _ = ReactEvent.Mouse.stopPropagation(ev)
+            setShowFullFile(_ => true)
+          }}
+          className={Styles.fullFileButton(uiColors)}>
+          {React.string("View full file")}
+        </button>
+      </>
+    } else {
+      React.null
+    }
+  )
+
+  let headerMetadata = (_fd: Diffs.patchFile) =>
+    switch onDiffStyleToggle {
+    | Some(toggle) =>
       <button
+        type_="button"
+        title={if diffStyle == "unified" { "Show side-by-side diff" } else { "Show unified diff" }}
         onClick={ev => {
           let _ = ReactEvent.Mouse.stopPropagation(ev)
-          setShowFullFile(_ => true)
+          toggle()
         }}
-        className={Styles.fullFileButton(uiColors)}>
-        {React.string("View full file")}
+        className={Styles.diffStyleToggle(uiColors)}
+      >
+        {React.string(if diffStyle == "unified" { "Side by side" } else { "Unified" })}
       </button>
-    </>
-  )
+    | None => React.null
+    }
 
   <>
     {isEmptyFile
@@ -200,7 +266,7 @@ let make = (
           options={optionsObj}
           lineAnnotations={annotations}
           renderAnnotation={(annotation: Diffs.lineAnnotation) => {
-                let ckey = makeKey(fileName, annotation.side, annotation.lineNumber)
+                let ckey = scopedKey(annotation.side, annotation.lineNumber)
                 switch Js.Dict.get(comments, ckey) {
                 | Some(_) =>
                   <CommentBox
@@ -216,6 +282,7 @@ let make = (
                 }
               }}
               renderHeaderPrefix={fullFileButton}
+              renderHeaderMetadata={headerMetadata}
             />}
     {fileReviewCommentKeys->Array.length > 0
       ? <div className={Styles.fileReviewList(uiColors)}>
@@ -224,7 +291,7 @@ let make = (
           </div>
           {React.array(
             fileReviewCommentKeys->Array.map(key => {
-              switch parseKey(key) {
+              switch parseScopedKey(key) {
               | Some((_, _, lineNumber)) =>
                 <CommentBox
                   key={key}

@@ -189,6 +189,97 @@ function sidebar(colors) {
             ]);
 }
 
+function reviewModeTabs(colors) {
+  return Html.css([
+              "\n    display: grid;\n    grid-template-columns: 1fr 1fr;\n    gap: 4px;\n    padding: 8px;\n    border-bottom: 1px solid ",
+              ";\n    background-color: ",
+              ";\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg
+            ]);
+}
+
+function reviewModeTab(colors) {
+  return Html.css([
+              "\n    min-width: 0;\n    padding: 6px 8px;\n    border: 1px solid transparent;\n    border-radius: 4px;\n    background: transparent;\n    color: ",
+              ";\n    cursor: pointer;\n    font-weight: 600;\n\n    &[aria-selected=\"true\"] {\n      border-color: ",
+              ";\n      background: ",
+              ";\n      color: ",
+              ";\n    }\n\n    &:hover {\n      background: ",
+              ";\n      color: ",
+              ";\n    }\n  "
+            ], [
+              colors.descriptionFg,
+              colors.focusBorder,
+              colors.selectionBg,
+              colors.fg,
+              colors.hoverBg,
+              colors.fg
+            ]);
+}
+
+var commitList = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: auto;\n  "], []);
+
+function commitRow(colors, selected) {
+  return Html.css([
+              "\n    display: flex;\n    flex-direction: column;\n    gap: 3px;\n    width: 100%;\n    padding: 9px 10px;\n    border: 0;\n    border-bottom: 1px solid ",
+              ";\n    background: ",
+              ";\n    color: ",
+              ";\n    text-align: left;\n    cursor: pointer;\n\n    &:hover {\n      background: ",
+              ";\n    }\n  "
+            ], [
+              colors.border,
+              selected ? colors.selectionBg : "transparent",
+              colors.fg,
+              selected ? colors.selectionBg : colors.hoverBg
+            ]);
+}
+
+var commitSubject = Html.css(["\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    font-weight: 700;\n  "], []);
+
+function commitMeta(colors) {
+  return Html.css([
+              "\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    color: ",
+              ";\n    font-size: 0.846rem;\n  "
+            ], [colors.descriptionFg]);
+}
+
+function historyFilesPanel(colors) {
+  return Html.css([
+              "\n    width: 260px;\n    min-width: 220px;\n    max-width: 340px;\n    display: flex;\n    flex-direction: column;\n    min-height: 0;\n    border-right: 1px solid ",
+              ";\n    background-color: ",
+              ";\n    overflow: hidden;\n  "
+            ], [
+              colors.border,
+              colors.surfaceBg
+            ]);
+}
+
+var fileList = Html.css(["\n    flex: 1;\n    min-height: 0;\n    overflow: auto;\n  "], []);
+
+function fileRow(colors, selected) {
+  return Html.css([
+              "\n    width: 100%;\n    padding: 7px 10px;\n    border: 0;\n    border-bottom: 1px solid ",
+              ";\n    background: ",
+              ";\n    color: ",
+              ";\n    text-align: left;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    cursor: pointer;\n\n    &:hover {\n      background: ",
+              ";\n    }\n  "
+            ], [
+              colors.border,
+              selected ? colors.selectionBg : "transparent",
+              colors.fg,
+              selected ? colors.selectionBg : colors.hoverBg
+            ]);
+}
+
+function paneMessage(colors) {
+  return Html.css([
+              "\n    padding: 14px 12px;\n    color: ",
+              ";\n    white-space: pre-wrap;\n  "
+            ], [colors.descriptionFg]);
+}
+
 var main = Html.css(["\n    flex: 1;\n    min-width: 0;\n    overflow: hidden;\n  "], []);
 
 var diffWrapper = Html.css(["\n    scroll-margin-top: 8px;\n  "], []);
@@ -236,6 +327,39 @@ function errorContainer(colors) {
 }
 
 var errorMessage = Html.css(["\n    text-align: center;\n    max-width: 400px;\n    white-space: pre-wrap;\n  "], []);
+
+function repositoryPicker(colors) {
+  return Html.css([
+              "\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    justify-content: center;\n    gap: 14px;\n    flex: 1;\n    padding: 32px;\n    background: ",
+              ";\n    color: ",
+              ";\n    text-align: center;\n  "
+            ], [
+              colors.bg,
+              colors.fg
+            ]);
+}
+
+var repositoryPickerTitle = Html.css(["\n    font-size: 1.231rem;\n    font-weight: 700;\n  "], []);
+
+function repositoryPickerMessage(colors) {
+  return Html.css([
+              "\n    max-width: 520px;\n    color: ",
+              ";\n    line-height: 1.45;\n    white-space: pre-wrap;\n  "
+            ], [colors.descriptionFg]);
+}
+
+function repositoryPath(colors) {
+  return Html.css([
+              "\n    max-width: min(680px, 100%);\n    padding: 6px 8px;\n    border: 1px solid ",
+              ";\n    border-radius: 4px;\n    background: ",
+              ";\n    color: ",
+              ";\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n  "
+            ], [
+              colors.border,
+              colors.inputBg,
+              colors.inputFg
+            ]);
+}
 
 function reviewSummaryBar(colors) {
   return Html.css([
@@ -360,6 +484,16 @@ var Styles = {
   content: content,
   commitViewHost: commitViewHost,
   sidebar: sidebar,
+  reviewModeTabs: reviewModeTabs,
+  reviewModeTab: reviewModeTab,
+  commitList: commitList,
+  commitRow: commitRow,
+  commitSubject: commitSubject,
+  commitMeta: commitMeta,
+  historyFilesPanel: historyFilesPanel,
+  fileList: fileList,
+  fileRow: fileRow,
+  paneMessage: paneMessage,
   main: main,
   diffWrapper: diffWrapper,
   treeHeader: treeHeader,
@@ -367,6 +501,10 @@ var Styles = {
   loadingContainer: loadingContainer,
   errorContainer: errorContainer,
   errorMessage: errorMessage,
+  repositoryPicker: repositoryPicker,
+  repositoryPickerTitle: repositoryPickerTitle,
+  repositoryPickerMessage: repositoryPickerMessage,
+  repositoryPath: repositoryPath,
   reviewSummaryBar: reviewSummaryBar,
   reviewSummaryLabel: reviewSummaryLabel,
   settingsPage: settingsPage,
@@ -423,7 +561,7 @@ function App(props) {
   var setIsAskingPi = match$10[1];
   var isAskingPi = match$10[0];
   var match$11 = React.useState(function () {
-
+        
       });
   var setActiveReview = match$11[1];
   var activeReview = match$11[0];
@@ -442,41 +580,65 @@ function App(props) {
   var setViewMode = match$14[1];
   var viewMode = match$14[0];
   var match$15 = React.useState(function () {
-        return "";
+        return "Changed";
       });
-  var setRepoRoot = match$15[1];
+  var setReviewSourceMode = match$15[1];
+  var reviewSourceMode = match$15[0];
   var match$16 = React.useState(function () {
-        return false;
+        return "HistoryIdle";
       });
-  var setIsThemeLoading = match$16[1];
-  var isThemeLoading = match$16[0];
+  var setHistoryState = match$16[1];
+  var historyState = match$16[0];
   var match$17 = React.useState(function () {
-        return false;
-      });
-  var setIsSpecCheckOpen = match$17[1];
-  var match$18 = React.useState(function () {
         return "";
       });
-  var setPiModelsError = match$18[1];
-  var piModelsError = match$18[0];
+  var setSelectedCommitHash = match$17[1];
+  var selectedCommitHash = match$17[0];
+  var match$18 = React.useState(function () {
+        return "CommitPatchIdle";
+      });
+  var setCommitPatchState = match$18[1];
+  var commitPatchState = match$18[0];
+  var match$19 = React.useState(function () {
+        return "";
+      });
+  var setSelectedCommitFile = match$19[1];
+  var selectedCommitFile = match$19[0];
+  var match$20 = React.useState(function () {
+        return {};
+      });
+  var setHistoryDiffStyles = match$20[1];
+  var historyDiffStyles = match$20[0];
+  var match$21 = React.useState(function () {
+        return "";
+      });
+  var setRepoRoot = match$21[1];
+  var repoRoot = match$21[0];
+  var match$22 = React.useState(function () {
+        
+      });
+  var setRepoInfo = match$22[1];
+  var repoInfo = match$22[0];
+  var match$23 = React.useState(function () {
+        return false;
+      });
+  var setIsThemeLoading = match$23[1];
+  var isThemeLoading = match$23[0];
+  var match$24 = React.useState(function () {
+        return false;
+      });
+  var setIsSpecCheckOpen = match$24[1];
+  var match$25 = React.useState(function () {
+        return "";
+      });
+  var setPiModelsError = match$25[1];
+  var piModelsError = match$25[0];
   var themeLoadVersionRef = React.useRef(0);
   var lightThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("light");
         }), []);
   var darkThemeOptions = React.useMemo((function () {
           return ThemePreferences.getOptions("dark");
-        }), []);
-  React.useEffect((function () {
-          var onSuccess = function (root) {
-            setRepoRoot(function (param) {
-                  return root;
-                });
-            return Promise.resolve();
-          };
-          var onError = function (_error) {
-            return Promise.resolve();
-          };
-          Js_promise2.$$catch(Js_promise2.then(Ipc.callGetRepoRoot(), onSuccess), onError);
         }), []);
   var loadPiModels = function () {
     var onSuccess = function (result) {
@@ -538,21 +700,109 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Shiki.loadBothThemes(themeNames.light, themeNames.dark), onThemesReady), onThemeError);
         }), [themeNames]);
-  var match$19 = React.useState(function () {
+  var match$26 = React.useState(function () {
         return "PatchLoading";
       });
-  var setPatchState = match$19[1];
-  var patchState = match$19[0];
+  var setPatchState = match$26[1];
+  var patchState = match$26[0];
   var watcherReloadCountRef = React.useRef(__bakaDiffReloadRequestCount);
-  var match$20 = React.useState(function () {
+  var match$27 = React.useState(function () {
         return 0;
       });
-  var setPatchReloadVersion = match$20[1];
-  var patchReloadVersion = match$20[0];
+  var setPatchReloadVersion = match$27[1];
+  var patchReloadVersion = match$27[0];
   var requestPatchReload = function () {
     setPatchReloadVersion(function (prev) {
           return prev + 1 | 0;
         });
+  };
+  var applyRepositoryInfo = function (info) {
+    setRepoInfo(function (param) {
+          return info;
+        });
+    setRepoRoot(function (param) {
+          return info.repoRoot;
+        });
+  };
+  var resetRepositoryScopedState = function () {
+    setComments(function (param) {
+          return {};
+        });
+    setReviewSuggestions(function (param) {
+          return {};
+        });
+    setReviewSummary(function (param) {
+          return "No full review has run yet.";
+        });
+    setReviewSummaryLabel(function (param) {
+          return "Review";
+        });
+    setActiveReview(function (param) {
+          
+        });
+    setIsSpecCheckOpen(function (param) {
+          return false;
+        });
+    setReviewSourceMode(function (param) {
+          return "Changed";
+        });
+    setHistoryState(function (param) {
+          return "HistoryIdle";
+        });
+    setSelectedCommitHash(function (param) {
+          return "";
+        });
+    setCommitPatchState(function (param) {
+          return "CommitPatchIdle";
+        });
+    setSelectedCommitFile(function (param) {
+          return "";
+        });
+    setHistoryDiffStyles(function (param) {
+          return {};
+        });
+  };
+  var loadRepositoryInfo = function () {
+    var onSuccess = function (info) {
+      applyRepositoryInfo(info);
+      return Promise.resolve();
+    };
+    var onError = function (_error) {
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callGetRepositoryInfo(), onSuccess), onError);
+  };
+  React.useEffect((function () {
+          loadRepositoryInfo();
+        }), []);
+  var handleChooseWorkingFolder = function (_event) {
+    var onSuccess = function (info) {
+      if (!info.canceled) {
+        setPatchState(function (param) {
+              return "PatchLoading";
+            });
+        applyRepositoryInfo(info);
+        resetRepositoryScopedState();
+        setViewMode(function (param) {
+              return "Review";
+            });
+        requestPatchReload();
+      }
+      return Promise.resolve();
+    };
+    var onError = function (error) {
+      var message = Raw.errorMessage(error);
+      if (message !== "Folder selection canceled") {
+        setPatchState(function (param) {
+              return {
+                      TAG: "PatchError",
+                      _0: message
+                    };
+            });
+      }
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callChooseWorkingFolder(), onSuccess), onError);
   };
   React.useEffect((function () {
           var interval = setInterval((function () {
@@ -563,7 +813,7 @@ function App(props) {
                                 return prev + 1 | 0;
                               });
                   }
-
+                  
                 }), 250);
           return (function () {
                     clearInterval(interval);
@@ -596,6 +846,98 @@ function App(props) {
           };
           Js_promise2.$$catch(Js_promise2.then(Ipc.callGetPatch(), onSuccess), onError);
         }), [patchReloadVersion]);
+  React.useEffect((function () {
+          if (reviewSourceMode === "Changed") {
+            return ;
+          }
+          if (typeof historyState === "object") {
+            return ;
+          }
+          if (historyState !== "HistoryIdle") {
+            return ;
+          }
+          setHistoryState(function (param) {
+                return "HistoryLoading";
+              });
+          var onSuccess = function (commits) {
+            setHistoryState(function (param) {
+                  return {
+                          TAG: "HistoryReady",
+                          _0: commits
+                        };
+                });
+            var commit = Belt_Array.get(commits, 0);
+            if (commit !== undefined && selectedCommitHash === "") {
+              setSelectedCommitHash(function (param) {
+                    return commit.hash;
+                  });
+            }
+            return Promise.resolve();
+          };
+          var onError = function (err) {
+            setHistoryState(function (param) {
+                  return {
+                          TAG: "HistoryError",
+                          _0: Raw.errorMessage(err)
+                        };
+                });
+            return Promise.resolve();
+          };
+          Js_promise2.$$catch(Js_promise2.then(Ipc.callGetCommitHistory(), onSuccess), onError);
+        }), [
+        reviewSourceMode,
+        historyState
+      ]);
+  React.useEffect((function () {
+          if (!(reviewSourceMode === "History" && selectedCommitHash !== "")) {
+            return ;
+          }
+          setCommitPatchState(function (param) {
+                return "CommitPatchLoading";
+              });
+          setSelectedCommitFile(function (param) {
+                return "";
+              });
+          var onSuccess = function (rawPatch) {
+            var parsed = Diffs$1.parsePatchFiles(rawPatch);
+            setCommitPatchState(function (param) {
+                  return {
+                          TAG: "CommitPatchReady",
+                          _0: rawPatch,
+                          _1: parsed
+                        };
+                });
+            var files = parsed.flatMap(function (patch) {
+                  return patch.files.map(function (fileDiff) {
+                              return Diffs.fileDiffName(fileDiff);
+                            });
+                });
+            var fileName = Belt_Array.get(files, 0);
+            if (fileName !== undefined) {
+              setSelectedCommitFile(function (param) {
+                    return fileName;
+                  });
+            } else {
+              setSelectedCommitFile(function (param) {
+                    return "";
+                  });
+            }
+            return Promise.resolve();
+          };
+          var onError = function (err) {
+            setCommitPatchState(function (param) {
+                  return {
+                          TAG: "CommitPatchError",
+                          _0: Raw.errorMessage(err)
+                        };
+                });
+            return Promise.resolve();
+          };
+          Js_promise2.$$catch(Js_promise2.then(Ipc.callGetCommitPatch(selectedCommitHash), onSuccess), onError);
+        }), [
+        reviewSourceMode,
+        selectedCommitHash
+      ]);
   var headerStyle = header(currentColors);
   var buttonStyle = button(currentColors);
   var settingsAriaPressed = viewMode === "Settings" ? "true" : "false";
@@ -612,7 +954,7 @@ function App(props) {
       savedScrollTop.current = firstChild.scrollTop;
       return ;
     }
-
+    
   };
   var diffFilePaths = React.useMemo((function () {
           if (typeof patchState !== "object") {
@@ -650,7 +992,7 @@ function App(props) {
                 return ;
               }
             }
-
+            
           })
       });
   React.useEffect((function () {
@@ -698,6 +1040,27 @@ function App(props) {
                 };
         });
   };
+  var historyCommentPrefix = selectedCommitHash !== "" ? "history:" + selectedCommitHash + "|" : "";
+  var historyDiffStyleKey = function (fileName) {
+    return selectedCommitHash + "|" + fileName;
+  };
+  var historyDiffStyleFor = function (fileName) {
+    var style = Js_dict.get(historyDiffStyles, historyDiffStyleKey(fileName));
+    if (style !== undefined) {
+      return style;
+    } else {
+      return "unified";
+    }
+  };
+  var historyRawPatch;
+  historyRawPatch = typeof commitPatchState !== "object" || commitPatchState.TAG !== "CommitPatchReady" ? "" : commitPatchState._0;
+  var scopedAskKey = function (key) {
+    if (reviewSourceMode === "History") {
+      return historyCommentPrefix + key;
+    } else {
+      return key;
+    }
+  };
   var handleAskPi = function (_event) {
     if (isAskingPi) {
       return ;
@@ -705,13 +1068,30 @@ function App(props) {
     console.log("[BAKA UI] Ask Pi button clicked");
     var payloadComments = Core__Array.filterMap(Object.keys(comments), (function (key) {
             var c = Js_dict.get(comments, key);
-            if (c !== undefined && c.text.trim().length > 0 && c.aiReply === "AiIdle") {
+            if (c === undefined) {
+              return ;
+            }
+            if (!(c.text.trim().length > 0 && c.aiReply === "AiIdle")) {
+              return ;
+            }
+            if (reviewSourceMode !== "Changed") {
+              if (historyCommentPrefix !== "" && InlineComment.hasKeyPrefix(key, historyCommentPrefix)) {
+                return {
+                        commentKey: InlineComment.stripKeyPrefix(key, historyCommentPrefix),
+                        text: c.text
+                      };
+              } else {
+                return ;
+              }
+            }
+            var match = InlineComment.parseKey(key);
+            if (match !== undefined) {
               return {
                       commentKey: key,
                       text: c.text
                     };
             }
-
+            
           }));
     if (payloadComments.length === 0) {
       console.log("[BAKA UI] Ask Pi has no pending comments");
@@ -719,7 +1099,15 @@ function App(props) {
                   var newDict = InlineComment.copyDict(prev);
                   Object.keys(newDict).forEach(function (key) {
                         var c = Js_dict.get(newDict, key);
-                        if (c !== undefined && c.text.trim().length > 0 && c.aiReply === "AiIdle") {
+                        if (c === undefined) {
+                          return ;
+                        }
+                        if (!(c.text.trim().length > 0 && c.aiReply === "AiIdle")) {
+                          return ;
+                        }
+                        var inScope;
+                        inScope = reviewSourceMode === "Changed" ? InlineComment.parseKey(key) !== undefined : historyCommentPrefix !== "" && InlineComment.hasKeyPrefix(key, historyCommentPrefix);
+                        if (inScope) {
                           newDict[key] = {
                             text: c.text,
                             aiReply: {
@@ -729,7 +1117,7 @@ function App(props) {
                           };
                           return ;
                         }
-
+                        
                       });
                   return newDict;
                 });
@@ -739,9 +1127,10 @@ function App(props) {
     setComments(function (prev) {
           var newDict = InlineComment.copyDict(prev);
           payloadComments.forEach(function (pc) {
-                var c = Js_dict.get(newDict, pc.commentKey);
+                var key = scopedAskKey(pc.commentKey);
+                var c = Js_dict.get(newDict, key);
                 if (c !== undefined) {
-                  newDict[pc.commentKey] = {
+                  newDict[key] = {
                     text: c.text,
                     aiReply: {
                       TAG: "AiStreaming",
@@ -750,7 +1139,7 @@ function App(props) {
                   };
                   return ;
                 }
-
+                
               });
           return newDict;
         });
@@ -769,10 +1158,11 @@ function App(props) {
             var newDict = InlineComment.copyDict(prev);
             replies.forEach(function (reply) {
                   var key = InlineComment.normalizeModelKey(reply.commentKey);
-                  console.log("[BAKA UI] Ask Pi applying reply key", key);
-                  var c = Js_dict.get(newDict, key);
+                  var scopedKey = scopedAskKey(key);
+                  console.log("[BAKA UI] Ask Pi applying reply key", scopedKey);
+                  var c = Js_dict.get(newDict, scopedKey);
                   if (c !== undefined) {
-                    newDict[key] = {
+                    newDict[scopedKey] = {
                       text: c.text,
                       aiReply: {
                         TAG: "AiDone",
@@ -781,7 +1171,7 @@ function App(props) {
                     };
                     return ;
                   }
-
+                  
                 });
             return newDict;
           });
@@ -789,7 +1179,7 @@ function App(props) {
             return false;
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -799,9 +1189,10 @@ function App(props) {
       setComments(function (prev) {
             var newDict = InlineComment.copyDict(prev);
             payloadComments.forEach(function (pc) {
-                  var c = Js_dict.get(newDict, pc.commentKey);
+                  var key = scopedAskKey(pc.commentKey);
+                  var c = Js_dict.get(newDict, key);
                   if (c !== undefined) {
-                    newDict[pc.commentKey] = {
+                    newDict[key] = {
                       text: c.text,
                       aiReply: {
                         TAG: "AiError",
@@ -810,7 +1201,7 @@ function App(props) {
                     };
                     return ;
                   }
-
+                  
                 });
             return newDict;
           });
@@ -818,11 +1209,11 @@ function App(props) {
             return false;
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
-    Js_promise2.$$catch(Js_promise2.then(Ipc.callAskPi(payloadComments, model), onSuccess), onError);
+    Js_promise2.$$catch(Js_promise2.then(reviewSourceMode === "History" ? Ipc.callAskPiWithDiff(historyRawPatch, payloadComments, model) : Ipc.callAskPi(payloadComments, model), onSuccess), onError);
   };
   var handleFullReview = function (kind, _event) {
     if (activeReview !== undefined) {
@@ -911,15 +1302,15 @@ function App(props) {
                     };
                     return ;
                   }
-
+                  
                 });
             return newDict;
           });
       setActiveReview(function (param) {
-
+            
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -930,10 +1321,10 @@ function App(props) {
             return label + " failed: " + msg;
           });
       setActiveReview(function (param) {
-
+            
           });
       setActivePiRun(function (param) {
-
+            
           });
       return Promise.resolve();
     };
@@ -958,7 +1349,7 @@ function App(props) {
                       });
                   return ;
                 }
-
+                
               });
           return (function () {
                     cancelAnimationFrame(handle);
@@ -1016,6 +1407,60 @@ function App(props) {
         isDark,
         themeNames,
         currentColors
+      ]);
+  var historyCommits;
+  historyCommits = typeof historyState !== "object" ? [] : (
+      historyState.TAG === "HistoryReady" ? historyState._0 : []
+    );
+  var selectedCommit = historyCommits.find(function (commit) {
+        return commit.hash === selectedCommitHash;
+      });
+  var historyFileDiffs;
+  historyFileDiffs = typeof commitPatchState !== "object" ? [] : (
+      commitPatchState.TAG === "CommitPatchReady" ? commitPatchState._1.flatMap(function (patch) {
+              return patch.files;
+            }) : []
+    );
+  var historyFileNames = historyFileDiffs.map(function (fileDiff) {
+        return Diffs.fileDiffName(fileDiff);
+      });
+  var selectedHistoryFileDiffs = selectedCommitFile === "" ? historyFileDiffs : historyFileDiffs.filter(function (fileDiff) {
+          return Diffs.fileDiffName(fileDiff) === selectedCommitFile;
+        });
+  var historyDiffChildren = React.useMemo((function () {
+          return selectedHistoryFileDiffs.map(function (fileDiff) {
+                      var fileName = Diffs.fileDiffName(fileDiff);
+                      var diffStyle = historyDiffStyleFor(fileName);
+                      return JsxRuntime.jsx("div", {
+                                  children: JsxRuntime.jsx(InlineComment.make, {
+                                        fileDiff: fileDiff,
+                                        theme: style,
+                                        themeType: isDark ? "dark" : "light",
+                                        uiColors: currentColors,
+                                        commentKeyPrefix: historyCommentPrefix,
+                                        showFullFileButton: false,
+                                        diffStyle: diffStyle,
+                                        onDiffStyleToggle: (function () {
+                                            var key = historyDiffStyleKey(fileName);
+                                            setHistoryDiffStyles(function (prev) {
+                                                  var next = Raw.copyDict(prev);
+                                                  var style = Js_dict.get(prev, key);
+                                                  var current = style !== undefined ? style : "unified";
+                                                  next[key] = current === "unified" ? "split" : "unified";
+                                                  return next;
+                                                });
+                                          })
+                                      }),
+                                  className: diffWrapper,
+                                  id: "history-" + fileName
+                                }, selectedCommitHash + ":" + fileName);
+                    });
+        }), [
+        selectedHistoryFileDiffs,
+        isDark,
+        themeNames,
+        currentColors,
+        historyDiffStyles
       ]);
   var renderModelSelect = function (label, hint, value, inherit, onChange) {
     return JsxRuntime.jsxs("label", {
@@ -1316,16 +1761,53 @@ function App(props) {
     piStatus = activePiRun.action + " · " + displayPiModel(activePiRun.model);
   } else {
     var parts = idlePiStatus.split(" · ");
-    var match$21 = parts[0];
-    var match$22 = parts[1];
-    piStatus = match$21 !== undefined && match$22 !== undefined ? match$21 + " · " + displayPiModel(match$22) : idlePiStatus;
+    var match$28 = parts[0];
+    var match$29 = parts[1];
+    piStatus = match$28 !== undefined && match$29 !== undefined ? match$28 + " · " + displayPiModel(match$29) : idlePiStatus;
   }
+  var hasGitRepository = repoInfo !== undefined ? repoInfo.isGitRepository : repoRoot !== "";
+  var activeRepositoryPath = repoInfo !== undefined ? (
+      repoInfo.repoRoot !== "" ? repoInfo.repoRoot : repoInfo.workingDirectory
+    ) : repoRoot;
+  var renderRepositoryPicker = function (message) {
+    return JsxRuntime.jsxs("div", {
+                children: [
+                  JsxRuntime.jsx("div", {
+                        children: "Choose a repository",
+                        className: repositoryPickerTitle
+                      }),
+                  JsxRuntime.jsx("div", {
+                        children: message,
+                        className: repositoryPickerMessage(currentColors)
+                      }),
+                  activeRepositoryPath !== "" ? JsxRuntime.jsx("div", {
+                          children: activeRepositoryPath,
+                          className: repositoryPath(currentColors),
+                          title: activeRepositoryPath
+                        }) : null,
+                  JsxRuntime.jsx("button", {
+                        children: "Open Repository",
+                        className: buttonStyle,
+                        type: "button",
+                        onClick: handleChooseWorkingFolder
+                      })
+                ],
+                className: repositoryPicker(currentColors)
+              });
+  };
   if (typeof patchState !== "object") {
     return JsxRuntime.jsxs("div", {
                 children: [
                   JsxRuntime.jsx("div", {
                         children: JsxRuntime.jsxs("div", {
                               children: [
+                                JsxRuntime.jsx("button", {
+                                      children: "Open Repository",
+                                      className: buttonStyle,
+                                      title: "Choose repository",
+                                      type: "button",
+                                      onClick: handleChooseWorkingFolder
+                                    }),
                                 JsxRuntime.jsx("button", {
                                       children: isDark ? "Light Mode" : "Dark Mode",
                                       className: buttonStyle,
@@ -1358,276 +1840,457 @@ function App(props) {
                 className: container
               });
   }
-  if (patchState.TAG !== "PatchReady") {
+  if (patchState.TAG === "PatchReady") {
+    var tmp$1;
+    switch (viewMode) {
+      case "Review" :
+          var tmp$2;
+          if (reviewSourceMode === "Changed") {
+            tmp$2 = JsxRuntime.jsx(React$2.FileTree, {
+                  model: fileTree.model,
+                  header: Caml_option.some(JsxRuntime.jsx("div", {
+                            children: "Changed files",
+                            className: treeHeader(currentColors)
+                          })),
+                  style: Caml_option.some(treeStyle(currentColors))
+                });
+          } else {
+            var tmp$3;
+            var exit$1 = 0;
+            if (typeof historyState !== "object") {
+              exit$1 = 1;
+            } else if (historyState.TAG === "HistoryReady") {
+              var commits = historyState._0;
+              tmp$3 = commits.length === 0 ? JsxRuntime.jsx("div", {
+                      children: "No commits found.",
+                      className: paneMessage(currentColors)
+                    }) : commits.map(function (commit) {
+                      return JsxRuntime.jsxs("button", {
+                                  children: [
+                                    JsxRuntime.jsx("span", {
+                                          children: commit.subject,
+                                          className: commitSubject
+                                        }),
+                                    JsxRuntime.jsx("span", {
+                                          children: commit.author + " · " + commit.date + " · " + commit.shortHash,
+                                          className: commitMeta(currentColors)
+                                        })
+                                  ],
+                                  className: commitRow(currentColors, commit.hash === selectedCommitHash),
+                                  title: commit.subject,
+                                  type: "button",
+                                  onClick: (function (param) {
+                                      setSelectedCommitHash(function (param) {
+                                            return commit.hash;
+                                          });
+                                    })
+                                }, commit.hash);
+                    });
+            } else {
+              tmp$3 = JsxRuntime.jsx("div", {
+                    children: historyState._0,
+                    className: paneMessage(currentColors)
+                  });
+            }
+            if (exit$1 === 1) {
+              tmp$3 = JsxRuntime.jsx("div", {
+                    children: "Loading commits...",
+                    className: paneMessage(currentColors)
+                  });
+            }
+            tmp$2 = JsxRuntime.jsxs(JsxRuntime.Fragment, {
+                  children: [
+                    JsxRuntime.jsx("div", {
+                          children: "Commits",
+                          className: treeHeader(currentColors)
+                        }),
+                    JsxRuntime.jsx("div", {
+                          children: tmp$3,
+                          className: commitList
+                        })
+                  ]
+                });
+          }
+          var tmp$4;
+          if (reviewSourceMode === "History") {
+            var tmp$5;
+            tmp$5 = typeof commitPatchState !== "object" ? (
+                commitPatchState === "CommitPatchIdle" ? JsxRuntime.jsx("div", {
+                        children: "Select a commit.",
+                        className: paneMessage(currentColors)
+                      }) : JsxRuntime.jsx("div", {
+                        children: "Loading files...",
+                        className: paneMessage(currentColors)
+                      })
+              ) : (
+                commitPatchState.TAG === "CommitPatchReady" ? (
+                    historyFileNames.length === 0 ? JsxRuntime.jsx("div", {
+                            children: "No changed files in this commit.",
+                            className: paneMessage(currentColors)
+                          }) : historyFileNames.map(function (fileName) {
+                            return JsxRuntime.jsx("button", {
+                                        children: fileName,
+                                        className: fileRow(currentColors, fileName === selectedCommitFile),
+                                        title: fileName,
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setSelectedCommitFile(function (param) {
+                                                  return fileName;
+                                                });
+                                          })
+                                      }, fileName);
+                          })
+                  ) : JsxRuntime.jsx("div", {
+                        children: commitPatchState._0,
+                        className: paneMessage(currentColors)
+                      })
+              );
+            tmp$4 = JsxRuntime.jsxs("aside", {
+                  children: [
+                    JsxRuntime.jsx("div", {
+                          children: selectedCommit !== undefined ? "Files in " + selectedCommit.shortHash : "Files",
+                          className: treeHeader(currentColors)
+                        }),
+                    JsxRuntime.jsx("div", {
+                          children: tmp$5,
+                          className: fileList
+                        })
+                  ],
+                  className: historyFilesPanel(currentColors)
+                });
+          } else {
+            tmp$4 = null;
+          }
+          var tmp$6;
+          tmp$6 = reviewSourceMode === "Changed" ? JsxRuntime.jsx(React$1.Virtualizer, {
+                  children: diffChildren,
+                  style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                }) : (
+              typeof commitPatchState !== "object" ? (
+                  commitPatchState === "CommitPatchIdle" ? JsxRuntime.jsx("div", {
+                          children: "Select a commit to review.",
+                          className: paneMessage(currentColors)
+                        }) : JsxRuntime.jsx("div", {
+                          children: "Loading commit diff...",
+                          className: paneMessage(currentColors)
+                        })
+                ) : (
+                  commitPatchState.TAG === "CommitPatchReady" ? JsxRuntime.jsx(React$1.Virtualizer, {
+                          children: historyDiffChildren,
+                          style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
+                        }) : JsxRuntime.jsx("div", {
+                          children: commitPatchState._0,
+                          className: paneMessage(currentColors)
+                        })
+                )
+            );
+          tmp$1 = JsxRuntime.jsxs("div", {
+                children: [
+                  JsxRuntime.jsxs("aside", {
+                        children: [
+                          JsxRuntime.jsxs("div", {
+                                children: [
+                                  JsxRuntime.jsx("button", {
+                                        children: "Changed",
+                                        "aria-selected": reviewSourceMode === "Changed",
+                                        className: reviewModeTab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setReviewSourceMode(function (param) {
+                                                  return "Changed";
+                                                });
+                                          })
+                                      }),
+                                  JsxRuntime.jsx("button", {
+                                        children: "History",
+                                        "aria-selected": reviewSourceMode === "History",
+                                        className: reviewModeTab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setReviewSourceMode(function (param) {
+                                                  return "History";
+                                                });
+                                          })
+                                      })
+                                ],
+                                "aria-label": "Review source",
+                                className: reviewModeTabs(currentColors),
+                                role: "tablist"
+                              }),
+                          tmp$2
+                        ],
+                        className: sidebar(currentColors)
+                      }),
+                  tmp$4,
+                  JsxRuntime.jsx("main", {
+                        children: tmp$6,
+                        ref: Caml_option.some(virtualizerWrapperRef),
+                        className: main
+                      })
+                ],
+                className: content
+              });
+          break;
+      case "Project" :
+          tmp$1 = JsxRuntime.jsx(ProjectView.make, {
+                theme: style,
+                themeType: isDark ? "dark" : "light",
+                uiColors: currentColors
+              });
+          break;
+      case "Commit" :
+          tmp$1 = null;
+          break;
+      case "Feature" :
+          tmp$1 = JsxRuntime.jsx(NewFeatureView.make, {
+                uiColors: currentColors,
+                onApplied: requestPatchReload
+              });
+          break;
+      case "Settings" :
+          tmp$1 = renderSettings();
+          break;
+      
+    }
     return JsxRuntime.jsxs("div", {
                 children: [
-                  JsxRuntime.jsx("div", {
-                        children: JsxRuntime.jsxs("div", {
-                              children: [
-                                JsxRuntime.jsx("button", {
-                                      children: isDark ? "Light Mode" : "Dark Mode",
-                                      className: buttonStyle,
-                                      type: "button",
-                                      onClick: handleThemeToggle
-                                    }),
-                                JsxRuntime.jsx("button", {
-                                      children: "⚙",
-                                      "aria-label": "Open settings",
-                                      "aria-pressed": settingsAriaPressed,
-                                      className: iconButton(currentColors),
-                                      title: "Settings",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Settings";
-                                              });
-                                        })
-                                    })
-                              ],
-                              className: headerActions
-                            }),
+                  JsxRuntime.jsxs("div", {
+                        children: [
+                          JsxRuntime.jsxs("div", {
+                                children: [
+                                  JsxRuntime.jsx("button", {
+                                        children: "Review",
+                                        "aria-selected": viewMode === "Review",
+                                        className: tab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setViewMode(function (param) {
+                                                  return "Review";
+                                                });
+                                          })
+                                      }),
+                                  JsxRuntime.jsx("button", {
+                                        children: "Project",
+                                        "aria-selected": viewMode === "Project",
+                                        className: tab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setViewMode(function (param) {
+                                                  return "Project";
+                                                });
+                                          })
+                                      }),
+                                  JsxRuntime.jsx("button", {
+                                        children: "Commit",
+                                        "aria-selected": viewMode === "Commit",
+                                        className: tab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setViewMode(function (param) {
+                                                  return "Commit";
+                                                });
+                                          })
+                                      }),
+                                  JsxRuntime.jsx("button", {
+                                        children: "New Feature",
+                                        "aria-selected": viewMode === "Feature",
+                                        className: tab(currentColors),
+                                        role: "tab",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setViewMode(function (param) {
+                                                  return "Feature";
+                                                });
+                                          })
+                                      })
+                                ],
+                                "aria-label": "Main views",
+                                className: tabs(currentColors),
+                                role: "tablist"
+                              }),
+                          JsxRuntime.jsxs("div", {
+                                children: [
+                                  JsxRuntime.jsx("button", {
+                                        children: "Open Repository",
+                                        className: buttonStyle,
+                                        title: "Choose repository",
+                                        type: "button",
+                                        onClick: handleChooseWorkingFolder
+                                      }),
+                                  viewMode === "Review" ? JsxRuntime.jsxs("div", {
+                                          children: [
+                                            JsxRuntime.jsx("button", {
+                                                  children: isReviewing || isAskingPi ? "AI working…" : "AI ▾",
+                                                  "aria-haspopup": "menu",
+                                                  className: askPiButton(currentColors, isReviewing || isAskingPi),
+                                                  type: "button"
+                                                }),
+                                            JsxRuntime.jsxs("div", {
+                                                  children: [
+                                                    JsxRuntime.jsx("button", {
+                                                          children: isAskingPi ? "Asking Pi…" : "Ask Pi",
+                                                          className: aiMenuItem(currentColors, isAskingPi),
+                                                          role: "menuitem",
+                                                          disabled: isAskingPi,
+                                                          type: "button",
+                                                          onClick: handleAskPi
+                                                        }),
+                                                    JsxRuntime.jsx("button", {
+                                                          children: isCodeReviewing ? "Reviewing…" : "Code Review",
+                                                          className: aiMenuItem(currentColors, isReviewing),
+                                                          role: "menuitem",
+                                                          title: reviewButtonTitle,
+                                                          disabled: isReviewing,
+                                                          type: "button",
+                                                          onClick: (function ($$event) {
+                                                              handleFullReview("CodeReview", $$event);
+                                                            })
+                                                        }),
+                                                    JsxRuntime.jsx("button", {
+                                                          children: isCheckingVulnerabilities ? "Checking…" : "Vulnerability Check",
+                                                          className: aiMenuItem(currentColors, isReviewing),
+                                                          role: "menuitem",
+                                                          title: reviewButtonTitle,
+                                                          disabled: isReviewing,
+                                                          type: "button",
+                                                          onClick: (function ($$event) {
+                                                              handleFullReview("VulnerabilityCheck", $$event);
+                                                            })
+                                                        }),
+                                                    JsxRuntime.jsx("button", {
+                                                          children: "Check against spec",
+                                                          className: aiMenuItem(currentColors, false),
+                                                          role: "menuitem",
+                                                          type: "button",
+                                                          onClick: (function (param) {
+                                                              setIsSpecCheckOpen(function (param) {
+                                                                    return true;
+                                                                  });
+                                                            })
+                                                        })
+                                                  ],
+                                                  className: aiMenuPanel(currentColors),
+                                                  role: "menu"
+                                                })
+                                          ],
+                                          className: aiMenu
+                                        }) : null,
+                                  JsxRuntime.jsx("button", {
+                                        children: isDark ? "Light Mode" : "Dark Mode",
+                                        className: buttonStyle,
+                                        type: "button",
+                                        onClick: handleThemeToggle
+                                      }),
+                                  JsxRuntime.jsx("button", {
+                                        children: "⚙",
+                                        "aria-label": "Open settings",
+                                        "aria-pressed": settingsAriaPressed,
+                                        className: iconButton(currentColors),
+                                        title: "Settings",
+                                        type: "button",
+                                        onClick: (function (param) {
+                                            setViewMode(function (param) {
+                                                  return "Settings";
+                                                });
+                                          })
+                                      })
+                                ],
+                                className: headerActions
+                              })
+                        ],
                         className: headerStyle
                       }),
-                  viewMode === "Settings" ? renderSettings() : JsxRuntime.jsx("div", {
-                          children: JsxRuntime.jsx("div", {
-                                children: "Failed to load diff:\n\n" + patchState._0,
-                                className: errorMessage
-                              }),
-                          className: errorContainer(currentColors)
-                        })
+                  viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
+                          children: [
+                            JsxRuntime.jsx("span", {
+                                  children: match$13[0],
+                                  className: reviewSummaryLabel(currentColors)
+                                }),
+                            reviewSummaryText
+                          ],
+                          className: reviewSummaryBar(currentColors)
+                        }) : null,
+                  match$24[0] ? JsxRuntime.jsx(SpecCheckView.make, {
+                          uiColors: currentColors,
+                          themeType: isDark ? "dark" : "light",
+                          onClose: (function () {
+                              setIsSpecCheckOpen(function (param) {
+                                    return false;
+                                  });
+                            }),
+                          onChanged: requestPatchReload
+                        }) : null,
+                  JsxRuntime.jsx("div", {
+                        children: JsxRuntime.jsx(CommitView.make, {
+                              patches: patchState._0,
+                              repoRoot: repoRoot,
+                              theme: style,
+                              themeType: isDark ? "dark" : "light",
+                              uiColors: currentColors,
+                              onCommitted: requestPatchReload
+                            }),
+                        className: commitViewHost(viewMode !== "Commit")
+                      }),
+                  tmp$1,
+                  JsxRuntime.jsx("div", {
+                        children: "Pi · " + piStatus,
+                        className: statusBar(currentColors)
+                      })
                 ],
                 className: container
               });
   }
-  var tmp$1;
-  switch (viewMode) {
-    case "Review" :
-        tmp$1 = JsxRuntime.jsxs("div", {
-              children: [
-                JsxRuntime.jsx("aside", {
-                      children: JsxRuntime.jsx(React$2.FileTree, {
-                            model: fileTree.model,
-                            header: Caml_option.some(JsxRuntime.jsx("div", {
-                                      children: "Changed files",
-                                      className: treeHeader(currentColors)
-                                    })),
-                            style: Caml_option.some(treeStyle(currentColors))
-                          }),
-                      className: sidebar(currentColors)
-                    }),
-                JsxRuntime.jsx("main", {
-                      children: JsxRuntime.jsx(React$1.Virtualizer, {
-                            children: diffChildren,
-                            style: Caml_option.some({"height": "100%", "overflow-y": "auto"})
-                          }),
-                      ref: Caml_option.some(virtualizerWrapperRef),
-                      className: main
-                    })
-              ],
-              className: content
-            });
-        break;
-    case "Project" :
-        tmp$1 = JsxRuntime.jsx(ProjectView.make, {
-              theme: style,
-              themeType: isDark ? "dark" : "light",
-              uiColors: currentColors
-            });
-        break;
-    case "Commit" :
-        tmp$1 = null;
-        break;
-    case "Feature" :
-        tmp$1 = JsxRuntime.jsx(NewFeatureView.make, {
-              uiColors: currentColors,
-              onApplied: requestPatchReload
-            });
-        break;
-    case "Settings" :
-        tmp$1 = renderSettings();
-        break;
-
-  }
+  var msg = patchState._0;
   return JsxRuntime.jsxs("div", {
               children: [
-                JsxRuntime.jsxs("div", {
-                      children: [
-                        JsxRuntime.jsxs("div", {
-                              children: [
-                                JsxRuntime.jsx("button", {
-                                      children: "Review",
-                                      "aria-selected": viewMode === "Review",
-                                      className: tab(currentColors),
-                                      role: "tab",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Review";
-                                              });
-                                        })
-                                    }),
-                                JsxRuntime.jsx("button", {
-                                      children: "Project",
-                                      "aria-selected": viewMode === "Project",
-                                      className: tab(currentColors),
-                                      role: "tab",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Project";
-                                              });
-                                        })
-                                    }),
-                                JsxRuntime.jsx("button", {
-                                      children: "Commit",
-                                      "aria-selected": viewMode === "Commit",
-                                      className: tab(currentColors),
-                                      role: "tab",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Commit";
-                                              });
-                                        })
-                                    }),
-                                JsxRuntime.jsx("button", {
-                                      children: "New Feature",
-                                      "aria-selected": viewMode === "Feature",
-                                      className: tab(currentColors),
-                                      role: "tab",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Feature";
-                                              });
-                                        })
-                                    })
-                              ],
-                              "aria-label": "Main views",
-                              className: tabs(currentColors),
-                              role: "tablist"
-                            }),
-                        JsxRuntime.jsxs("div", {
-                              children: [
-                                viewMode === "Review" ? JsxRuntime.jsxs("div", {
-                                        children: [
-                                          JsxRuntime.jsx("button", {
-                                                children: isReviewing || isAskingPi ? "AI working…" : "AI ▾",
-                                                "aria-haspopup": "menu",
-                                                className: askPiButton(currentColors, isReviewing || isAskingPi),
-                                                type: "button"
-                                              }),
-                                          JsxRuntime.jsxs("div", {
-                                                children: [
-                                                  JsxRuntime.jsx("button", {
-                                                        children: isAskingPi ? "Asking Pi…" : "Ask Pi",
-                                                        className: aiMenuItem(currentColors, isAskingPi),
-                                                        role: "menuitem",
-                                                        disabled: isAskingPi,
-                                                        type: "button",
-                                                        onClick: handleAskPi
-                                                      }),
-                                                  JsxRuntime.jsx("button", {
-                                                        children: isCodeReviewing ? "Reviewing…" : "Code Review",
-                                                        className: aiMenuItem(currentColors, isReviewing),
-                                                        role: "menuitem",
-                                                        title: reviewButtonTitle,
-                                                        disabled: isReviewing,
-                                                        type: "button",
-                                                        onClick: (function ($$event) {
-                                                            handleFullReview("CodeReview", $$event);
-                                                          })
-                                                      }),
-                                                  JsxRuntime.jsx("button", {
-                                                        children: isCheckingVulnerabilities ? "Checking…" : "Vulnerability Check",
-                                                        className: aiMenuItem(currentColors, isReviewing),
-                                                        role: "menuitem",
-                                                        title: reviewButtonTitle,
-                                                        disabled: isReviewing,
-                                                        type: "button",
-                                                        onClick: (function ($$event) {
-                                                            handleFullReview("VulnerabilityCheck", $$event);
-                                                          })
-                                                      }),
-                                                  JsxRuntime.jsx("button", {
-                                                        children: "Check against spec",
-                                                        className: aiMenuItem(currentColors, false),
-                                                        role: "menuitem",
-                                                        type: "button",
-                                                        onClick: (function (param) {
-                                                            setIsSpecCheckOpen(function (param) {
-                                                                  return true;
-                                                                });
-                                                          })
-                                                      })
-                                                ],
-                                                className: aiMenuPanel(currentColors),
-                                                role: "menu"
-                                              })
-                                        ],
-                                        className: aiMenu
-                                      }) : null,
-                                JsxRuntime.jsx("button", {
-                                      children: isDark ? "Light Mode" : "Dark Mode",
-                                      className: buttonStyle,
-                                      type: "button",
-                                      onClick: handleThemeToggle
-                                    }),
-                                JsxRuntime.jsx("button", {
-                                      children: "⚙",
-                                      "aria-label": "Open settings",
-                                      "aria-pressed": settingsAriaPressed,
-                                      className: iconButton(currentColors),
-                                      title: "Settings",
-                                      type: "button",
-                                      onClick: (function (param) {
-                                          setViewMode(function (param) {
-                                                return "Settings";
-                                              });
-                                        })
-                                    })
-                              ],
-                              className: headerActions
-                            })
-                      ],
+                JsxRuntime.jsx("div", {
+                      children: JsxRuntime.jsxs("div", {
+                            children: [
+                              JsxRuntime.jsx("button", {
+                                    children: "Open Repository",
+                                    className: buttonStyle,
+                                    title: "Choose repository",
+                                    type: "button",
+                                    onClick: handleChooseWorkingFolder
+                                  }),
+                              JsxRuntime.jsx("button", {
+                                    children: isDark ? "Light Mode" : "Dark Mode",
+                                    className: buttonStyle,
+                                    type: "button",
+                                    onClick: handleThemeToggle
+                                  }),
+                              JsxRuntime.jsx("button", {
+                                    children: "⚙",
+                                    "aria-label": "Open settings",
+                                    "aria-pressed": settingsAriaPressed,
+                                    className: iconButton(currentColors),
+                                    title: "Settings",
+                                    type: "button",
+                                    onClick: (function (param) {
+                                        setViewMode(function (param) {
+                                              return "Settings";
+                                            });
+                                      })
+                                  })
+                            ],
+                            className: headerActions
+                          }),
                       className: headerStyle
                     }),
-                viewMode !== "Commit" && shouldShowReviewSummary ? JsxRuntime.jsxs("div", {
-                        children: [
-                          JsxRuntime.jsx("span", {
-                                children: match$13[0],
-                                className: reviewSummaryLabel(currentColors)
-                              }),
-                          reviewSummaryText
-                        ],
-                        className: reviewSummaryBar(currentColors)
-                      }) : null,
-                match$17[0] ? JsxRuntime.jsx(SpecCheckView.make, {
-                        uiColors: currentColors,
-                        themeType: isDark ? "dark" : "light",
-                        onClose: (function () {
-                            setIsSpecCheckOpen(function (param) {
-                                  return false;
-                                });
-                          }),
-                        onChanged: requestPatchReload
-                      }) : null,
-                JsxRuntime.jsx("div", {
-                      children: JsxRuntime.jsx(CommitView.make, {
-                            patches: patchState._0,
-                            repoRoot: match$15[0],
-                            theme: style,
-                            themeType: isDark ? "dark" : "light",
-                            uiColors: currentColors,
-                            onCommitted: requestPatchReload
-                          }),
-                      className: commitViewHost(viewMode !== "Commit")
-                    }),
-                tmp$1,
-                JsxRuntime.jsx("div", {
-                      children: "Pi · " + piStatus,
-                      className: statusBar(currentColors)
-                    })
+                viewMode === "Settings" ? renderSettings() : (
+                    hasGitRepository ? JsxRuntime.jsx("div", {
+                            children: JsxRuntime.jsx("div", {
+                                  children: "Failed to load diff:\n\n" + msg,
+                                  className: errorMessage
+                                }),
+                            className: errorContainer(currentColors)
+                          }) : renderRepositoryPicker(msg)
+                  )
               ],
               className: container
             });

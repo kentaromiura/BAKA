@@ -3,6 +3,7 @@
 package main
 
 import webview "./webview-odin"
+import osd "./osdialog"
 import "base:runtime"
 import "core:c"
 import "core:encoding/base64"
@@ -22,9 +23,127 @@ ioskeley_mono_font := #load("../UI/bakaui/assets/fonts/IoskeleyMono/IoskeleyMono
 
 w: webview.webview
 baka_verbose: bool
+selected_working_directory: string
 
 WebView_Return_Ok :: 0
 WebView_Return_Error :: 1
+
+Repo_Info :: struct {
+	working_directory: string `json:"workingDirectory"`,
+	repo_root:         string `json:"repoRoot"`,
+	is_git_repository: bool   `json:"isGitRepository"`,
+	canceled:          bool   `json:"canceled"`,
+}
+
+Repo_Info_Response :: struct {
+	result: Repo_Info `json:"result"`,
+}
+
+repo_error_response :: proc(message: string) -> cstring {
+	resp := Ipc_Error_Response {
+		error = message,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		return strings.clone_to_cstring(`{"error": "repository selection failed"}`)
+	}
+	defer delete(data)
+	return strings.clone_to_cstring(string(data))
+}
+
+currentWorkingDirectory :: proc() -> string {
+	if selected_working_directory != "" {
+		return strings.clone(selected_working_directory, context.allocator) or_else ""
+	}
+
+	cwd, err := os.get_working_directory(context.allocator)
+	if err != nil {
+		return strings.clone(".", context.allocator) or_else ""
+	}
+	return cwd
+}
+
+resolveRepoRootFrom :: proc(path: string) -> string {
+	command: [dynamic]string = {"git", "-C", path, "--no-pager", "rev-parse", "--show-toplevel"}
+	_, stdout, _, proc_err := os.process_exec(os.Process_Desc{command = command[:]}, context.allocator)
+	defer delete(command)
+	defer delete(stdout)
+	if proc_err != nil {
+		return ""
+	}
+
+	trimmed := strings.trim_space(string(stdout))
+	trimmed = strings.trim_right(trimmed, "\n")
+	return strings.clone(trimmed, context.allocator) or_else ""
+}
+
+getRepositoryInfo :: proc() -> Repo_Info {
+	working_dir := currentWorkingDirectory()
+	repo_root := resolveRepoRootFrom(working_dir)
+	return Repo_Info {
+		working_directory = working_dir,
+		repo_root         = repo_root,
+		is_git_repository = repo_root != "",
+		canceled          = false,
+	}
+}
+
+deleteRepositoryInfo :: proc(info: Repo_Info) {
+	delete(info.working_directory)
+	delete(info.repo_root)
+}
+
+setWorkingDirectory :: proc(path: string) -> (Repo_Info, string) {
+	cleaned := strings.trim_space(path)
+	if cleaned == "" {
+		return {}, "Folder path is required"
+	}
+
+	info, stat_err := os.stat(cleaned, context.allocator)
+	if stat_err != nil {
+		return {}, "Selected folder does not exist"
+	}
+	defer os.file_info_delete(info, context.allocator)
+	if info.type != .Directory {
+		return {}, "Selected path is not a folder"
+	}
+
+	repo_root := resolveRepoRootFrom(cleaned)
+	if repo_root == "" {
+		return {}, "Selected folder is not inside a Git repository"
+	}
+	defer delete(repo_root)
+
+	if err := os.set_working_directory(repo_root); err != nil {
+		return {}, "Failed to use selected repository"
+	}
+
+	if selected_working_directory != "" {
+		delete(selected_working_directory)
+	}
+	selected_working_directory = strings.clone(repo_root, context.allocator) or_else ""
+
+	return getRepositoryInfo(), ""
+}
+
+chooseFolderWithSystemDialog :: proc() -> (string, string) {
+	if path, ok := osd.path(.Open_Dir); ok {
+		return strings.clone(path, context.allocator) or_else "", ""
+	}
+	return "", "Folder selection canceled"
+}
+
+repositoryInfoResponse :: proc(info: Repo_Info) -> cstring {
+	resp := Repo_Info_Response {
+		result = info,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		return repo_error_response("marshal failed")
+	}
+	defer delete(data)
+	return strings.clone_to_cstring(string(data))
+}
 
 makeEmptyUntrackedFilePatch :: proc(filename: string) -> string {
 	return fmt.tprintf(
@@ -121,12 +240,9 @@ getCurrentGitPatch :: proc() -> string {
 // The returned string is heap-allocated via the default allocator and
 // must be `delete`d by the caller.
 getRepoRoot :: proc() -> string {
-	command: [dynamic]string = {"git", "--no-pager", "rev-parse", "--show-toplevel"}
-	_, stdout, _, _ := os.process_exec(os.Process_Desc{command = command[:]}, context.allocator)
-	defer delete(stdout)
-	trimmed := strings.trim_space(string(stdout))
-	trimmed = strings.trim_right(trimmed, "\n")
-	return strings.clone(trimmed, context.allocator)
+	working_dir := currentWorkingDirectory()
+	defer delete(working_dir)
+	return resolveRepoRootFrom(working_dir)
 }
 
 // Return the repository root, or an owned "." fallback when the current
@@ -138,11 +254,7 @@ getRepoWorkingDirectory :: proc() -> string {
 	}
 	delete(repo_root)
 
-	working_dir, err := strings.clone(".", context.allocator)
-	if err != nil {
-		return ""
-	}
-	return working_dir
+	return currentWorkingDirectory()
 }
 
 // Full-context diff for a single file. `-U999999` makes git include the
@@ -250,6 +362,18 @@ Ipc_Response :: struct {
 
 Project_Files_Response :: struct {
 	result: [dynamic]string,
+}
+
+Commit_Summary :: struct {
+	hash:       string `json:"hash"`,
+	short_hash: string `json:"shortHash"`,
+	author:     string `json:"author"`,
+	date:       string `json:"date"`,
+	subject:    string `json:"subject"`,
+}
+
+Commit_History_Response :: struct {
+	result: [dynamic]Commit_Summary `json:"result"`,
 }
 
 CommitSelection_Request :: struct {
@@ -797,8 +921,158 @@ commitSelectedPatch :: proc(request: CommitSelection_Request) -> (string, string
 	return strings.clone(result, context.allocator), ""
 }
 
+deleteCommitHistory :: proc(commits: [dynamic]Commit_Summary) {
+	for commit in commits {
+		delete(commit.hash)
+		delete(commit.short_hash)
+		delete(commit.author)
+		delete(commit.date)
+		delete(commit.subject)
+	}
+	delete(commits)
+}
+
+isCommitHashSafe :: proc(hash: string) -> bool {
+	if len(hash) < 7 || len(hash) > 64 {
+		return false
+	}
+	for i in 0..<len(hash) {
+		ch := hash[i]
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
+
+parseCommitHashRequest :: proc(req_str: string) -> (string, string) {
+	arr: [dynamic]string
+	defer delete(arr)
+	if err := json.unmarshal(transmute([]byte)req_str, &arr); err != nil {
+		return "", "Failed to parse commit request"
+	}
+	if len(arr) == 0 {
+		return "", "Missing commit hash"
+	}
+	hash := strings.trim_space(arr[0])
+	if !isCommitHashSafe(hash) {
+		return "", "Invalid commit hash"
+	}
+	return strings.clone(hash, context.allocator) or_else "", ""
+}
+
+appendCommitSummary :: proc(commits: ^[dynamic]Commit_Summary, line: string) -> bool {
+	parts := strings.split(line, "\t")
+	defer delete(parts)
+	if len(parts) < 5 {
+		return true
+	}
+
+	hash, herr := strings.clone(strings.trim_space(parts[0]), context.allocator)
+	short_hash, sherr := strings.clone(strings.trim_space(parts[1]), context.allocator)
+	author, aerr := strings.clone(strings.trim_space(parts[2]), context.allocator)
+	date, derr := strings.clone(strings.trim_space(parts[3]), context.allocator)
+	subject, serr := strings.clone(strings.trim_space(parts[4]), context.allocator)
+	if herr != nil || sherr != nil || aerr != nil || derr != nil || serr != nil {
+		if hash != "" {
+			delete(hash)
+		}
+		if short_hash != "" {
+			delete(short_hash)
+		}
+		if author != "" {
+			delete(author)
+		}
+		if date != "" {
+			delete(date)
+		}
+		if subject != "" {
+			delete(subject)
+		}
+		return false
+	}
+
+	append(commits, Commit_Summary {
+		hash       = hash,
+		short_hash = short_hash,
+		author     = author,
+		date       = date,
+		subject    = subject,
+	})
+	return true
+}
+
+getCommitHistory :: proc(repo_root: string) -> ([dynamic]Commit_Summary, string) {
+	command: [dynamic]string = {
+		"git",
+		"--no-pager",
+		"log",
+		"--max-count=100",
+		"--date=relative",
+		"--pretty=format:%H%x09%h%x09%an%x09%cr%x09%s",
+	}
+	stdout, stderr, ok := run_git_command(repo_root, command[:])
+	defer delete(command)
+	defer delete(stdout)
+	defer delete(stderr)
+	if !ok {
+		return [dynamic]Commit_Summary{}, fmt.tprintf("Failed to load commit history: %s", stderr)
+	}
+
+	commits := [dynamic]Commit_Summary{}
+	lines := strings.split(strings.trim(string(stdout), "\r\n"), "\n")
+	defer delete(lines)
+	for line in lines {
+		trimmed := strings.trim(line, "\r\n")
+		if len(trimmed) == 0 {
+			continue
+		}
+		if !appendCommitSummary(&commits, trimmed) {
+			deleteCommitHistory(commits)
+			return [dynamic]Commit_Summary{}, "Failed to collect commit history"
+		}
+	}
+	return commits, ""
+}
+
+getCommitPatch :: proc(repo_root, hash: string) -> (string, string) {
+	command: [dynamic]string = {
+		"git",
+		"--no-pager",
+		"show",
+		"--format=",
+		"--no-ext-diff",
+		"--find-renames",
+		"--find-copies",
+		"--no-color",
+		"--unified=3",
+		hash,
+		"--",
+	}
+	stdout, stderr, ok := run_git_command(repo_root, command[:])
+	defer delete(command)
+	defer delete(stdout)
+	defer delete(stderr)
+	if !ok {
+		return "", fmt.tprintf("Failed to load commit diff: %s", stderr)
+	}
+	return strings.clone(string(stdout), context.allocator) or_else "", ""
+}
+
 handle_get_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
+	repo_root := getRepoRoot()
+	if repo_root == "" {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			repo_error_response("Choose a Git repository to review."),
+		)
+		return
+	}
+	delete(repo_root)
+
 	patch := getCurrentGitPatch()
 	resp := Ipc_Response {
 		result = patch,
@@ -812,6 +1086,116 @@ handle_get_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	result_string := string(data)
 	c_result := strings.clone_to_cstring(result_string)
 	webview.ret(w, seq, WebView_Return_Ok, c_result)
+}
+
+handle_get_commit_history :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+	repo_root := getRepoRoot()
+	if repo_root == "" {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			repo_error_response("Choose a Git repository to review."),
+		)
+		return
+	}
+	defer delete(repo_root)
+
+	commits, history_err := getCommitHistory(repo_root)
+	if history_err != "" {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response(history_err))
+		return
+	}
+	defer deleteCommitHistory(commits)
+
+	resp := Commit_History_Response {
+		result = commits,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response("marshal failed"))
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
+handle_get_commit_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	hash, perr := parseCommitHashRequest(string(req))
+	if perr != "" {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response(perr))
+		return
+	}
+	defer delete(hash)
+
+	repo_root := getRepoRoot()
+	if repo_root == "" {
+		webview.ret(
+			w,
+			seq,
+			WebView_Return_Error,
+			repo_error_response("Choose a Git repository to review."),
+		)
+		return
+	}
+	defer delete(repo_root)
+
+	patch, patch_err := getCommitPatch(repo_root, hash)
+	if patch_err != "" {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response(patch_err))
+		return
+	}
+	defer delete(patch)
+
+	resp := Ipc_Response {
+		result = patch,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response("marshal failed"))
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
+handle_get_repository_info :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+	info := getRepositoryInfo()
+	defer deleteRepositoryInfo(info)
+	webview.ret(w, seq, WebView_Return_Ok, repositoryInfoResponse(info))
+}
+
+handle_choose_working_folder :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	path, choose_err := chooseFolderWithSystemDialog()
+	if choose_err != "" {
+		if choose_err == "Folder selection canceled" {
+			info := getRepositoryInfo()
+			info.canceled = true
+			defer deleteRepositoryInfo(info)
+			webview.ret(w, seq, WebView_Return_Ok, repositoryInfoResponse(info))
+			return
+		}
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response(choose_err))
+		return
+	}
+	defer delete(path)
+
+	info, set_err := setWorkingDirectory(path)
+	if set_err != "" {
+		webview.ret(w, seq, WebView_Return_Error, repo_error_response(set_err))
+		return
+	}
+	defer deleteRepositoryInfo(info)
+
+	start_repo_watcher()
+	write_watcher_event("Repository folder changed")
+	webview.ret(w, seq, WebView_Return_Ok, repositoryInfoResponse(info))
 }
 
 handle_commit_selection :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
@@ -1022,22 +1406,23 @@ main :: proc() {
 		}
 	}
 	if target != "" {
-		if err := os.set_working_directory(target); err != nil {
-			fmt.eprintln("[BAKA] Failed to chdir to", target, ":", err)
+		info, set_err := setWorkingDirectory(target)
+		if set_err != "" {
+			fmt.eprintln("[BAKA]", set_err, ":", target)
 			os.exit(1)
 		}
-		cwd, werr := os.get_working_directory(context.temp_allocator)
-		if werr != nil {
-			fmt.eprintln("[BAKA] Failed to get working directory:", werr)
-			os.exit(1)
-		}
-		fmt.eprintln("[BAKA] Using working directory:", cwd)
+		fmt.eprintln("[BAKA] Using working directory:", info.repo_root)
+		deleteRepositoryInfo(info)
 	}
 
 	webview.set_title(w, "BAKA")
 	webview.set_size(w, 960, 720, .None)
 	set_app_icon(w)
 	webview.bind(w, "getPatch", handle_get_patch, nil)
+	webview.bind(w, "getCommitHistory", handle_get_commit_history, nil)
+	webview.bind(w, "getCommitPatch", handle_get_commit_patch, nil)
+	webview.bind(w, "getRepositoryInfo", handle_get_repository_info, nil)
+	webview.bind(w, "chooseWorkingFolder", handle_choose_working_folder, nil)
 	webview.bind(w, "getRepoRoot", handle_get_repo_root, nil)
 	webview.bind(w, "getFilePatch", handle_get_file_patch, nil)
 	webview.bind(w, "getProjectFiles", handle_get_project_files, nil)

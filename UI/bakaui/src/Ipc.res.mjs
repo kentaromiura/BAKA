@@ -21,6 +21,24 @@ function callGetRepoRoot() {
   return Js_promise.then_(parseResponse, getRepoRoot("{}"));
 }
 
+function callGetRepositoryInfo() {
+  var parseResponse = (async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result) throw new Error("Missing repository info");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getRepositoryInfo("{}"));
+}
+
+function callChooseWorkingFolder() {
+  var parseResponse = (async raw => {
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result) throw new Error("Missing repository info");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, chooseWorkingFolder("{}"));
+}
+
 function callGetFilePatch(path) {
   console.log("[BAKA UI] getFilePatch called", path);
   var parseResponse = (async raw => {
@@ -40,6 +58,27 @@ function callGetProjectFiles() {
       return raw.result;
     });
   return Js_promise.then_(parseResponse, getProjectFiles("{}"));
+}
+
+function callGetCommitHistory() {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getCommitHistory raw response meta", raw && raw.error ? {error: raw.error} : {commitCount: raw && raw.result ? raw.result.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (!Array.isArray(raw.result)) throw new Error("Missing commit history");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getCommitHistory("{}"));
+}
+
+function callGetCommitPatch(hash) {
+  console.log("[BAKA UI] getCommitPatch called", hash);
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getCommitPatch raw response meta", raw && raw.error ? {error: raw.error} : {resultBytes: raw && raw.result ? raw.result.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getCommitPatch(hash));
 }
 
 function callGetPiModels() {
@@ -183,8 +222,12 @@ function callCommitSelection(request) {
 export {
   callGetPatch ,
   callGetRepoRoot ,
+  callGetRepositoryInfo ,
+  callChooseWorkingFolder ,
   callGetFilePatch ,
   callGetProjectFiles ,
+  callGetCommitHistory ,
+  callGetCommitPatch ,
   callGetPiModels ,
   callAskPi ,
   callAskPiWithDiff ,
