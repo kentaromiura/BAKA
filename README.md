@@ -25,11 +25,20 @@ custom models configured in Pi, including local OpenAI-compatible services.
 
 ## Screenshots
 
-![Main screen](SCREEN/main.png)
+![Review screen with default dark theme](SCREEN/review-view-dark.png)
+![Git history view](SCREEN/git-history.png)
+![Project view](SCREEN/project-view-dark.png)
+![Commit view](SCREEN/commit-view.png)
+![Commit view](SCREEN/commit-view-exclude-lines.png)
+![Check against specification view](SCREEN/check-against-prd.png)
+![New feature view](SCREEN/new-feature-view.png)
+![New feature view](SCREEN/new-feature-view.png)
+![Inline ask pi default light theme](SCREEN/asking-pi-light.png)
+![pi response example](SCREEN/pi-response-light.png)
+![pi code review/security review selector](SCREEN/code-review-security-review.png)
+![setting page with different theme selected](SCREEN/setting-page-different-theme.png)
 
-![Light theme](SCREEN/light.png)
 
-![Dark theme](SCREEN/dark.png)
 
 ## Building
 
