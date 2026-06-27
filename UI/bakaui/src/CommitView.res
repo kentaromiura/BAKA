@@ -40,6 +40,7 @@ let lineKey = (fileName: string, side: string, lineNumber: int): string =>
   fileName ++ "|" ++ side ++ "|" ++ Int.toString(lineNumber)
 
 let copyBoolDict: Js.Dict.t<bool> => Js.Dict.t<bool> = Raw.copyDict
+let containsWhitespace: string => bool = %raw(`value => /\s/.test(value)`)
 
 let clearFileLineKeys: (Js.Dict.t<bool>, string) => unit =
   %raw(`(dict, fileName) => {
@@ -656,6 +657,12 @@ module Styles = {
     white-space: pre-wrap;
     ${if isError { "color: " ++ colors.dangerBg ++ ";" } else { "" }}
   `
+
+  let fieldError = (colors: uiColors) => Html.css`
+    color: ${colors.dangerBg};
+    font-size: 0.923rem;
+    line-height: 1.3;
+  `
 }
 
 @react.component
@@ -687,6 +694,9 @@ let make = (
   let (commitBody, setCommitBody) = React.useState(() => "")
   let (branchName, setBranchName) = React.useState(() => "")
   let (branchOptions, setBranchOptions) = React.useState((): array<string> => [])
+  let (branchValidationTarget, setBranchValidationTarget) = React.useState(() => "")
+  let (branchValidationError, setBranchValidationError) = React.useState(() => "")
+  let (isBranchValidating, setIsBranchValidating) = React.useState(() => false)
   let (commitStatus, setCommitStatus) = React.useState(() => "")
   let (commitStatusIsError, setCommitStatusIsError) = React.useState(() => false)
   let (isCommitting, setIsCommitting) = React.useState(() => false)
@@ -695,6 +705,7 @@ let make = (
   let skipPersistRef = React.useRef(false)
   let committedRef = React.useRef(false)
   let draftReadyRef = React.useRef(false)
+  let branchValidationSeqRef = React.useRef(0)
   let latestDraftRef: React.ref<savedDraft> = React.useRef({
     message: "",
     body: "",
@@ -708,6 +719,8 @@ let make = (
     let onSuccess = (info: Ipc.branchInfo): Js.Promise.t<unit> => {
       setBranchOptions(_ => info.branches)
       setBranchName(current => if current->String.trim == "" {info.currentBranch} else {current})
+      setBranchValidationTarget(_ => info.currentBranch)
+      setBranchValidationError(_ => "")
       Js.Promise2.resolve()
     }
     let onError = (_err: Js.Promise2.error): Js.Promise.t<unit> => Js.Promise2.resolve()
@@ -821,10 +834,33 @@ let make = (
 
   let trimmedCommitMessage = commitMessage->String.trim
   let trimmedBranchName = branchName->String.trim
+  let localBranchError =
+    if trimmedBranchName == "" {
+      "Branch name is required."
+    } else if containsWhitespace(branchName) {
+      "Branch names cannot contain spaces."
+    } else if String.startsWith(trimmedBranchName, "-") {
+      "Branch names cannot start with '-'."
+    } else {
+      ""
+    }
+  let gitBranchError =
+    if branchValidationTarget == trimmedBranchName {
+      branchValidationError
+    } else {
+      ""
+    }
+  let branchError = if localBranchError != "" {localBranchError} else {gitBranchError}
+  let branchIsValidated =
+    trimmedBranchName != "" &&
+    localBranchError == "" &&
+    branchValidationTarget == trimmedBranchName &&
+    branchValidationError == "" &&
+    !isBranchValidating
   let canCommit =
     !isCommitting &&
     trimmedCommitMessage != "" &&
-    trimmedBranchName != "" &&
+    branchIsValidated &&
     selectedChangedLineCount > 0
 
   let excludedHighlightLines =
@@ -892,6 +928,45 @@ let make = (
         })
         next
       })
+    }
+  }
+
+  let validateBranch = _event => {
+    let target = trimmedBranchName
+    if target == "" {
+      setBranchValidationTarget(_ => "")
+      setBranchValidationError(_ => "")
+      setIsBranchValidating(_ => false)
+    } else if localBranchError != "" {
+      setBranchValidationTarget(_ => target)
+      setBranchValidationError(_ => localBranchError)
+      setIsBranchValidating(_ => false)
+    } else {
+      let seq = branchValidationSeqRef.current + 1
+      branchValidationSeqRef.current = seq
+      setBranchValidationTarget(_ => target)
+      setBranchValidationError(_ => "")
+      setIsBranchValidating(_ => true)
+      let onSuccess = (_: unit): Js.Promise.t<unit> => {
+        if branchValidationSeqRef.current == seq {
+          setBranchValidationTarget(_ => target)
+          setBranchValidationError(_ => "")
+          setIsBranchValidating(_ => false)
+        }
+        Js.Promise2.resolve()
+      }
+      let onError = (err: Js.Promise2.error): Js.Promise.t<unit> => {
+        if branchValidationSeqRef.current == seq {
+          setBranchValidationTarget(_ => target)
+          setBranchValidationError(_ => Raw.errorMessage(err))
+          setIsBranchValidating(_ => false)
+        }
+        Js.Promise2.resolve()
+      }
+      let _ = Js.Promise2.catch(
+        Js.Promise2.then(Ipc.callValidateGitBranch(target), onSuccess),
+        onError,
+      )
     }
   }
 
@@ -1002,6 +1077,7 @@ let make = (
           placeholder="Branch"
           value={branchName}
           disabled={isCommitting}
+          onBlur={validateBranch}
           onChange={(ev: JsxEvent.Form.t) => {
             let target = JsxEvent.Form.target(ev)
             setBranchName(_ => target["value"])
@@ -1014,6 +1090,9 @@ let make = (
             )
           )}
         </datalist>
+        {branchName != "" && branchError != ""
+          ? <div className={Styles.fieldError(uiColors)}>{str(branchError)}</div>
+          : React.null}
         <input
           className={Styles.commitField(uiColors)}
           type_="text"

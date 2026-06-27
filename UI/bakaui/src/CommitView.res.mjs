@@ -49,6 +49,8 @@ function lineKey(fileName, side, lineNumber) {
   return fileName + "|" + side + "|" + lineNumber.toString();
 }
 
+var containsWhitespace = (value => /\s/.test(value));
+
 var clearFileLineKeys = ((dict, fileName) => {
     const prefix = fileName + "|";
     for (const key of Object.keys(dict)) {
@@ -603,6 +605,13 @@ function commitStatus(colors, isError) {
             ]);
 }
 
+function fieldError(colors) {
+  return Html.css([
+              "\n    color: ",
+              ";\n    font-size: 0.923rem;\n    line-height: 1.3;\n  "
+            ], [colors.dangerBg]);
+}
+
 var Styles = {
   treeFont: treeFont,
   excludedLineUnsafeCss: excludedLineUnsafeCss,
@@ -626,7 +635,8 @@ var Styles = {
   commitField: commitField,
   commitTextArea: commitTextArea,
   commitButton: commitButton,
-  commitStatus: commitStatus
+  commitStatus: commitStatus,
+  fieldError: fieldError
 };
 
 function CommitView(props) {
@@ -690,26 +700,41 @@ function CommitView(props) {
   var match$7 = React.useState(function () {
         return "";
       });
-  var setCommitStatus = match$7[1];
-  var commitStatus$1 = match$7[0];
+  var setBranchValidationTarget = match$7[1];
+  var branchValidationTarget = match$7[0];
   var match$8 = React.useState(function () {
-        return false;
+        return "";
       });
-  var setCommitStatusIsError = match$8[1];
+  var setBranchValidationError = match$8[1];
+  var branchValidationError = match$8[0];
   var match$9 = React.useState(function () {
         return false;
       });
-  var setIsCommitting = match$9[1];
-  var isCommitting = match$9[0];
+  var setIsBranchValidating = match$9[1];
   var match$10 = React.useState(function () {
+        return "";
+      });
+  var setCommitStatus = match$10[1];
+  var commitStatus$1 = match$10[0];
+  var match$11 = React.useState(function () {
         return false;
       });
-  var setDraftReady = match$10[1];
-  var draftReady = match$10[0];
+  var setCommitStatusIsError = match$11[1];
+  var match$12 = React.useState(function () {
+        return false;
+      });
+  var setIsCommitting = match$12[1];
+  var isCommitting = match$12[0];
+  var match$13 = React.useState(function () {
+        return false;
+      });
+  var setDraftReady = match$13[1];
+  var draftReady = match$13[0];
   var diffPaneRef = React.useRef(null);
   var skipPersistRef = React.useRef(false);
   var committedRef = React.useRef(false);
   var draftReadyRef = React.useRef(false);
+  var branchValidationSeqRef = React.useRef(0);
   var latestDraftRef = React.useRef({
         message: "",
         body: "",
@@ -729,6 +754,12 @@ function CommitView(props) {
                   } else {
                     return current;
                   }
+                });
+            setBranchValidationTarget(function (param) {
+                  return info.currentBranch;
+                });
+            setBranchValidationError(function (param) {
+                  return "";
                 });
             return Promise.resolve();
           };
@@ -864,7 +895,15 @@ function CommitView(props) {
         }));
   var trimmedCommitMessage = commitMessage.trim();
   var trimmedBranchName = branchName.trim();
-  var canCommit = !isCommitting && trimmedCommitMessage !== "" && trimmedBranchName !== "" && selectedChangedLineCount > 0;
+  var localBranchError = trimmedBranchName === "" ? "Branch name is required." : (
+      containsWhitespace(branchName) ? "Branch names cannot contain spaces." : (
+          trimmedBranchName.startsWith("-") ? "Branch names cannot start with '-'." : ""
+        )
+    );
+  var gitBranchError = branchValidationTarget === trimmedBranchName ? branchValidationError : "";
+  var branchError = localBranchError !== "" ? localBranchError : gitBranchError;
+  var branchIsValidated = trimmedBranchName !== "" && localBranchError === "" && branchValidationTarget === trimmedBranchName && branchValidationError === "" && !match$9[0];
+  var canCommit = !isCommitting && trimmedCommitMessage !== "" && branchIsValidated && selectedChangedLineCount > 0;
   var excludedHighlightLines = activeChangedLines.filter(function (annotation) {
         return isLineExcluded(lineKey(activeFileName, annotation.side, annotation.lineNumber));
       });
@@ -916,6 +955,70 @@ function CommitView(props) {
                 });
     }
     
+  };
+  var validateBranch = function (_event) {
+    if (trimmedBranchName === "") {
+      setBranchValidationTarget(function (param) {
+            return "";
+          });
+      setBranchValidationError(function (param) {
+            return "";
+          });
+      return setIsBranchValidating(function (param) {
+                  return false;
+                });
+    }
+    if (localBranchError !== "") {
+      setBranchValidationTarget(function (param) {
+            return trimmedBranchName;
+          });
+      setBranchValidationError(function (param) {
+            return localBranchError;
+          });
+      return setIsBranchValidating(function (param) {
+                  return false;
+                });
+    }
+    var seq = branchValidationSeqRef.current + 1 | 0;
+    branchValidationSeqRef.current = seq;
+    setBranchValidationTarget(function (param) {
+          return trimmedBranchName;
+        });
+    setBranchValidationError(function (param) {
+          return "";
+        });
+    setIsBranchValidating(function (param) {
+          return true;
+        });
+    var onSuccess = function () {
+      if (branchValidationSeqRef.current === seq) {
+        setBranchValidationTarget(function (param) {
+              return trimmedBranchName;
+            });
+        setBranchValidationError(function (param) {
+              return "";
+            });
+        setIsBranchValidating(function (param) {
+              return false;
+            });
+      }
+      return Promise.resolve();
+    };
+    var onError = function (err) {
+      if (branchValidationSeqRef.current === seq) {
+        setBranchValidationTarget(function (param) {
+              return trimmedBranchName;
+            });
+        setBranchValidationError(function (param) {
+              return Raw.errorMessage(err);
+            });
+        setIsBranchValidating(function (param) {
+              return false;
+            });
+      }
+      return Promise.resolve();
+    };
+    Js_promise2.$$catch(Js_promise2.then(Ipc.callValidateGitBranch(trimmedBranchName), onSuccess), onError);
   };
   var handleCommit = function (_event) {
     if (!canCommit) {
@@ -1135,6 +1238,7 @@ function CommitView(props) {
                                       placeholder: "Branch",
                                       type: "text",
                                       value: branchName,
+                                      onBlur: validateBranch,
                                       onChange: (function (ev) {
                                           var target = ev.target;
                                           setBranchName(function (param) {
@@ -1150,6 +1254,10 @@ function CommitView(props) {
                                           }),
                                       id: "commit-branch-options"
                                     }),
+                                branchName !== "" && branchError !== "" ? JsxRuntime.jsx("div", {
+                                        children: branchError,
+                                        className: fieldError(uiColors)
+                                      }) : null,
                                 JsxRuntime.jsx("input", {
                                       className: commitField(uiColors),
                                       disabled: isCommitting,
@@ -1184,7 +1292,7 @@ function CommitView(props) {
                                     }),
                                 commitStatus$1 === "" ? null : JsxRuntime.jsx("div", {
                                         children: commitStatus$1,
-                                        className: commitStatus(uiColors, match$8[0])
+                                        className: commitStatus(uiColors, match$11[0])
                                       })
                               ],
                               className: commitForm(uiColors)
@@ -1237,6 +1345,7 @@ export {
   clearDraft ,
   lineKey ,
   copyBoolDict ,
+  containsWhitespace ,
   clearFileLineKeys ,
   isTruthy ,
   buildSelectedPatch ,

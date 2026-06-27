@@ -848,18 +848,35 @@ parseCommitSelectionRequest :: proc(req_str: string) -> (CommitSelection_Request
 	return request, ""
 }
 
+parseBranchNameRequest :: proc(req_str: string) -> (string, string) {
+	arr: [dynamic]string
+	defer delete(arr)
+	if err := json.unmarshal(transmute([]byte)req_str, &arr); err != nil {
+		return "", "Failed to parse branch request"
+	}
+	if len(arr) == 0 {
+		return "", "Missing branch name"
+	}
+	return strings.clone(arr[0], context.allocator), ""
+}
+
 run_git_command :: proc(repo_root: string, command: []string) -> (string, string, bool) {
 	desc := os.Process_Desc {
 		working_dir = repo_root,
 		command     = command,
 	}
-	_, stdout, stderr, proc_err := os.process_exec(desc, context.allocator)
+	state, stdout, stderr, proc_err := os.process_exec(desc, context.allocator)
 	defer delete(stdout)
 	defer delete(stderr)
-	if proc_err != nil {
+	if proc_err != nil || !state.success {
 		message := strings.trim_space(string(stderr))
 		if message == "" {
 			message = strings.trim_space(string(stdout))
+		}
+		if message == "" && proc_err == nil {
+			return strings.clone(string(stdout), context.allocator),
+				fmt.tprintf("git exited with status %d", state.exit_code),
+				false
 		}
 		return strings.clone(string(stdout), context.allocator),
 			strings.clone(message, context.allocator),
@@ -938,7 +955,7 @@ branchExists :: proc(repo_root, branch: string) -> bool {
 	return ok
 }
 
-checkoutCommitBranch :: proc(repo_root, branch: string) -> string {
+validateCommitBranchName :: proc(repo_root, branch: string) -> string {
 	trimmed := strings.trim_space(branch)
 	if trimmed == "" {
 		return "Branch name is required"
@@ -956,6 +973,15 @@ checkoutCommitBranch :: proc(repo_root, branch: string) -> string {
 			return fmt.tprintf("Invalid branch name: %s", check_err)
 		}
 		return "Invalid branch name"
+	}
+	return ""
+}
+
+checkoutCommitBranch :: proc(repo_root, branch: string) -> string {
+	trimmed := strings.trim_space(branch)
+	validation_err := validateCommitBranchName(repo_root, trimmed)
+	if validation_err != "" {
+		return validation_err
 	}
 
 	if branchExists(repo_root, trimmed) {
@@ -1316,6 +1342,41 @@ handle_get_git_branches :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
 }
 
+handle_validate_git_branch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	branch, perr := parseBranchNameRequest(string(req))
+	if perr != "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response(perr))
+		return
+	}
+	defer delete(branch)
+
+	repo_root := getRepoRoot()
+	defer delete(repo_root)
+	if repo_root == "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response("Not inside a git repository"))
+		return
+	}
+
+	validation_err := validateCommitBranchName(repo_root, branch)
+	if validation_err != "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response(validation_err))
+		return
+	}
+
+	resp := Ipc_Response {
+		result = "",
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response("marshal failed"))
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
 handle_get_repository_info :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 	info := getRepositoryInfo()
@@ -1577,6 +1638,7 @@ main :: proc() {
 	webview.bind(w, "getCommitHistory", handle_get_commit_history, nil)
 	webview.bind(w, "getCommitPatch", handle_get_commit_patch, nil)
 	webview.bind(w, "getGitBranches", handle_get_git_branches, nil)
+	webview.bind(w, "validateGitBranch", handle_validate_git_branch, nil)
 	webview.bind(w, "getRepositoryInfo", handle_get_repository_info, nil)
 	webview.bind(w, "chooseWorkingFolder", handle_choose_working_folder, nil)
 	webview.bind(w, "getRepoRoot", handle_get_repo_root, nil)

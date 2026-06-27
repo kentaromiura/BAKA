@@ -229,6 +229,15 @@ function callGetGitBranches() {
   return Js_promise.then_(parseResponse, getGitBranches("{}"));
 }
 
+function callValidateGitBranch(branch) {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] validateGitBranch raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+    });
+  return Js_promise.then_(parseResponse, validateGitBranch(branch));
+}
+
 export {
   callGetPatch ,
   callGetRepoRoot ,
@@ -248,5 +257,6 @@ export {
   callApplyFeaturePlan ,
   callCommitSelection ,
   callGetGitBranches ,
+  callValidateGitBranch ,
 }
 /* No side effect */

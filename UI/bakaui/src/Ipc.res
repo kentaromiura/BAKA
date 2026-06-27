@@ -352,3 +352,15 @@ let callGetGitBranches = (): Js.Promise.t<branchInfo> => {
     }`)
   Js.Promise.then_(parseResponse)(getGitBranches_raw("{}"))
 }
+
+@val external validateGitBranch_raw: string => Js.Promise.t<string> = "validateGitBranch"
+
+let callValidateGitBranch = (branch: string): Js.Promise.t<unit> => {
+  let parseResponse: string => Js.Promise.t<unit> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] validateGitBranch raw response meta", raw && raw.error ? {error: raw.error} : {result: raw && raw.result ? raw.result : null});
+      if (raw.error) throw new Error(raw.error);
+      if (raw.result === undefined) throw new Error("Missing result field in response");
+    }`)
+  Js.Promise.then_(parseResponse)(validateGitBranch_raw(branch))
+}
