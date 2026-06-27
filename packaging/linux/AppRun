@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+# AppRun: create a per-user, per-process runtime dir for WebKit helpers to avoid
+# global /tmp races and make cleanup safe. Export environment variables so the
+# bundled WebKit is used without needing brittle binary patching.
+#
+# Behavior:
+#  - Prefer XDG_RUNTIME_DIR if set, otherwise fall back to TMPDIR or /tmp.
+#  - Create a unique runtime directory (mktemp -d) and symlink it to the
+#  	AppDir's webkitgtk directory so any code expecting a fixed absolute path
+#  	can still find helpers under the unique path.
+#  - Export LD_LIBRARY_PATH and WEBKIT_INJECTED_BUNDLE_PATH to point into the
+#  	AppDir so the bundled libraries and injected bundles are used.
+#  - Clean up the symlink and temporary directory on exit (trap).
+#
+# This avoids a globally fixed /tmp path and uses a unique per-user directory
+# which reduces races and permission problems on multi-user systems.
+
+APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+RUNTIME_BASE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+RUNTIME_DIR=$(mktemp -d "${RUNTIME_BASE%/}/baka-webkitgtk-XXXXXX") || {
+    printf 'Failed to create runtime dir under %s\n' "$RUNTIME_BASE" >/dev/stderr
+    exit 1
+}
+
+cleanup() {
+    if [ -L "$RUNTIME_DIR/webkitgtk-6.0" ]; then
+        rm -f "$RUNTIME_DIR/webkitgtk-6.0" || true
+    fi
+    rmdir --ignore-fail-on-non-empty "$RUNTIME_DIR" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT HUP INT TERM
+
+ln -sfn "$APPDIR/usr/lib/webkitgtk-6.0" "$RUNTIME_DIR/webkitgtk-6.0"
+
+export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export WEBKIT_INJECTED_BUNDLE_PATH="$APPDIR/usr/lib/webkitgtk-6.0/injected-bundle"
+export WEBKIT_TMP="$RUNTIME_DIR/webkitgtk-6.0"
+
+exec "$APPDIR/usr/bin/BAKA" "$@"
