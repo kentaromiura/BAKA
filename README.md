@@ -32,7 +32,6 @@ custom models configured in Pi, including local OpenAI-compatible services.
 ![Commit view](SCREEN/commit-view-exclude-lines.png)
 ![Check against specification view](SCREEN/check-against-prd.png)
 ![New feature view](SCREEN/new-feature-view.png)
-![New feature view](SCREEN/new-feature-view.png)
 ![Inline ask pi default light theme](SCREEN/asking-pi-light.png)
 ![pi response example](SCREEN/pi-response-light.png)
 ![pi code review/security review selector](SCREEN/code-review-security-review.png)
