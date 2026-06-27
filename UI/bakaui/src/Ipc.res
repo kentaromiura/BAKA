@@ -158,6 +158,11 @@ type commitSelectionRequest = {
   message: string,
   body: string,
   patch: string,
+  branch: string,
+}
+type branchInfo = {
+  currentBranch: string,
+  branches: array<string>,
 }
 
 // Ask Pi: send all comments as JSON, receive back {replies: [{commentKey, reply}]}
@@ -333,4 +338,17 @@ let callCommitSelection = (request: commitSelectionRequest): Js.Promise.t<string
     }`)
   let promise = %raw(`commitSelection(request)`)
   Js.Promise.then_(parseResponse)(promise)
+}
+
+@val external getGitBranches_raw: string => Js.Promise.t<string> = "getGitBranches"
+
+let callGetGitBranches = (): Js.Promise.t<branchInfo> => {
+  let parseResponse: string => Js.Promise.t<branchInfo> =
+    %raw(`async raw => {
+      console.log("[BAKA UI] getGitBranches raw response meta", raw && raw.error ? {error: raw.error} : {branchCount: raw && raw.result && raw.result.branches ? raw.result.branches.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result || !Array.isArray(raw.result.branches)) throw new Error("Missing branch list");
+      return raw.result;
+    }`)
+  Js.Promise.then_(parseResponse)(getGitBranches_raw("{}"))
 }

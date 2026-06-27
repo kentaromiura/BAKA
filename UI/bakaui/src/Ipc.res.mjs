@@ -219,6 +219,16 @@ function callCommitSelection(request) {
   return Js_promise.then_(parseResponse, promise);
 }
 
+function callGetGitBranches() {
+  var parseResponse = (async raw => {
+      console.log("[BAKA UI] getGitBranches raw response meta", raw && raw.error ? {error: raw.error} : {branchCount: raw && raw.result && raw.result.branches ? raw.result.branches.length : null});
+      if (raw.error) throw new Error(raw.error);
+      if (!raw.result || !Array.isArray(raw.result.branches)) throw new Error("Missing branch list");
+      return raw.result;
+    });
+  return Js_promise.then_(parseResponse, getGitBranches("{}"));
+}
+
 export {
   callGetPatch ,
   callGetRepoRoot ,
@@ -237,5 +247,6 @@ export {
   callCreateFeaturePlan ,
   callApplyFeaturePlan ,
   callCommitSelection ,
+  callGetGitBranches ,
 }
 /* No side effect */

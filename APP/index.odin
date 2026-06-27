@@ -376,10 +376,20 @@ Commit_History_Response :: struct {
 	result: [dynamic]Commit_Summary `json:"result"`,
 }
 
+Branch_Info :: struct {
+	current_branch: string           `json:"currentBranch"`,
+	branches:       [dynamic]string `json:"branches"`,
+}
+
+Branch_Info_Response :: struct {
+	result: Branch_Info `json:"result"`,
+}
+
 CommitSelection_Request :: struct {
 	message: string `json:"message"`,
 	body:    string `json:"body"`,
 	patch:   string `json:"patch"`,
+	branch:  string `json:"branch"`,
 }
 
 CreateFeaturePlan_Result :: struct {
@@ -833,6 +843,7 @@ parseCommitSelectionRequest :: proc(req_str: string) -> (CommitSelection_Request
 		message = strings.clone(arr[0].message, context.allocator),
 		body    = strings.clone(arr[0].body, context.allocator),
 		patch   = strings.clone(arr[0].patch, context.allocator),
+		branch  = strings.clone(arr[0].branch, context.allocator),
 	}
 	return request, ""
 }
@@ -859,6 +870,115 @@ run_git_command :: proc(repo_root: string, command: []string) -> (string, string
 		true
 }
 
+deleteBranchInfo :: proc(info: Branch_Info) {
+	delete(info.current_branch)
+	for branch in info.branches {
+		delete(branch)
+	}
+	delete(info.branches)
+}
+
+branchListContains :: proc(branches: [dynamic]string, branch: string) -> bool {
+	for existing in branches {
+		if existing == branch {
+			return true
+		}
+	}
+	return false
+}
+
+getGitBranches :: proc(repo_root: string) -> (Branch_Info, string) {
+	current_cmd: [dynamic]string = {"git", "branch", "--show-current"}
+	current_stdout, current_err, current_ok := run_git_command(repo_root, current_cmd[:])
+	defer delete(current_cmd)
+	defer delete(current_stdout)
+	defer delete(current_err)
+	if !current_ok {
+		return {}, fmt.tprintf("Failed to load current branch: %s", current_err)
+	}
+
+	list_cmd: [dynamic]string = {"git", "for-each-ref", "--format=%(refname:short)", "refs/heads"}
+	list_stdout, list_err, list_ok := run_git_command(repo_root, list_cmd[:])
+	defer delete(list_cmd)
+	defer delete(list_stdout)
+	defer delete(list_err)
+	if !list_ok {
+		return {}, fmt.tprintf("Failed to load branches: %s", list_err)
+	}
+
+	branches := [dynamic]string{}
+	lines := strings.split(strings.trim(string(list_stdout), "\r\n"), "\n")
+	defer delete(lines)
+	for line in lines {
+		branch := strings.trim_space(line)
+		if branch == "" {
+			continue
+		}
+		append(&branches, strings.clone(branch, context.allocator))
+	}
+
+	current_branch := strings.trim_space(current_stdout)
+	if current_branch != "" && !branchListContains(branches, current_branch) {
+		append(&branches, strings.clone(current_branch, context.allocator))
+	}
+
+	return Branch_Info {
+		current_branch = strings.clone(current_branch, context.allocator),
+		branches       = branches,
+	}, ""
+}
+
+branchExists :: proc(repo_root, branch: string) -> bool {
+	ref := fmt.tprintf("refs/heads/%s", branch)
+	defer delete(ref)
+	command: [dynamic]string = {"git", "show-ref", "--verify", "--quiet", ref}
+	_, stderr, ok := run_git_command(repo_root, command[:])
+	defer delete(command)
+	defer delete(stderr)
+	return ok
+}
+
+checkoutCommitBranch :: proc(repo_root, branch: string) -> string {
+	trimmed := strings.trim_space(branch)
+	if trimmed == "" {
+		return "Branch name is required"
+	}
+	if strings.has_prefix(trimmed, "-") {
+		return "Branch name cannot start with '-'"
+	}
+
+	check_cmd: [dynamic]string = {"git", "check-ref-format", "--branch", trimmed}
+	_, check_err, check_ok := run_git_command(repo_root, check_cmd[:])
+	defer delete(check_cmd)
+	defer delete(check_err)
+	if !check_ok {
+		if check_err != "" {
+			return fmt.tprintf("Invalid branch name: %s", check_err)
+		}
+		return "Invalid branch name"
+	}
+
+	if branchExists(repo_root, trimmed) {
+		switch_cmd: [dynamic]string = {"git", "switch", trimmed}
+		_, switch_err, switch_ok := run_git_command(repo_root, switch_cmd[:])
+		defer delete(switch_cmd)
+		defer delete(switch_err)
+		if !switch_ok {
+			return fmt.tprintf("Failed to switch branch: %s", switch_err)
+		}
+		return ""
+	}
+
+	create_cmd: [dynamic]string = {"git", "switch", "-c", trimmed}
+	_, create_err, create_ok := run_git_command(repo_root, create_cmd[:])
+	defer delete(create_cmd)
+	defer delete(create_err)
+	if !create_ok {
+		return fmt.tprintf("Failed to create branch: %s", create_err)
+	}
+	return ""
+}
+
 commitSelectedPatch :: proc(request: CommitSelection_Request) -> (string, string) {
 	message := strings.trim_space(request.message)
 	body := strings.trim_space(request.body)
@@ -874,6 +994,11 @@ commitSelectedPatch :: proc(request: CommitSelection_Request) -> (string, string
 	defer delete(repo_root)
 	if repo_root == "" {
 		return "", "Not inside a git repository"
+	}
+
+	branch_err := checkoutCommitBranch(repo_root, request.branch)
+	if branch_err != "" {
+		return "", branch_err
 	}
 
 	patch_path := "/tmp/baka-commit-selection.patch"
@@ -1162,6 +1287,35 @@ handle_get_commit_patch :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
 }
 
+handle_get_git_branches :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
+	context = runtime.default_context()
+
+	repo_root := getRepoRoot()
+	defer delete(repo_root)
+	if repo_root == "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response("Not inside a git repository"))
+		return
+	}
+
+	info, branch_err := getGitBranches(repo_root)
+	if branch_err != "" {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response(branch_err))
+		return
+	}
+	defer deleteBranchInfo(info)
+
+	resp := Branch_Info_Response {
+		result = info,
+	}
+	data, err := json.marshal(resp)
+	if err != nil {
+		webview.ret(w, seq, WebView_Return_Error, commit_error_response("marshal failed"))
+		return
+	}
+	defer delete(data)
+	webview.ret(w, seq, WebView_Return_Ok, strings.clone_to_cstring(string(data)))
+}
+
 handle_get_repository_info :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 	info := getRepositoryInfo()
@@ -1209,6 +1363,7 @@ handle_commit_selection :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	defer delete(request.message)
 	defer delete(request.body)
 	defer delete(request.patch)
+	defer delete(request.branch)
 
 	result, cerr := commitSelectedPatch(request)
 	if cerr != "" {
@@ -1421,6 +1576,7 @@ main :: proc() {
 	webview.bind(w, "getPatch", handle_get_patch, nil)
 	webview.bind(w, "getCommitHistory", handle_get_commit_history, nil)
 	webview.bind(w, "getCommitPatch", handle_get_commit_patch, nil)
+	webview.bind(w, "getGitBranches", handle_get_git_branches, nil)
 	webview.bind(w, "getRepositoryInfo", handle_get_repository_info, nil)
 	webview.bind(w, "chooseWorkingFolder", handle_choose_working_folder, nil)
 	webview.bind(w, "getRepoRoot", handle_get_repo_root, nil)

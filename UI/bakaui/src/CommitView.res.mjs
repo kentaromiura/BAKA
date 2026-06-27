@@ -681,22 +681,31 @@ function CommitView(props) {
   var match$5 = React.useState(function () {
         return "";
       });
-  var setCommitStatus = match$5[1];
-  var commitStatus$1 = match$5[0];
+  var setBranchName = match$5[1];
+  var branchName = match$5[0];
   var match$6 = React.useState(function () {
-        return false;
+        return [];
       });
-  var setCommitStatusIsError = match$6[1];
+  var setBranchOptions = match$6[1];
   var match$7 = React.useState(function () {
-        return false;
+        return "";
       });
-  var setIsCommitting = match$7[1];
-  var isCommitting = match$7[0];
+  var setCommitStatus = match$7[1];
+  var commitStatus$1 = match$7[0];
   var match$8 = React.useState(function () {
         return false;
       });
-  var setDraftReady = match$8[1];
-  var draftReady = match$8[0];
+  var setCommitStatusIsError = match$8[1];
+  var match$9 = React.useState(function () {
+        return false;
+      });
+  var setIsCommitting = match$9[1];
+  var isCommitting = match$9[0];
+  var match$10 = React.useState(function () {
+        return false;
+      });
+  var setDraftReady = match$10[1];
+  var draftReady = match$10[0];
   var diffPaneRef = React.useRef(null);
   var skipPersistRef = React.useRef(false);
   var committedRef = React.useRef(false);
@@ -709,6 +718,25 @@ function CommitView(props) {
         fingerprints: {},
         activeFileName: ""
       });
+  React.useEffect((function () {
+          var onSuccess = function (info) {
+            setBranchOptions(function (param) {
+                  return info.branches;
+                });
+            setBranchName(function (current) {
+                  if (current.trim() === "") {
+                    return info.currentBranch;
+                  } else {
+                    return current;
+                  }
+                });
+            return Promise.resolve();
+          };
+          var onError = function (_err) {
+            return Promise.resolve();
+          };
+          Js_promise2.$$catch(Js_promise2.then(Ipc.callGetGitBranches(), onSuccess), onError);
+        }), [repoRoot]);
   React.useEffect((function () {
           if (storageKey !== "") {
             skipPersistRef.current = true;
@@ -835,7 +863,8 @@ function CommitView(props) {
           return (count + changed.length | 0) - excluded | 0;
         }));
   var trimmedCommitMessage = commitMessage.trim();
-  var canCommit = !isCommitting && trimmedCommitMessage !== "" && selectedChangedLineCount > 0;
+  var trimmedBranchName = branchName.trim();
+  var canCommit = !isCommitting && trimmedCommitMessage !== "" && trimmedBranchName !== "" && selectedChangedLineCount > 0;
   var excludedHighlightLines = activeChangedLines.filter(function (annotation) {
         return isLineExcluded(lineKey(activeFileName, annotation.side, annotation.lineNumber));
       });
@@ -913,7 +942,8 @@ function CommitView(props) {
     var request = {
       message: trimmedCommitMessage,
       body: commitBody,
-      patch: patch
+      patch: patch,
+      branch: trimmedBranchName
     };
     var onSuccess = function (result) {
       committedRef.current = true;
@@ -932,6 +962,16 @@ function CommitView(props) {
           });
       setCommitBody(function (param) {
             return "";
+          });
+      setBranchOptions(function (options) {
+            var match = options.find(function (branch) {
+                  return branch === trimmedBranchName;
+                });
+            if (match !== undefined) {
+              return options;
+            } else {
+              return options.concat([trimmedBranchName]);
+            }
           });
       onCommitted();
       return Promise.resolve();
@@ -1091,6 +1131,28 @@ function CommitView(props) {
                                 JsxRuntime.jsx("input", {
                                       className: commitField(uiColors),
                                       disabled: isCommitting,
+                                      list: "commit-branch-options",
+                                      placeholder: "Branch",
+                                      type: "text",
+                                      value: branchName,
+                                      onChange: (function (ev) {
+                                          var target = ev.target;
+                                          setBranchName(function (param) {
+                                                return target.value;
+                                              });
+                                        })
+                                    }),
+                                JsxRuntime.jsx("datalist", {
+                                      children: match$6[0].map(function (branch) {
+                                            return JsxRuntime.jsx("option", {
+                                                        value: branch
+                                                      }, branch);
+                                          }),
+                                      id: "commit-branch-options"
+                                    }),
+                                JsxRuntime.jsx("input", {
+                                      className: commitField(uiColors),
+                                      disabled: isCommitting,
                                       placeholder: "Commit message",
                                       type: "text",
                                       value: commitMessage,
@@ -1122,7 +1184,7 @@ function CommitView(props) {
                                     }),
                                 commitStatus$1 === "" ? null : JsxRuntime.jsx("div", {
                                         children: commitStatus$1,
-                                        className: commitStatus(uiColors, match$6[0])
+                                        className: commitStatus(uiColors, match$8[0])
                                       })
                               ],
                               className: commitForm(uiColors)

@@ -685,6 +685,8 @@ let make = (
   let (activeFileName, setActiveFileName) = React.useState(() => "")
   let (commitMessage, setCommitMessage) = React.useState(() => "")
   let (commitBody, setCommitBody) = React.useState(() => "")
+  let (branchName, setBranchName) = React.useState(() => "")
+  let (branchOptions, setBranchOptions) = React.useState((): array<string> => [])
   let (commitStatus, setCommitStatus) = React.useState(() => "")
   let (commitStatusIsError, setCommitStatusIsError) = React.useState(() => false)
   let (isCommitting, setIsCommitting) = React.useState(() => false)
@@ -701,6 +703,20 @@ let make = (
     fingerprints: Js.Dict.empty(),
     activeFileName: "",
   })
+
+  React.useEffect1(() => {
+    let onSuccess = (info: Ipc.branchInfo): Js.Promise.t<unit> => {
+      setBranchOptions(_ => info.branches)
+      setBranchName(current => if current->String.trim == "" {info.currentBranch} else {current})
+      Js.Promise2.resolve()
+    }
+    let onError = (_err: Js.Promise2.error): Js.Promise.t<unit> => Js.Promise2.resolve()
+    let _ = Js.Promise2.catch(
+      Js.Promise2.then(Ipc.callGetGitBranches(), onSuccess),
+      onError,
+    )
+    None
+  }, [repoRoot])
 
   React.useEffect2(() => {
     if storageKey != "" {
@@ -804,7 +820,12 @@ let make = (
     })
 
   let trimmedCommitMessage = commitMessage->String.trim
-  let canCommit = !isCommitting && trimmedCommitMessage != "" && selectedChangedLineCount > 0
+  let trimmedBranchName = branchName->String.trim
+  let canCommit =
+    !isCommitting &&
+    trimmedCommitMessage != "" &&
+    trimmedBranchName != "" &&
+    selectedChangedLineCount > 0
 
   let excludedHighlightLines =
     activeChangedLines->Array.filter(annotation =>
@@ -888,6 +909,7 @@ let make = (
           message: trimmedCommitMessage,
           body: commitBody,
           patch,
+          branch: trimmedBranchName,
         }
         let onSuccess = (result: string): Js.Promise.t<unit> => {
           committedRef.current = true
@@ -897,6 +919,12 @@ let make = (
           setCommitStatusIsError(_ => false)
           setCommitMessage(_ => "")
           setCommitBody(_ => "")
+          setBranchOptions(options =>
+            switch options->Array.find(branch => branch == trimmedBranchName) {
+            | Some(_) => options
+            | None => Array.concat(options, [trimmedBranchName])
+            }
+          )
           onCommitted()
           Js.Promise2.resolve()
         }
@@ -967,6 +995,25 @@ let make = (
         )}
       </div>
       <div className={Styles.commitForm(uiColors)}>
+        <input
+          className={Styles.commitField(uiColors)}
+          type_="text"
+          list="commit-branch-options"
+          placeholder="Branch"
+          value={branchName}
+          disabled={isCommitting}
+          onChange={(ev: JsxEvent.Form.t) => {
+            let target = JsxEvent.Form.target(ev)
+            setBranchName(_ => target["value"])
+          }}
+        />
+        <datalist id="commit-branch-options">
+          {React.array(
+            branchOptions->Array.map(branch =>
+              <option key={branch} value={branch} />
+            )
+          )}
+        </datalist>
         <input
           className={Styles.commitField(uiColors)}
           type_="text"
