@@ -127,10 +127,28 @@ setWorkingDirectory :: proc(path: string) -> (Repo_Info, string) {
 }
 
 chooseFolderWithSystemDialog :: proc() -> (string, string) {
-	if path, ok := osd.path(.Open_Dir); ok {
+	when ODIN_OS == .Linux {
+		command: [dynamic]string = {"zenity", "--file-selection", "--directory"}
+		state, stdout, stderr, proc_err := os.process_exec(
+			os.Process_Desc{command = command[:]},
+			context.allocator,
+		)
+		delete(command)
+		delete(stderr)
+		if proc_err != nil || !state.success {
+			return "", "Folder selection canceled"
+		}
+		path := strings.trim_space(string(stdout))
+		if path == "" {
+			return "", "Folder selection canceled"
+		}
 		return strings.clone(path, context.allocator) or_else "", ""
+	} else {
+		if path, ok := osd.path(.Open_Dir); ok {
+			return strings.clone(path, context.allocator) or_else "", ""
+		}
+		return "", "Folder selection canceled"
 	}
-	return "", "Folder selection canceled"
 }
 
 repositoryInfoResponse :: proc(info: Repo_Info) -> cstring {
