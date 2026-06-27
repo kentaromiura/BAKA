@@ -92,7 +92,7 @@ from default ubuntu 24.04.1LTS wsl I had to run:
 ```
 sudo apt-get update
 sudo apt install make nodejs cmake pkg-config libwebkitgtk-6.0-4 libwebkitgtk-6.0-dev clang
-```
+
 cd ~
 git clone --recursive https://github.com/kentaromiura/BAKA.git
 ```
