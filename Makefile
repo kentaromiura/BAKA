@@ -8,6 +8,7 @@ WEBVIEW_LIB_DIR := $(WEBVIEW_BUILD_DIR)/core
 WEBVIEW_BUILD_STAMP := $(WEBVIEW_BUILD_DIR)/.build-stamp
 OSDIALOG_DIR := $(ROOT)/APP/osdialog
 OSDIALOG_BUILD_STAMP := $(BUILD_DIR)/osdialog/.build-stamp
+OSDIALOG_MAKE_FLAGS :=
 APP_BIN ?= $(BUILD_DIR)/BAKA
 APP_NAME ?= BAKA
 APP_VERSION ?= 0.1.0
@@ -39,7 +40,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 WEBVIEW_LIBRARY := libwebview.dylib
 APP_RPATH := @executable_path/webview/core
-APP_LINKER_FLAGS := -Wl,-rpath,$(APP_RPATH)
+APP_LINKER_FLAGS := -Wl,-rpath,$(APP_RPATH) -framework AppKit -framework Foundation -lobjc
+OSDIALOG_MAKE_FLAGS := CFLAGS=-g\ -Wall\ -Wextra\ -std=c99\ -pedantic\ -mmacosx-version-min=10.7\ -fno-objc-msgsend-selector-stubs
 else ifeq ($(UNAME_S),Linux)
 WEBVIEW_LIBRARY := libwebview.so
 # Odin invokes the linker through another shell, so preserve $ORIGIN for it.
@@ -98,7 +100,7 @@ $(WEBVIEW_BUILD_STAMP): $(WEBVIEW_SOURCES) Makefile
 osdialog: $(OSDIALOG_BUILD_STAMP)
 
 $(OSDIALOG_BUILD_STAMP): $(OSDIALOG_SOURCES) Makefile
-	$(MAKE) -C "$(OSDIALOG_DIR)"
+	$(MAKE) -C "$(OSDIALOG_DIR)" $(OSDIALOG_MAKE_FLAGS)
 	@test -e "$(OSDIALOG_DIR)/osdialog.o"
 	@if [ "$(UNAME_S)" = "Darwin" ]; then test -e "$(OSDIALOG_DIR)/osdialog_mac.o"; fi
 	@if [ "$(UNAME_S)" = "Linux" ]; then test -e "$(OSDIALOG_DIR)/osdialog_gtk3.o"; fi
