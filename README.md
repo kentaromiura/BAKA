@@ -120,3 +120,8 @@ and
 ~/BAKA/build/BAKA 
 ```
 should run fine.
+NOTE: the open repository requires zenity too:
+```
+sudo apt install zenity
+```
+
