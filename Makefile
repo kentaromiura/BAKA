@@ -29,6 +29,7 @@ UI_BUILD_FILES := \
 APP_SOURCES := $(shell find "$(ROOT)/APP" -type f -name '*.odin' 2>/dev/null)
 WEBVIEW_SOURCES := $(shell find "$(ROOT)/webview" -type f ! -path '*/.git/*' ! -name .git 2>/dev/null)
 OSDIALOG_SOURCES := $(shell find "$(OSDIALOG_DIR)" -type f ! -path '*/.git/*' ! -name .git ! -name '*.o' ! -name '*.obj' 2>/dev/null)
+APP_BUILD_STAMPS := $(UI_BUILD_STAMP) $(WEBVIEW_BUILD_STAMP)
 
 CMAKE ?= cmake
 ODIN ?= odin
@@ -42,6 +43,7 @@ WEBVIEW_LIBRARY := libwebview.dylib
 APP_RPATH := @executable_path/webview/core
 APP_LINKER_FLAGS := -Wl,-rpath,$(APP_RPATH) -framework AppKit -framework Foundation -lobjc
 OSDIALOG_MAKE_FLAGS := CFLAGS=-g\ -Wall\ -Wextra\ -std=c99\ -pedantic\ -mmacosx-version-min=10.7\ -fno-objc-msgsend-selector-stubs
+APP_BUILD_STAMPS += $(OSDIALOG_BUILD_STAMP)
 else ifeq ($(UNAME_S),Linux)
 WEBVIEW_LIBRARY := libwebview.so
 # Odin invokes the linker through another shell, so preserve $ORIGIN for it.
@@ -101,15 +103,15 @@ osdialog: $(OSDIALOG_BUILD_STAMP)
 
 $(OSDIALOG_BUILD_STAMP): $(OSDIALOG_SOURCES) Makefile
 	$(MAKE) -C "$(OSDIALOG_DIR)" $(OSDIALOG_MAKE_FLAGS)
-	@test -e "$(OSDIALOG_DIR)/osdialog.o"
-	@if [ "$(UNAME_S)" = "Darwin" ]; then test -e "$(OSDIALOG_DIR)/osdialog_mac.o"; fi
-	@if [ "$(UNAME_S)" = "Linux" ]; then test -e "$(OSDIALOG_DIR)/osdialog_gtk3.o"; fi
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		test -e "$(OSDIALOG_DIR)/osdialog.o" && test -e "$(OSDIALOG_DIR)/osdialog_mac.o"; \
+	fi
 	@mkdir -p "$(dir $@)"
 	@touch "$@"
 
 app: $(APP_BIN)
 
-$(APP_BIN): $(APP_SOURCES) $(UI_BUILD_STAMP) $(WEBVIEW_BUILD_STAMP) $(OSDIALOG_BUILD_STAMP) Makefile
+$(APP_BIN): $(APP_SOURCES) $(APP_BUILD_STAMPS) Makefile
 	cd "$(WEBVIEW_LIB_DIR)" && \
 		$(ODIN) build "$(ROOT)/APP" \
 			-define:SHARED=true \
@@ -117,6 +119,9 @@ $(APP_BIN): $(APP_SOURCES) $(UI_BUILD_STAMP) $(WEBVIEW_BUILD_STAMP) $(OSDIALOG_B
 			-out:"$(APP_BIN)" \
 			-extra-linker-flags='$(APP_LINKER_FLAGS)' \
 			$(ODIN_FLAGS)
+
+appimage:
+	./scripts/build-appimage.sh
 
 run: app
 	"$(APP_BIN)" $(ARGS)
@@ -138,11 +143,6 @@ macos-app: app $(PACKAGE_MACOS_SCRIPT)
 
 osx-app: macos-app
 
-appimage:
-	@echo "AppImage packaging is not implemented yet."
-	@echo "The Linux packaging command is reserved here for a future AppImage target."
-	@exit 1
-
 clean:
 	rm -rf "$(BUILD_DIR)"
 	rm -f "$(OSDIALOG_DIR)"/*.o "$(OSDIALOG_DIR)"/*.obj
@@ -152,6 +152,7 @@ help:
 	@echo "make            Build the UI, libwebview, and BAKA"
 	@echo "make ui         Build the ReScript/esbuild UI bundle"
 	@echo "make osdialog   Build the native dialog bridge"
+	@echo "make appimage   Build release/BAKA-<version>-<arch>.AppImage"
 	@echo "make run        Build everything and run BAKA"
 	@echo "make package    Build the native package for this platform"
 	@echo "make macos-app  Build build/dist/BAKA.app on macOS"

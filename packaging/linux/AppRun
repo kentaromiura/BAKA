@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+WEBKIT_TMP=/tmp/baka-webkitgtk-60
+
+export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export WEBKIT_INJECTED_BUNDLE_PATH="$APPDIR/usr/lib/webkitgtk-6.0/injected-bundle"
+
+if [ -e "$WEBKIT_TMP" ] && [ ! -L "$WEBKIT_TMP" ]; then
+	printf 'Cannot create WebKit helper symlink: %s exists and is not a symlink\n' "$WEBKIT_TMP" >&2
+	exit 1
+fi
+ln -sfn "$APPDIR/usr/lib/webkitgtk-6.0" "$WEBKIT_TMP"
+
+exec "$APPDIR/usr/bin/BAKA" "$@"

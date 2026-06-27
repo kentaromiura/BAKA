@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=BAKA
+Comment=Review local Git changes with Pi
+Exec=BAKA %F
+Icon=baka
+Terminal=false
+Categories=Development;
+StartupWMClass=BAKA
