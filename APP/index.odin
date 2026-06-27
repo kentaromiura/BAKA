@@ -126,23 +126,72 @@ setWorkingDirectory :: proc(path: string) -> (Repo_Info, string) {
 	return getRepositoryInfo(), ""
 }
 
+// Returns a copy of the current environment with LD_LIBRARY_PATH
+// removed, so AppImage-bundled libraries don't shadow host ones
+// when spawning system dialog tools (zenity, kdialog, etc.).
+cleanEnv :: proc() -> []string {
+	env, err := os.environ(context.allocator)
+	if err != nil {
+		return nil
+	}
+	defer delete(env)
+	filtered := make([dynamic]string, context.allocator)
+	for e in env {
+		if !strings.has_prefix(e, "LD_LIBRARY_PATH=") {
+			append(&filtered, e)
+		}
+	}
+	return filtered[:]
+}
+
+runFolderDialog :: proc(args: [dynamic]string) -> (string, bool) {
+	if baka_verbose {
+		fmt.eprint("[BAKA] folder dialog trying: ")
+		for a in args { fmt.eprint(a, " ") }
+		fmt.eprintln()
+	}
+	env := cleanEnv()
+	defer delete(env)
+	state, stdout, stderr, err := os.process_exec(
+		os.Process_Desc{command = args[:], env = env},
+		context.allocator,
+	)
+	if baka_verbose {
+		fmt.eprintln("[BAKA] folder dialog err=", err, " success=", state.success, " exit=", state.exit_code)
+		fmt.eprintln("[BAKA] folder dialog stdout=", string(stdout))
+		fmt.eprintln("[BAKA] folder dialog stderr=", string(stderr))
+	}
+	delete(stderr)
+	if err != nil || !state.success {
+		return "", false
+	}
+	path := strings.trim_space(string(stdout))
+	if path == "" {
+		if baka_verbose { fmt.eprintln("[BAKA] folder dialog: stdout empty after trim") }
+		return "", false
+	}
+	cloned := strings.clone(path, context.allocator) or_else ""
+	return cloned, cloned != ""
+}
+
 chooseFolderWithSystemDialog :: proc() -> (string, string) {
 	when ODIN_OS == .Linux {
-		command: [dynamic]string = {"zenity", "--file-selection", "--directory"}
-		state, stdout, stderr, proc_err := os.process_exec(
-			os.Process_Desc{command = command[:]},
-			context.allocator,
-		)
-		delete(command)
-		delete(stderr)
-		if proc_err != nil || !state.success {
-			return "", "Folder selection canceled"
+		if path, ok := runFolderDialog({"zenity", "--file-selection", "--directory"}); ok {
+			return path, ""
 		}
-		path := strings.trim_space(string(stdout))
-		if path == "" {
-			return "", "Folder selection canceled"
+		if path, ok := runFolderDialog({"kdialog", "--getexistingdirectory", "."}); ok {
+			return path, ""
 		}
-		return strings.clone(path, context.allocator) or_else "", ""
+		if path, ok := runFolderDialog({
+			"python3", "-c",
+			"import tkinter as tk;from tkinter import filedialog;r=tk.Tk();r.withdraw();r.attributes('-topmost',1);p=filedialog.askdirectory();print(p if p else '');r.destroy()",
+		}); ok {
+			return path, ""
+		}
+		if baka_verbose {
+			fmt.eprintln("[BAKA] all folder dialogs failed")
+		}
+		return "", "Folder selection canceled"
 	} else {
 		if path, ok := osd.path(.Open_Dir); ok {
 			return strings.clone(path, context.allocator) or_else "", ""
@@ -1405,22 +1454,29 @@ handle_get_repository_info :: proc "c" (seq: cstring, req: cstring, arg: rawptr)
 handle_choose_working_folder :: proc "c" (seq: cstring, req: cstring, arg: rawptr) {
 	context = runtime.default_context()
 
+	if baka_verbose { fmt.eprintln("[BAKA] handle_choose_working_folder called") }
 	path, choose_err := chooseFolderWithSystemDialog()
+	if baka_verbose { fmt.eprintln("[BAKA] chooseFolderWithSystemDialog returned path=", path, " err=", choose_err) }
+
 	if choose_err != "" {
 		if choose_err == "Folder selection canceled" {
 			info := getRepositoryInfo()
 			info.canceled = true
 			defer deleteRepositoryInfo(info)
+			if baka_verbose { fmt.eprintln("[BAKA] returning canceled repo info") }
 			webview.ret(w, seq, WebView_Return_Ok, repositoryInfoResponse(info))
 			return
 		}
+		if baka_verbose { fmt.eprintln("[BAKA] returning error response:", choose_err) }
 		webview.ret(w, seq, WebView_Return_Error, repo_error_response(choose_err))
 		return
 	}
 	defer delete(path)
 
 	info, set_err := setWorkingDirectory(path)
+	if baka_verbose { fmt.eprintln("[BAKA] setWorkingDirectory returned err=", set_err, " repo_root=", info.repo_root) }
 	if set_err != "" {
+		if baka_verbose { fmt.eprintln("[BAKA] returning set error:", set_err) }
 		webview.ret(w, seq, WebView_Return_Error, repo_error_response(set_err))
 		return
 	}
@@ -1428,6 +1484,7 @@ handle_choose_working_folder :: proc "c" (seq: cstring, req: cstring, arg: rawpt
 
 	start_repo_watcher()
 	write_watcher_event("Repository folder changed")
+	if baka_verbose { fmt.eprintln("[BAKA] folder changed OK, returning repo info") }
 	webview.ret(w, seq, WebView_Return_Ok, repositoryInfoResponse(info))
 }
 
