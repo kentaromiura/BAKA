@@ -85,3 +85,38 @@ provide the diff and file-tree interfaces. Both are licensed under the
 [`Ioskeley Mono`](https://github.com/ahatem/IoskeleyMono) is embedded as the
 interface font. Its license is included at
 [`UI/bakaui/assets/fonts/IoskeleyMono/LICENSE`](UI/bakaui/assets/fonts/IoskeleyMono/LICENSE).
+
+## Windows
+![windows via WSL](SCREEN/baka.png)
+from default ubuntu 24.04.1LTS wsl I had to run:
+```
+sudo apt-get update
+sudo apt install make nodejs cmake pkg-config libwebkitgtk-6.0-4 libwebkitgtk-6.0-dev clang
+```
+cd ~
+git clone --recursive https://github.com/kentaromiura/BAKA.git
+```
+NOTE: if already cloned without recursive flag you need to run:
+git submodule update --init --recursive
+
+get and uncompress:
+```
+cd ~
+wget https://github.com/odin-lang/Odin/releases/download/dev-2026-06/odin-linux-amd64-dev-2026-06.tar.gz
+tar xvfz odin-linux-amd64-dev-2026-06.tar.gz
+```
+add odin to path:
+```
+export PATH=~/odin-linux-amd64-nightly+2026-06-08:$PATH
+```
+then :
+```
+cd ~/BAKA
+make
+```
+should build;
+and
+```
+~/BAKA/build/BAKA 
+```
+should run fine.
